@@ -1,0 +1,31 @@
+# FMT
+set(FMT_DOC OFF)
+set(FMT_TEST OFF)
+set(FMT_CUDA_TEST OFF)
+add_subdirectory(fmt)
+
+# SPDLOG
+set(SPDLOG_BUILD_WARNINGS OFF)
+set(SPDLOG_NO_EXCEPTIONS ON)
+set(SPDLOG_SYSTEM_INCLUDES ON)
+set(SPDLOG_FMT_EXTERNAL ON)
+add_subdirectory(spdlog)
+
+# GLM
+add_subdirectory(glm)
+
+# GLFW
+set(GLFW_BUILD_EXAMPLES ON)
+set(GLFW_BUILD_TESTS ON)
+add_subdirectory(glfw)
+
+# Tiny OBJ Loader
+add_subdirectory(tinyobjloader)
+
+# Magic Enum
+add_subdirectory(magic_enum)
+
+# Assimp
+# set(ASSIMP_BUILD_TESTS OFF)
+# set(ASSIMP_WARNINGS_AS_ERRORS OFF)
+# add_subdirectory(assimp)

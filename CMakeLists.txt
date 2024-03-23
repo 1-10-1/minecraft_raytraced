@@ -1,0 +1,150 @@
+cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
+
+project(minecraft
+    LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+find_package(Vulkan REQUIRED)
+
+IF(NOT CMAKE_BUILD_TYPE)
+    SET(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug or Release)" FORCE)
+ENDIF(NOT CMAKE_BUILD_TYPE)
+
+add_subdirectory(lib)
+
+list(APPEND SOURCE_FILES
+    src/main.cpp
+    src/timer.cpp
+    src/key.cpp
+    src/logger.cpp
+    src/window.cpp
+
+    src/game/loop.cpp
+    src/game/game.cpp
+
+    src/renderer/backend/vk_checker.cpp
+    src/renderer/backend/backend_renderer.cpp
+    src/renderer/backend/render.cpp
+    src/renderer/backend/instance.cpp
+    src/renderer/render.cpp
+    src/renderer/renderer.cpp
+
+    # src/graphics/validation_layer.cpp
+    # src/camera.cpp
+    # src/graphics/assetloader.cpp
+)
+
+# TODO: Figure out how to make this work
+# This is the best I could do:
+# clang-tidy -format-style=file -header-filter=../include/vkp/*.h -header-filter=../include/vkp/graphics/*.h -p ..\build\x64-Debug ./*.cpp ./graphics/*.cpp
+# But its slow as fuck
+# Or you can cd into the build folder and run python (Get-Command run-clang-tidy).Path
+
+# set(CMAKE_CXX_CLANG_TIDY
+#   clang-tidy;
+#   -format-style='file';
+#   --extra-arg-before=-std=c++2b;
+#   -header-filter=${CMAKE_CURRENT_SOURCE_DIR}/include/*;
+# )
+
+
+list(APPEND LIBS
+    fmt
+    spdlog
+    Vulkan::Vulkan
+    glm::glm
+    glfw
+    magic_enum::magic_enum
+    # assimp::assimp
+)
+
+add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+target_link_libraries(${PROJECT_NAME} ${LIBS})
+target_compile_definitions(
+    ${PROJECT_NAME} PUBLIC FMT_EXCEPTIONS=0
+    GLM_FORCE_AVX2 GLFW_INCLUDE_VULKAN
+    NOMINMAX GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE
+    _CRT_SECURE_NO_WARNINGS MAGIC_ENUM_RANGE_MIN=-1 MAGIC_ENUM_RANGE_MAX=1000
+    ROOT_SOURCE_PATH="${CMAKE_SOURCE_DIR}"
+)
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC DEBUG=true)
+else()
+    target_compile_definitions(${PROJECT_NAME} PUBLIC DEBUG=false)
+endif()
+
+target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
+
+target_compile_options(${PROJECT_NAME} PUBLIC
+    -std=c++23 -Wall -Wunused -mavx2 -Werror
+    -Wno-format -Wno-switch
+    -Wno-deprecated-declarations -march=native
+    $<$<CONFIG:Release>:-O3 -ffast-math -finline-functions>
+    $<$<CONFIG:Debug>:-mtune=native>
+)
+
+set(SHADER_FILES
+    ${CMAKE_SOURCE_DIR}/res/shaders/main.frag
+    ${CMAKE_SOURCE_DIR}/res/shaders/main.vert
+)
+
+set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
+file(MAKE_DIRECTORY ${SHADER_OUTPUT_DIR})
+
+foreach(FILE ${SHADER_FILES})
+    if (NOT EXISTS ${FILE})
+        message(FATAL_ERROR "Shader file '${FILE}' does not exist.")
+    endif()
+endforeach(FILE)
+
+foreach(SHADER_FILE ${SHADER_FILES})
+    get_filename_component(FILE_NAME_WITH_EXT ${SHADER_FILE} NAME)
+    get_filename_component(FILE_WE ${SHADER_FILE} NAME_WE)
+    get_filename_component(SHADER_EXT ${SHADER_FILE} EXT)
+
+        # Determine the shader type based on the extension
+    if(${SHADER_EXT} STREQUAL ".vert")
+        set(SHADER_TYPE "vertex")
+    elseif(${SHADER_EXT} STREQUAL ".tesc")
+        set(SHADER_TYPE "tesscontrol")
+    elseif(${SHADER_EXT} STREQUAL ".tese")
+        set(SHADER_TYPE "tesseval")
+    elseif(${SHADER_EXT} STREQUAL ".geom")
+        set(SHADER_TYPE "geometry")
+    elseif(${SHADER_EXT} STREQUAL ".frag")
+        set(SHADER_TYPE "fragment")
+    elseif(${SHADER_EXT} STREQUAL ".comp")
+        set(SHADER_TYPE "compute")
+    else()
+        message(FATAL_ERROR "Unknown shader extension: ${SHADER_EXT}")
+    endif()
+
+    add_custom_command(
+        OUTPUT "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.spv"
+        COMMAND glslc ${SHADER_FILE} -O
+                -o "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.spv"
+                -std=450core
+                --target-spv=spv1.5
+                --target-env=vulkan1.2
+                -fshader-stage=${SHADER_TYPE}
+        DEPENDS ${SHADER_FILE}
+        COMMENT "Compiling ${SHADER_TYPE} Shader: ${SHADER_FILE}"
+    )
+
+    list(APPEND COMPILED_SHADERS "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.spv")
+endforeach()
+
+add_custom_target(CompileShaders DEPENDS ${COMPILED_SHADERS})
+
+add_dependencies(${PROJECT_NAME} CompileShaders)
+
+add_custom_command(
+    TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/res $<TARGET_FILE_DIR:${PROJECT_NAME}>/res
+)

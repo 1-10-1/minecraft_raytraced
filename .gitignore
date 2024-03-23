@@ -1,0 +1,12 @@
+.vscode/
+.idle/
+.vs/
+
+build/
+out/
+bin/
+ext/
+x64
+
+Session.vim
+.cache/
