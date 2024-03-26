@@ -1,8 +1,8 @@
 #include <mc/logger.hpp>
-#include <mc/renderer/backend/backend_renderer.hpp>
 #include <mc/renderer/backend/render.hpp>
+#include <mc/renderer/backend/renderer_backend.hpp>
 
 namespace renderer::backend
 {
-    void BackendRenderer::render() {}
+    void RendererBackend::render() {}
 }  // namespace renderer::backend

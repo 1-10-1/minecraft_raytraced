@@ -2,6 +2,7 @@
 
 #include <GLFW/glfw3.h>
 #include <glm/ext/vector_int2.hpp>
+#include <glm/ext/vector_uint2.hpp>
 
 namespace window
 {
@@ -19,6 +20,8 @@ namespace window
         auto operator=(Window&&) -> Window&      = default;
 
         [[nodiscard]] auto shouldClose() const -> bool { return m_shouldClose; }
+
+        [[nodiscard]] auto getHandle() const -> GLFWwindow* { return m_handle; }
 
         void pollEvents();
 

@@ -27,9 +27,10 @@ list(APPEND SOURCE_FILES
     src/game/game.cpp
 
     src/renderer/backend/vk_checker.cpp
-    src/renderer/backend/backend_renderer.cpp
+    src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/render.cpp
     src/renderer/backend/instance.cpp
+    src/renderer/backend/device.cpp
     src/renderer/render.cpp
     src/renderer/renderer.cpp
 

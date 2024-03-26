@@ -12,9 +12,21 @@
 // NOLINTBEGIN
 
 #if DEBUG
+
+class LogErrorAndThrow
+{
+public:
+    LogErrorAndThrow(std::exception const& err,
+                     std::source_location loc = std::source_location::current())
+    {
+        logger::logAt<logger::level::err>(loc, err.what());
+        throw err;
+    }
+};
+
 #    define MC_TRY   try
 #    define MC_CATCH catch
-#    define MC_THROW throw
+#    define MC_THROW [[maybe_unused]] LogErrorAndThrow err =
 #else
 
 class LogErrorAndExit

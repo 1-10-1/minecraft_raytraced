@@ -3,6 +3,6 @@
 
 namespace renderer
 {
-    Renderer::Renderer() {}
+    Renderer::Renderer(GLFWwindow* window) : m_backend { backend::RendererBackend(window) } {}
 
 }  // namespace renderer

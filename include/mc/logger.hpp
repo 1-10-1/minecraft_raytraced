@@ -75,6 +75,33 @@ namespace logger
         }
     }
 
+    template<level lvl, typename... Args>
+    ALWAYS_INLINE constexpr void
+    logAt(std::source_location location, std::string_view const& fmtstr, Args&&... args)
+    {
+        if constexpr (lvl < SPDLOG_ACTIVE_LEVEL)
+        {
+            return;
+        }
+
+        if constexpr (kDebug)
+        {
+            Logger::get()->log(
+                spdlog::source_loc { std::string_view(location.file_name())
+                                         .substr(std::size(ROOT_SOURCE_PATH))
+                                         .data(),
+                                     static_cast<int>(location.line()),
+                                     nullptr },
+                lvl,
+                fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...)));
+        }
+        else
+        {
+            Logger::get()->log(
+                lvl, fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...)));
+        }
+    }
+
     template<typename... Args>
     ALWAYS_INLINE void trace(LocationCapturingString const& formatString, Args&&... args)
     {

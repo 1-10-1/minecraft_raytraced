@@ -5,7 +5,6 @@
 namespace game
 {
     Game::Game()
-        : m_window {
-              {800, 600}
-    } {};
+        : m_window { window::Window({ 800, 600 }) },
+          m_renderer { renderer::Renderer(m_window.getHandle()) } {};
 }  // namespace game
