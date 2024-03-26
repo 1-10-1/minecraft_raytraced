@@ -4,6 +4,9 @@
 #include <glm/ext/vector_int2.hpp>
 #include <glm/ext/vector_uint2.hpp>
 
+#include "event_queue.hpp"
+#include "events.hpp"
+
 namespace window
 {
     class Window

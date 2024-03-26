@@ -45,6 +45,8 @@ namespace renderer::backend
         VkInstance m_instance { VK_NULL_HANDLE };
         VkSurfaceKHR m_surface { VK_NULL_HANDLE };
         SurfaceDetails m_details {};
+
+        bool m_vsync { true };
     };
 
     class RendererBackend

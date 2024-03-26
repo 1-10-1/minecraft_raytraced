@@ -4,141 +4,133 @@
 #include "key.hpp"
 #include "mouse_buttons.hpp"
 
-#include <bitset>
-
 #include <glm/vec2.hpp>
 
-class Event
+enum class BaseEventType : uint8_t
 {
-public:
-    enum class BaseType
-    {
-        Input,
-        Window,
-        App
-    };
-
-    [[nodiscard]] auto getBaseType() const -> BaseType { return m_baseType; }
-
-protected:
-    explicit Event(BaseType baseType) : m_baseType(baseType) {}
-
-private:
-    BaseType m_baseType;
+    Input,
+    Window,
+    App
 };
 
-class InputEvent : public Event
+enum class EventType : uint8_t
+{
+    KeyPress,
+    KeyHold,
+    KeyRelease,
+    CursorMove,
+    MouseButton,
+    MouseScroll,
+
+    WindowClose,
+    WindowFocusChanged,
+    WindowResize,
+    WindowMove,
+    WindowFramebufferResize,
+    WindowRefresh,
+    WindowMinOrMaximize,
+    WindowCursorFocus,
+    WindowDragAndDrop,
+
+    AppUpdate,
+    AppRender
+};
+
+template<typename EventClass>
+concept EventSpec = requires() {
+    {
+        EventClass::eventType
+    } -> std::same_as<const EventType>;
+    {
+        EventClass::baseEventType
+    } -> std::same_as<const BaseEventType>;
+};
+
+class InputEvent
 {
 public:
-    enum class Type
-    {
-        KeyPress,
-        KeyHold,
-        KeyRelease,
-        CursorMove,
-        MouseButton,
-        MouseScroll
-    };
-
     [[nodiscard]] auto getInputManager() const -> InputManager const* { return m_inputManager; }
 
-    [[nodiscard]] auto getInputType() const -> Type { return m_eventType; }
+    constexpr static auto baseEventType = BaseEventType::Input;
 
 protected:
-    InputEvent(Type inputType, InputManager const* inputManager)
-        : Event(Event::BaseType::Input), m_eventType(inputType), m_inputManager(inputManager) {};
+    explicit InputEvent(InputManager const* inputManager) : m_inputManager(inputManager) {};
 
 private:
-    Type m_eventType;
     InputManager const* m_inputManager;
 };
 
-class WindowEvent : public Event
+class WindowEvent
 {
 public:
-    enum class Type
-    {
-        WindowClose,
-        WindowFocus,
-        WindowResize,
-        WindowMove,
-        WindowFramebufferResize,
-        WindowRefresh,
-        WindowMinOrMaximize,
-        CursorFocus,
-        DragAndDrop
-    };
+    constexpr static auto baseEventType = BaseEventType::Window;
 
-    explicit WindowEvent(Type eventType) : Event(Event::BaseType::Window), m_eventType(eventType) {};
-
-    [[nodiscard]] auto getEventType() const -> Type { return m_eventType; }
-
-private:
-    Type m_eventType;
+protected:
+    WindowEvent() = default;
 };
 
-class AppEvent : public Event
+class AppEvent
 {
 public:
-    enum class Type
-    {
-        Update,
-        Render
-    };
+    constexpr static auto baseEventType = BaseEventType::App;
 
-    explicit AppEvent(Type eventType) : Event(Event::BaseType::App), m_eventType(eventType) {};
-
-    [[nodiscard]] auto getEventType() const -> Type { return m_eventType; }
-
-private:
-    Type m_eventType;
+protected:
+    AppEvent() = default;
 };
 
 class KeyPressEvent : public InputEvent
 {
 public:
     explicit KeyPressEvent(InputManager const* inputManager, Key pressedKey, int mods, bool repeat)
-        : InputEvent { Type::KeyPress, inputManager }, key { pressedKey }, modifiers { mods }, repeated { repeat }
+        : InputEvent { inputManager }, key { pressedKey }, modifiers { mods }, repeated { repeat }
     {
     }
 
     Key key;
     int modifiers;
     bool repeated;
+
+    constexpr static auto eventType = EventType::KeyPress;
 };
 
 class KeyReleaseEvent : public InputEvent
 {
 public:
     explicit KeyReleaseEvent(InputManager const* inputManager, Key releasedKey, int mods)
-        : InputEvent { Type::KeyRelease, inputManager }, key { releasedKey }, modifiers { mods }
+        : InputEvent { inputManager }, key { releasedKey }, modifiers { mods }
     {
     }
 
     Key key;
     int modifiers;
+
+    constexpr static auto eventType = EventType::KeyRelease;
 };
 
 class KeyHoldEvent : public InputEvent
 {
 public:
     explicit KeyHoldEvent(InputManager const* inputManager, Key heldDownKey)
-        : InputEvent { Type::KeyHold, inputManager }, key { heldDownKey }
+        : InputEvent { inputManager }, key { heldDownKey }
     {
     }
 
     Key key;
+
+    constexpr static auto eventType = EventType::KeyHold;
 };
 
 class CursorMoveEvent : public InputEvent
 {
 public:
     explicit CursorMoveEvent(InputManager const* inputManager, glm::uvec2 pos)
-        : InputEvent { Type::CursorMove, inputManager }, position { pos }
+        : InputEvent { inputManager }, position { pos }
     {
     }
 
     glm::ivec2 position;
+
+    constexpr static auto eventType = EventType::CursorMove;
 };
 
 class MouseButtonEvent : public InputEvent
@@ -150,8 +142,11 @@ public:
         Released = GLFW_RELEASE
     };
 
-    MouseButtonEvent(InputManager const* inputManager, MouseButton mouseButton, Action buttonAction, int mods)
-        : InputEvent { Type::MouseButton, inputManager },
+    MouseButtonEvent(InputManager const* inputManager,
+                     MouseButton mouseButton,
+                     Action buttonAction,
+                     int mods)
+        : InputEvent { inputManager },
           button { mouseButton },
           action { buttonAction },
           modifiers { mods },
@@ -163,13 +158,15 @@ public:
     Action action;
     int modifiers;
     glm::uvec2 position;
+
+    constexpr static auto eventType = EventType::MouseButton;
 };
 
 class MouseScrollEvent : public InputEvent
 {
 public:
     MouseScrollEvent(InputManager const* inputManager, glm::vec2 delta)
-        : InputEvent { Type::MouseScroll, inputManager },
+        : InputEvent { inputManager },
           wheelDelta { delta },
           position { getInputManager()->getCurrentCursorPosition() }
     {
@@ -177,26 +174,34 @@ public:
 
     glm::vec2 wheelDelta;
     glm::uvec2 position;
+
+    constexpr static auto eventType = EventType::MouseScroll;
 };
 
 class WindowResizeEvent : public WindowEvent
 {
 public:
-    explicit WindowResizeEvent(glm::uvec2 size) : WindowEvent { Type::WindowResize }, dimensions { size } {}
+    explicit WindowResizeEvent(glm::uvec2 size) : dimensions { size } {}
 
     glm::uvec2 dimensions;
+
+    constexpr static auto eventType = EventType::WindowResize;
 };
 
 class WindowCloseEvent : public WindowEvent
 {
 public:
-    explicit WindowCloseEvent() : WindowEvent { Type::WindowClose } {}
+    WindowCloseEvent() = default;
+
+    constexpr static auto eventType = EventType::WindowResize;
 };
 
 class WindowRefreshEvent : public WindowEvent
 {
 public:
-    explicit WindowRefreshEvent() : WindowEvent { Type::WindowRefresh } {}
+    WindowRefreshEvent() = default;
+
+    constexpr static auto eventType = EventType::WindowRefresh;
 };
 
 class WindowFocusEvent : public WindowEvent
@@ -208,17 +213,21 @@ public:
         Defocused
     };
 
-    explicit WindowFocusEvent(State focusState) : WindowEvent { Type::WindowFocus }, state { focusState } {}
+    explicit WindowFocusEvent(State focusState) : state { focusState } {}
 
     State state;
+
+    constexpr static auto eventType = EventType::WindowFocusChanged;
 };
 
 class WindowMoveEvent : public WindowEvent
 {
 public:
-    explicit WindowMoveEvent(glm::vec2 pos) : WindowEvent { Type::WindowMove }, position { pos } {}
+    explicit WindowMoveEvent(glm::vec2 pos) : position { pos } {}
 
     glm::vec2 position;
+
+    constexpr static auto eventType = EventType::WindowMove;
 };
 
 class WindowMinOrMaximizeEvent : public WindowEvent
@@ -230,30 +239,28 @@ public:
         Maximized
     };
 
-    explicit WindowMinOrMaximizeEvent(State windowState)
-        : WindowEvent { Type::WindowMinOrMaximize }, state { windowState }
-    {
-    }
+    explicit WindowMinOrMaximizeEvent(State windowState) : state { windowState } {}
 
     State state;
+
+    constexpr static auto eventType = EventType::WindowMinOrMaximize;
 };
 
 class WindowFramebufferResizeEvent : public WindowEvent
 {
 public:
-    explicit WindowFramebufferResizeEvent(glm::uvec2 size)
-        : WindowEvent { Type::WindowFramebufferResize }, dimensions { size }
-    {
-    }
+    explicit WindowFramebufferResizeEvent(glm::uvec2 size) : dimensions { size } {}
 
     glm::uvec2 dimensions;
+
+    constexpr static auto eventType = EventType::WindowFramebufferResize;
 };
 
 class WindowDragAndDropEvent : public WindowEvent
 {
 public:
     // NOLINTNEXTLINE(*-avoid-c-arrays)
-    WindowDragAndDropEvent(size_t count, char const* pathsarray[]) : WindowEvent { Type::DragAndDrop }, paths(count)
+    WindowDragAndDropEvent(size_t count, char const* pathsarray[]) : paths(count)
     {
         for (size_t i = 0; i < count; i++)
         {
@@ -263,9 +270,11 @@ public:
     }
 
     std::vector<std::string_view> paths;
+
+    constexpr static auto eventType = EventType::WindowDragAndDrop;
 };
 
-class CursorFocusEvent : public WindowEvent
+class WindowFocusChangedEvent : public WindowEvent
 {
 public:
     enum FocusState
@@ -274,19 +283,25 @@ public:
         Defocused
     };
 
-    explicit CursorFocusEvent(FocusState focusState) : WindowEvent { Type::CursorFocus }, state { focusState } {}
+    explicit WindowFocusChangedEvent(FocusState focusState) : state { focusState } {}
 
-    FocusState state;
+    FocusState const state;
+
+    constexpr static auto eventType = EventType::WindowFocusChanged;
 };
 
 class AppUpdateEvent : public AppEvent
 {
 public:
-    AppUpdateEvent() : AppEvent { Type::Update } {};
+    AppUpdateEvent() = default;
+
+    constexpr static auto eventType = EventType::AppUpdate;
 };
 
 class AppRenderEvent : public AppEvent
 {
 public:
-    AppRenderEvent() : AppEvent { Type::Render } {};
+    AppRenderEvent() = default;
+
+    constexpr static auto eventType = EventType::AppRender;
 };

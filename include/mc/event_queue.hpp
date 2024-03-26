@@ -1,5 +1,7 @@
 #pragma once
 
+#include <any>
+#include <concepts>
 #include <functional>
 #include <glm/ext/vector_float2.hpp>
 
@@ -13,55 +15,55 @@
 // that "this" points to does not get destroyed without notifying the event queue so that it can be
 // properly cleaned up.
 
-class EventQueue
+class EventManager
 {
 public:
-    EventQueue() = default;
+    EventManager() = default;
 
-    EventQueue(EventQueue const&)                    = delete;
-    EventQueue(EventQueue&&)                         = delete;
-    auto operator=(EventQueue const&) -> EventQueue& = delete;
-    auto operator=(EventQueue&&) -> EventQueue&      = delete;
+    EventManager(EventManager const&)                    = delete;
+    EventManager(EventManager&&)                         = delete;
+    auto operator=(EventManager const&) -> EventManager& = delete;
+    auto operator=(EventManager&&) -> EventManager&      = delete;
 
-    ~EventQueue() = default;
+    ~EventManager() = default;
 
-    template<typename EventType>
-    void addListener(std::function<void(EventType const&)> listener)
-
+    template<EventSpec Event>
+    void addListener(std::function<void(Event const&)> listener)
     {
-        m_eventListeners.insert({ typeid(EventType).hash_code(),
-                                  [listener = std::move(listener)](Event const& event)
+        m_eventListeners.insert({ Event::eventType,
+                                  [listener = std::move(listener)](std::any const& event)
                                   {
-                                      listener(*static_cast<const EventType*>(&event));
+                                      listener(std::any_cast<Event const&>(event));
                                   } });
     }
 
-    template<typename EventType, typename Class>
-    void addListener(Class* instance, void (Class::*func)(EventType const&))
+    template<EventSpec Event, typename Class>
+    void addListener(Class* instance, void (Class::*func)(Event const&))
     {
-        m_eventListeners.insert({ typeid(EventType).hash_code(),
+        m_eventListeners.insert({ Event::eventType,
                                   [func, instance](Event const& event)
                                   {
-                                      (instance->*func)(*static_cast<const EventType*>(&event));
+                                      (instance->*func)(std::any_cast<const EventType&>(event));
                                   } });
     }
 
-    template<typename Class, typename... EventTypes>
-    void addListeners(Class* instance, void (Class::*... funcs)(EventTypes const&))
+    template<typename Class, EventSpec... Events>
+    void addListeners(Class* instance, void (Class::*... funcs)(Events const&))
     {
         (addListener(instance, funcs), ...);
     }
 
-    template<typename... EventTypes>
-    void addListeners(void(... funcs)(EventTypes const&))
+    template<EventSpec... Events>
+    void addListeners(void(... funcs)(Events const&))
     {
         (addListener(funcs), ...);
     }
 
-    template<typename EventType>
-    void dispatchEvent(EventType&& event)
+    template<EventSpec Event>
+    void dispatchEvent(Event const& event)
     {
-        for (auto range { m_eventListeners.equal_range(typeid(event).hash_code()) }; range.first != range.second;
+        for (auto range { m_eventListeners.equal_range(Event::eventType) };
+             range.first != range.second;
              ++range.first)
         {
             range.first->second(event);
@@ -69,5 +71,5 @@ public:
     }
 
 private:
-    std::unordered_multimap<std::size_t, std::function<void(Event const&)>> m_eventListeners;
+    std::unordered_multimap<EventType, std::function<void(std::any)>> m_eventListeners;
 };

@@ -1,3 +1,4 @@
+#include <mc/logger.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 
 #include <algorithm>
@@ -14,9 +15,7 @@ namespace renderer::backend
 
     void Surface::refresh(VkPhysicalDevice device, VkExtent2D dimensions)
     {
-        SurfaceDetails details {};
-
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &details.capabilities);
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &m_details.capabilities);
 
         uint32_t formatCount {};
 
@@ -24,10 +23,10 @@ namespace renderer::backend
 
         if (formatCount != 0)
         {
-            details.formats.resize(formatCount);
+            m_details.formats.resize(formatCount);
 
             vkGetPhysicalDeviceSurfaceFormatsKHR(
-                device, m_surface, &formatCount, details.formats.data());
+                device, m_surface, &formatCount, m_details.formats.data());
         }
 
         uint32_t presentModeCount {};
@@ -35,43 +34,43 @@ namespace renderer::backend
 
         if (presentModeCount != 0)
         {
-            details.presentModes.resize(presentModeCount);
+            m_details.presentModes.resize(presentModeCount);
 
             vkGetPhysicalDeviceSurfacePresentModesKHR(
-                device, m_surface, &presentModeCount, details.presentModes.data());
+                device, m_surface, &presentModeCount, m_details.presentModes.data());
         }
 
         // Choose extent
         {
-            if (details.capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+            if (m_details.capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
             {
-                details.extent = { details.capabilities.currentExtent.width,
-                                   details.capabilities.currentExtent.height };
+                m_details.extent = { m_details.capabilities.currentExtent.width,
+                                     m_details.capabilities.currentExtent.height };
             }
 
-            details.extent = { std::clamp(dimensions.width,
-                                          details.capabilities.minImageExtent.width,
-                                          details.capabilities.maxImageExtent.width),
+            m_details.extent = { std::clamp(dimensions.width,
+                                            m_details.capabilities.minImageExtent.width,
+                                            m_details.capabilities.maxImageExtent.width),
 
-                               std::clamp(dimensions.height,
-                                          details.capabilities.minImageExtent.height,
-                                          details.capabilities.maxImageExtent.height) };
+                                 std::clamp(dimensions.height,
+                                            m_details.capabilities.minImageExtent.height,
+                                            m_details.capabilities.maxImageExtent.height) };
         }
 
         // Choose format
         {
-            details.surfaceFormat = details.formats[0];
+            m_details.surfaceFormat = m_details.formats[0];
 
-            for (auto const& availableFormat : details.formats)
+            for (auto const& availableFormat : m_details.formats)
             {
                 if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
                     availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
                 {
-                    details.surfaceFormat = availableFormat;
+                    m_details.surfaceFormat = availableFormat;
                 }
             }
 
-            details.format = details.surfaceFormat.format;
+            m_details.format = m_details.surfaceFormat.format;
         }
 
         // Choose present mode
@@ -82,20 +81,20 @@ namespace renderer::backend
             {
                 char const* logMessage = nullptr;
 
-                for (auto const& availablePresentMode : details.presentModes)
+                for (auto const& availablePresentMode : m_details.presentModes)
                 {
                     if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
                     {
-                        details.presentMode = availablePresentMode;
-                        logMessage          = "Surface vsync set to off (Immediate mode)";
-                        presentModeChosen   = true;  // NOLINT(clang-analyzer-deadcode.DeadStores)
+                        m_details.presentMode = availablePresentMode;
+                        logMessage            = "Surface vsync set to off (Immediate mode)";
+                        presentModeChosen     = true;  // NOLINT(clang-analyzer-deadcode.DeadStores)
                         break;
                     }
                     if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
                     {
-                        details.presentMode = availablePresentMode;
-                        logMessage          = "Surface vsync set to off (Mailbox mode)";
-                        presentModeChosen   = true;  // NOLINT(clang-analyzer-deadcode.DeadStores)
+                        m_details.presentMode = availablePresentMode;
+                        logMessage            = "Surface vsync set to off (Mailbox mode)";
+                        presentModeChosen     = true;  // NOLINT(clang-analyzer-deadcode.DeadStores)
                     }
                 }
 
@@ -103,7 +102,7 @@ namespace renderer::backend
             }
             else if (!presentModeChosen)
             {
-                details.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+                m_details.presentMode = VK_PRESENT_MODE_FIFO_KHR;
 
                 if (!m_vsync)
                 {
@@ -116,7 +115,5 @@ namespace renderer::backend
                 }
             }
         }
-
-        return details;
     }
 }  // namespace renderer::backend

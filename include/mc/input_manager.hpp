@@ -16,7 +16,10 @@ class InputManager
     friend class Window;
 
 public:
-    [[nodiscard]] auto isDown(Key key) const -> bool { return m_keyStates.test(static_cast<size_t>(key)); }
+    [[nodiscard]] auto isDown(Key key) const -> bool
+    {
+        return m_keyStates.test(static_cast<size_t>(key));
+    }
 
     [[nodiscard]] auto isDown(MouseButton button) const -> bool
     {
@@ -25,7 +28,10 @@ public:
 
     [[nodiscard]] auto getDownKeys() const -> std::unordered_set<Key> const& { return m_downKeys; }
 
-    [[nodiscard]] auto getCurrentCursorPosition() const -> glm::uvec2 const& { return m_currentCursorPos; }
+    [[nodiscard]] auto getCurrentCursorPosition() const -> glm::uvec2 const&
+    {
+        return m_currentCursorPos;
+    }
 
 private:
     InputManager() { m_downKeys.reserve(kNumKeys); }
