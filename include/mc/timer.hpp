@@ -21,8 +21,7 @@ public:
 
     [[nodiscard]] auto getTotalTime() const -> Seconds
     {
-        return m_baseTimePoint - m_pauseTime -
-               (m_isPaused ? m_pauseTimePoint : m_latestTimePoint);
+        return m_baseTimePoint - m_pauseTime - (m_isPaused ? m_pauseTimePoint : m_latestTimePoint);
     }
 
     template<typename duration>
@@ -31,10 +30,7 @@ public:
         return std::chrono::duration_cast<duration>(m_deltaTime);
     }
 
-    [[nodiscard]] auto getDeltaTime() const -> Milliseconds
-    {
-        return m_deltaTime;
-    }
+    [[nodiscard]] auto getDeltaTime() const -> Milliseconds { return m_deltaTime; }
 
     template<typename Duration>
     [[nodiscard]] static auto getCurrentTime()
@@ -50,8 +46,7 @@ public:
 
 private:
     std::chrono::time_point<Clock> m_baseTimePoint { Clock::now() },
-        m_pauseTimePoint { m_baseTimePoint },
-        m_prevTimePoint { m_baseTimePoint },
+        m_pauseTimePoint { m_baseTimePoint }, m_prevTimePoint { m_baseTimePoint },
         m_latestTimePoint { m_baseTimePoint };
 
     bool m_isPaused { false };

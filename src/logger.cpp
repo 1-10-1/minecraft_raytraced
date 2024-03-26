@@ -19,14 +19,12 @@ namespace logger
 
         std::vector<spdlog::sink_ptr> sinks {
             std::make_shared<spdlog::sinks::stdout_color_sink_mt>(),
-            std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath.string(),
-                                                                true)
+            std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath.string(), true)
         };
 
         for (auto& sink : sinks)
         {
-            sink->set_pattern(kDebug ? "%^[%l] [%r] [%@]\n-> %v%$\n"
-                                     : "%^[%l] [%r]\n-> %v%$\n");
+            sink->set_pattern(kDebug ? "%^[%l] [%r] [%@]\n-> %v%$\n" : "%^[%l] [%r]\n-> %v%$\n");
         }
 
         m_logger = std::make_shared<spdlog::logger>("MAIN", sinks.begin(), sinks.end());

@@ -7,8 +7,7 @@
 namespace Utils
 {
     template<typename Class, typename Ret, typename... Args>
-    auto captureThis(Ret (Class::*func)(Args...), Class* instance)
-        -> std::function<Ret(Args...)>
+    auto captureThis(Ret (Class::*func)(Args...), Class* instance) -> std::function<Ret(Args...)>
     {
         return [func, instance](Args... args)
         {
@@ -41,8 +40,7 @@ namespace Utils
     auto member_offset(MemberType ClassType::*member) -> ReturnType
     {
 #pragma GCC diagnostic ignored "-Wreturn-type"
-        return static_cast<ReturnType>(
-            reinterpret_cast<uint64_t>(reinterpret_cast<char const volatile*>(
-                &((reinterpret_cast<ClassType*>(0))->*member))));
+        return static_cast<ReturnType>(reinterpret_cast<uint64_t>(
+            reinterpret_cast<char const volatile*>(&((reinterpret_cast<ClassType*>(0))->*member))));
     }
 }  // namespace Utils

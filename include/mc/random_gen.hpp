@@ -26,5 +26,5 @@ public:
     }
 
 private:
-    inline static const std::mt19937_64 m_gen { std::random_device {}() };
+    inline static std::mt19937_64 const m_gen { std::random_device {}() };
 };

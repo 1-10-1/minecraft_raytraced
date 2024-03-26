@@ -33,7 +33,9 @@ struct TextureData
 class Mesh
 {
 public:
-    Mesh(std::vector<VertexData>&& vertices, std::vector<unsigned int>&& indices, std::vector<TextureData>&& textures);
+    Mesh(std::vector<VertexData>&& vertices,
+         std::vector<unsigned int>&& indices,
+         std::vector<TextureData>&& textures);
 
     [[nodiscard]] auto getVertices() const -> std::vector<VertexData> const& { return m_vertices; }
 
@@ -52,7 +54,10 @@ private:
 class Model
 {
 public:
-    explicit Model(std::string const& path, bool gamma = false) : gammaCorrection(gamma) { loadModel(path); }
+    explicit Model(std::string const& path, bool gamma = false) : gammaCorrection(gamma)
+    {
+        loadModel(path);
+    }
 
     std::vector<TextureData> textures_loaded;
     std::vector<Mesh> meshes;
@@ -66,5 +71,6 @@ private:
 
     auto processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh;
 
-    auto loadMaterialTextures(aiMaterial* mat, aiTextureType type, TextureType typeEnum) -> std::vector<TextureData>;
+    auto loadMaterialTextures(aiMaterial* mat, aiTextureType type, TextureType typeEnum)
+        -> std::vector<TextureData>;
 };

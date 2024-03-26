@@ -77,8 +77,7 @@ public:
                 far_z);
     }
 
-    void
-    lookAt(glm::vec3 const& position, glm::vec3 const& target, glm::vec3 const& world_up);
+    void lookAt(glm::vec3 const& position, glm::vec3 const& target, glm::vec3 const& world_up);
 
     void moveX(float distance);
     void moveZ(float distance);
