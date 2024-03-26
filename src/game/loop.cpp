@@ -9,9 +9,11 @@ namespace game
 {
     void Game::runLoop()
     {
+        m_window.prepare();
+
         while (!m_window.shouldClose())
         {
-            m_window.pollEvents();
+            window::Window::pollEvents();
         };
     }
 }  // namespace game

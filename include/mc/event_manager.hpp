@@ -1,14 +1,12 @@
 #pragma once
 
 #include <any>
-#include <concepts>
+
 #include <functional>
 #include <glm/ext/vector_float2.hpp>
+#include <utility>
 
 #include "events.hpp"
-#include "input_manager.hpp"
-#include "key.hpp"
-#include "utils.hpp"
 
 // Whenever you have time, please work on fixing the following issue:
 // When an event listener is registered with a "this" parameter, make sure that the object
@@ -30,25 +28,32 @@ public:
     template<EventSpec Event>
     void addListener(std::function<void(Event const&)> listener)
     {
-        m_eventListeners.insert({ Event::eventType,
-                                  [listener = std::move(listener)](std::any const& event)
-                                  {
-                                      listener(std::any_cast<Event const&>(event));
-                                  } });
+        m_eventListeners[std::to_underlying(Event::eventType)].push_back(
+            [listener = std::move(listener)](std::any const& event)
+            {
+                listener(std::any_cast<Event const&>(event));
+            });
+    }
+
+    template<EventSpec Event>
+    void addListener(void (*listener)(Event const&))
+    {
+        addListener(std::function(listener));
     }
 
     template<EventSpec Event, typename Class>
     void addListener(Class* instance, void (Class::*func)(Event const&))
     {
-        m_eventListeners.insert({ Event::eventType,
-                                  [func, instance](Event const& event)
-                                  {
-                                      (instance->*func)(std::any_cast<const EventType&>(event));
-                                  } });
-    }
+        m_eventListeners[std::to_underlying(Event::eventType)].push_back(
+            [func, instance](Event const& event)
+            {
+                (instance->*func)(std::any_cast<const EventType&>(event));
+            });
+    };
 
     template<typename Class, EventSpec... Events>
     void addListeners(Class* instance, void (Class::*... funcs)(Events const&))
+
     {
         (addListener(instance, funcs), ...);
     }
@@ -62,14 +67,16 @@ public:
     template<EventSpec Event>
     void dispatchEvent(Event const& event)
     {
-        for (auto range { m_eventListeners.equal_range(Event::eventType) };
-             range.first != range.second;
-             ++range.first)
+        for (auto const& listener : m_eventListeners[static_cast<size_t>(Event::eventType)])
         {
-            range.first->second(event);
+            listener(event);
         }
     }
 
 private:
-    std::unordered_multimap<EventType, std::function<void(std::any)>> m_eventListeners;
+    // An array that contains a vector of listeners
+    // The index of the vector in the array determines which event it listens to (through cast to EventType)
+    std::array<std::vector<std::function<void(std::any)>>,
+               static_cast<size_t>(EventType::EVENT_TYPE_MAX)>
+        m_eventListeners {};
 };

@@ -4,15 +4,14 @@
 #include <glm/ext/vector_int2.hpp>
 #include <glm/ext/vector_uint2.hpp>
 
-#include "event_queue.hpp"
-#include "events.hpp"
+#include "event_manager.hpp"
 
 namespace window
 {
     class Window
     {
     public:
-        explicit Window(glm::ivec2 resolution);
+        explicit Window(EventManager* eventManager, glm::ivec2 resolution);
 
         ~Window();
 
@@ -26,11 +25,45 @@ namespace window
 
         [[nodiscard]] auto getHandle() const -> GLFWwindow* { return m_handle; }
 
-        void pollEvents();
+        static void pollEvents();
+
+        void prepare();
+
+        static void keyCallback(GLFWwindow* window, int keyid, int scancode, int action, int mods);
+
+        static void windowPositionCallback(GLFWwindow* window, int x, int y);
+
+        static void windowSizeCallback(GLFWwindow* window, int width, int height);
+
+        static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
+
+        static void windowCloseCallback(GLFWwindow* window);
+
+        static void windowRefreshCallback(GLFWwindow* window);
+
+        static void windowFocusCallback(GLFWwindow* window, int focused);
+
+        static void windowMinimizeCallback(GLFWwindow* window, int iconified);
+
+        static void windowMaximizeCallback(GLFWwindow* window, int maximized);
+
+        static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+
+        static void cursorPositionCallback(GLFWwindow* window, double x, double y);
+
+        static void cursorEnterCallback(GLFWwindow* window, int entered);
+
+        static void scrollCallback(GLFWwindow* window, double x, double y);
+
+        // Reason: This function signature cannot be changed because it is passed directly to GLFW
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
+        static void dropCallback(GLFWwindow* window, int count, char const* paths[]);
 
     private:
         bool m_shouldClose {};
 
+        InputManager m_inputManager {};
+        EventManager* m_eventManager;
         GLFWwindow* m_handle {};
     };
 }  // namespace window

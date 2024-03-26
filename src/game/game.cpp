@@ -1,10 +1,19 @@
-#include "mc/window.hpp"
+#include <mc/events.hpp>
 #include <mc/game/game.hpp>
 #include <mc/logger.hpp>
+#include <mc/window.hpp>
 
 namespace game
 {
+    void windowRefreshHandler(WindowRefreshEvent const& event)
+    {
+        logger::info("Refresh called!");
+    }
+
     Game::Game()
-        : m_window { window::Window({ 800, 600 }) },
-          m_renderer { renderer::Renderer(m_window.getHandle()) } {};
+        : m_window { window::Window(&m_eventManager, { 800, 600 }) },
+          m_renderer { renderer::Renderer(m_window.getHandle()) }
+    {
+        m_eventManager.addListener(windowRefreshHandler);
+    };
 }  // namespace game

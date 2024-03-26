@@ -9,11 +9,14 @@
 #include <glm/ext/vector_uint2.hpp>
 #include <magic_enum.hpp>
 
-class Window;
+namespace window
+{
+    class Window;
+}
 
 class InputManager
 {
-    friend class Window;
+    friend class window::Window;
 
 public:
     [[nodiscard]] auto isDown(Key key) const -> bool

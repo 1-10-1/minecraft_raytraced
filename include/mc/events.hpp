@@ -29,21 +29,23 @@ enum class EventType : uint8_t
     WindowFramebufferResize,
     WindowRefresh,
     WindowMinOrMaximize,
-    WindowCursorFocus,
+    WindowCursorFocusChanged,
     WindowDragAndDrop,
 
     AppUpdate,
-    AppRender
+    AppRender,
+
+    EVENT_TYPE_MAX
 };
 
 template<typename EventClass>
 concept EventSpec = requires() {
     {
         EventClass::eventType
-    } -> std::same_as<const EventType>;
+    } -> std::same_as<EventType const&>;
     {
         EventClass::baseEventType
-    } -> std::same_as<const BaseEventType>;
+    } -> std::same_as<BaseEventType const&>;
 };
 
 class InputEvent
@@ -150,7 +152,7 @@ public:
           button { mouseButton },
           action { buttonAction },
           modifiers { mods },
-          position { getInputManager()->getCurrentCursorPosition() }
+          position { inputManager->getCurrentCursorPosition() }
     {
     }
 
@@ -204,7 +206,7 @@ public:
     constexpr static auto eventType = EventType::WindowRefresh;
 };
 
-class WindowFocusEvent : public WindowEvent
+class CursorFocusChangedEvent : public WindowEvent
 {
 public:
     enum State
@@ -213,11 +215,11 @@ public:
         Defocused
     };
 
-    explicit WindowFocusEvent(State focusState) : state { focusState } {}
+    explicit CursorFocusChangedEvent(State focusState) : state { focusState } {}
 
     State state;
 
-    constexpr static auto eventType = EventType::WindowFocusChanged;
+    constexpr static auto eventType = EventType::WindowCursorFocusChanged;
 };
 
 class WindowMoveEvent : public WindowEvent

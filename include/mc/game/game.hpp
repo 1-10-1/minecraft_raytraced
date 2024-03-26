@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../event_manager.hpp"
 #include "../renderer/renderer.hpp"
 #include "../window.hpp"
 
@@ -13,6 +14,7 @@ namespace game
         void runLoop();
 
     private:
+        EventManager m_eventManager {};
         window::Window m_window;
         renderer::Renderer m_renderer;
     };
