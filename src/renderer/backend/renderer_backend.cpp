@@ -6,11 +6,14 @@
 
 namespace renderer::backend
 {
-    RendererBackend::RendererBackend(GLFWwindow* window)
+    RendererBackend::RendererBackend(GLFWwindow* window, glm::uvec2 initialFramebufferDimensions)
         : m_window { window },
           m_surface { window, m_instance.get() },
           m_device { Device(m_instance.get(), m_surface) }
     {
+        m_surface.refresh(
+            m_device.getPhysical(),
+            { .width = initialFramebufferDimensions.x, .height = initialFramebufferDimensions.y });
     }
 
     void Surface::refresh(VkPhysicalDevice device, VkExtent2D dimensions)

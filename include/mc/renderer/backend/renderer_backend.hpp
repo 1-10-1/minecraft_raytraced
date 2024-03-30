@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../events.hpp"
 #include "device.hpp"
 #include "instance.hpp"
 
@@ -52,9 +53,15 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
-        explicit RendererBackend(GLFWwindow* window);
+        explicit RendererBackend(GLFWwindow* window, glm::uvec2 initialFramebufferDimensions);
 
         void render();
+
+        void onFramebufferResized(WindowFramebufferResizeEvent const& event)
+        {
+            m_surface.refresh(m_device.getPhysical(),
+                              { .width = event.dimensions.x, .height = event.dimensions.y });
+        };
 
     private:
         Instance m_instance;

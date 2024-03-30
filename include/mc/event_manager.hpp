@@ -45,9 +45,9 @@ public:
     void addListener(Class* instance, void (Class::*func)(Event const&))
     {
         m_eventListeners[std::to_underlying(Event::eventType)].push_back(
-            [func, instance](Event const& event)
+            [func, instance](std::any const& event)
             {
-                (instance->*func)(std::any_cast<const EventType&>(event));
+                (instance->*func)(std::any_cast<const Event&>(event));
             });
     };
 
@@ -67,16 +67,18 @@ public:
     template<EventSpec Event>
     void dispatchEvent(Event const& event)
     {
+        auto event_any = std::make_any<Event const&>(event);
+
         for (auto const& listener : m_eventListeners[static_cast<size_t>(Event::eventType)])
         {
-            listener(event);
+            listener(event_any);
         }
     }
 
 private:
     // An array that contains a vector of listeners
     // The index of the vector in the array determines which event it listens to (through cast to EventType)
-    std::array<std::vector<std::function<void(std::any)>>,
+    std::array<std::vector<std::function<void(std::any const&)>>,
                static_cast<size_t>(EventType::EVENT_TYPE_MAX)>
         m_eventListeners {};
 };
