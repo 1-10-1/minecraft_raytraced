@@ -16,6 +16,7 @@ ENDIF(NOT CMAKE_BUILD_TYPE)
 
 add_subdirectory(lib)
 
+
 list(APPEND SOURCE_FILES
     src/main.cpp
     src/timer.cpp

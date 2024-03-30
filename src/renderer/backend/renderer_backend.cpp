@@ -1,3 +1,4 @@
+#include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 
@@ -6,42 +7,46 @@
 
 namespace renderer::backend
 {
-    RendererBackend::RendererBackend(GLFWwindow* window, glm::uvec2 initialFramebufferDimensions)
+    RendererBackend::RendererBackend(EventManager& eventManager,
+                                     GLFWwindow* window,
+                                     glm::ivec2 initialFramebufferDimensions)
         : m_window { window },
           m_surface { window, m_instance.get() },
           m_device { Device(m_instance.get(), m_surface) }
     {
-        m_surface.refresh(
-            m_device.getPhysical(),
-            { .width = initialFramebufferDimensions.x, .height = initialFramebufferDimensions.y });
+        m_surface.refresh(m_device.getPhysical(),
+                          { .width  = static_cast<uint32_t>(initialFramebufferDimensions.x),
+                            .height = static_cast<uint32_t>(initialFramebufferDimensions.y) });
+
+        eventManager.addListener(this, &RendererBackend::onFramebufferResized);
     }
 
     void Surface::refresh(VkPhysicalDevice device, VkExtent2D dimensions)
     {
+        logger::info("Surface created");
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &m_details.capabilities);
 
         uint32_t formatCount {};
+        uint32_t presentModeCount {};
 
         vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, nullptr);
 
-        if (formatCount != 0)
-        {
-            m_details.formats.resize(formatCount);
-
-            vkGetPhysicalDeviceSurfaceFormatsKHR(
-                device, m_surface, &formatCount, m_details.formats.data());
-        }
-
-        uint32_t presentModeCount {};
         vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, nullptr);
 
-        if (presentModeCount != 0)
+        if (formatCount == 0 || presentModeCount == 0)
         {
-            m_details.presentModes.resize(presentModeCount);
-
-            vkGetPhysicalDeviceSurfacePresentModesKHR(
-                device, m_surface, &presentModeCount, m_details.presentModes.data());
+            MC_THROW Error(GraphicsError, "Surface cannot be created for the given device");
         }
+
+        m_details.formats.resize(formatCount);
+
+        vkGetPhysicalDeviceSurfaceFormatsKHR(
+            device, m_surface, &formatCount, m_details.formats.data());
+
+        m_details.presentModes.resize(presentModeCount);
+
+        vkGetPhysicalDeviceSurfacePresentModesKHR(
+            device, m_surface, &presentModeCount, m_details.presentModes.data());
 
         // Choose extent
         {

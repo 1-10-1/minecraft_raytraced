@@ -5,13 +5,11 @@
 
 namespace renderer
 {
-    Renderer::Renderer(EventManager const& eventManager,
+    Renderer::Renderer(EventManager& eventManager,
                        GLFWwindow* window,
-                       glm::uvec2 initialFramebufferDimensions)
-        : m_backend { backend::RendererBackend(window, initialFramebufferDimensions) }
+                       glm::ivec2 initialFramebufferDimensions)
+        : m_backend { backend::RendererBackend(eventManager, window, initialFramebufferDimensions) }
     {
-        // This here dont work
-        eventManager.addListener(this, &Renderer::onFramebufferResized);
     }
 
 }  // namespace renderer

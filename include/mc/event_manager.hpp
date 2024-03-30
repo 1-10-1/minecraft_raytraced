@@ -47,7 +47,7 @@ public:
         m_eventListeners[std::to_underlying(Event::eventType)].push_back(
             [func, instance](std::any const& event)
             {
-                (instance->*func)(std::any_cast<const Event&>(event));
+                (instance->*func)(std::any_cast<Event const&>(event));
             });
     };
 
@@ -76,8 +76,6 @@ public:
     }
 
 private:
-    // An array that contains a vector of listeners
-    // The index of the vector in the array determines which event it listens to (through cast to EventType)
     std::array<std::vector<std::function<void(std::any const&)>>,
                static_cast<size_t>(EventType::EVENT_TYPE_MAX)>
         m_eventListeners {};

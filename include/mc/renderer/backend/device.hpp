@@ -35,7 +35,7 @@ namespace renderer::backend
         Device(Device&&)      = delete;
 
         auto operator=(Device const&) -> Device& = delete;
-        auto operator=(Device&&) -> Device&      = delete;
+        auto operator=(Device&&) -> Device&      = default;
 
         [[nodiscard]] auto get() const -> VkDevice { return m_device; }
 
@@ -47,8 +47,8 @@ namespace renderer::backend
 
         static auto checkDeviceExtensionSupport(VkPhysicalDevice device) -> bool;
 
-        static auto findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
-            -> QueueFamilyIndices const&;
+        static auto findQueueFamilies(VkPhysicalDevice device,
+                                      VkSurfaceKHR surface) -> QueueFamilyIndices const&;
 
         VkDevice m_device { VK_NULL_HANDLE };
         VkPhysicalDevice m_physicalDevice { VK_NULL_HANDLE };

@@ -21,9 +21,14 @@ namespace window
         auto operator=(Window const&) -> Window& = default;
         auto operator=(Window&&) -> Window&      = default;
 
-        [[nodiscard]] auto shouldClose() const -> bool { return m_shouldClose; }
+        [[nodiscard]] auto shouldClose() const -> bool
+        {
+            return m_shouldClose || glfwWindowShouldClose(m_handle);
+        }
 
         [[nodiscard]] auto getHandle() const -> GLFWwindow* { return m_handle; }
+
+        [[nodiscard]] auto getDimensions() const -> glm::uvec2 { return m_dimensions; }
 
         static void pollEvents();
 
@@ -65,5 +70,7 @@ namespace window
         InputManager m_inputManager {};
         EventManager* m_eventManager;
         GLFWwindow* m_handle {};
+
+        glm::uvec2 m_dimensions {};
     };
 }  // namespace window

@@ -6,9 +6,11 @@
 #include <array>
 #include <filesystem>
 
-#include <libgen.h>
-#include <linux/limits.h>
-#include <unistd.h>
+#ifdef __linux__
+#    include <libgen.h>
+#    include <linux/limits.h>
+#    include <unistd.h>
+#endif
 
 void switchCwd();
 
@@ -33,6 +35,7 @@ auto main() -> int
 }
 
 void switchCwd()
+#ifdef __linux__
 {
     std::array<char, PATH_MAX> result {};
     ssize_t count = readlink("/proc/self/exe", result.data(), PATH_MAX);
@@ -46,3 +49,7 @@ void switchCwd()
 
     std::filesystem::current_path(path);
 }
+#else
+{
+}
+#endif

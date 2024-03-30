@@ -5,15 +5,9 @@
 
 namespace game
 {
-    void windowRefreshHandler(WindowRefreshEvent const& event)
-    {
-        logger::info("Refresh called!");
-    }
 
     Game::Game()
         : m_window { window::Window(&m_eventManager, { 800, 600 }) },
-          m_renderer { renderer::Renderer(m_window.getHandle()) }
-    {
-        m_eventManager.addListener(windowRefreshHandler);
-    };
+          m_renderer { renderer::Renderer(
+              m_eventManager, m_window.getHandle(), m_window.getDimensions()) } {};
 }  // namespace game

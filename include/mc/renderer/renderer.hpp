@@ -11,16 +11,11 @@ namespace renderer
     class Renderer
     {
     public:
-        explicit Renderer(EventManager const& eventManager,
+        explicit Renderer(EventManager& eventManager,
                           GLFWwindow* window,
-                          glm::uvec2 initialFramebufferDimensions);
+                          glm::ivec2 initialFramebufferDimensions);
 
         void render();
-
-        void onFramebufferResized(WindowFramebufferResizeEvent const& event)
-        {
-            logger::info("Framebuffer resized! {}", x);
-        };
 
     private:
         backend::RendererBackend m_backend;

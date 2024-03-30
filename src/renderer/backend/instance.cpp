@@ -4,6 +4,7 @@
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
+#include <ranges>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -11,7 +12,7 @@
 #include <vulkan/vulkan_core.h>
 
 namespace rn = std::ranges;
-namespace vi = rn::views;
+namespace vi = std::ranges::views;
 
 namespace renderer::backend
 {
@@ -62,7 +63,7 @@ namespace renderer::backend
             if (auto it = rn::find_if(supportedExtensions,
                                       [requiredExt](VkExtensionProperties const& supportedExt)
                                       {
-                                          return std::string_view(static_cast<const char*>(
+                                          return std::string_view(static_cast<char const*>(
                                                      supportedExt.extensionName)) == requiredExt;
                                       });
                 it == supportedExtensions.end())
@@ -118,7 +119,7 @@ namespace renderer::backend
             if (auto it = rn::find_if(availableLayers,
                                       [neededLayer](VkLayerProperties const& layer)
                                       {
-                                          return std::string_view(static_cast<const char*>(
+                                          return std::string_view(static_cast<char const*>(
                                                      layer.layerName)) == neededLayer;
                                       });
                 it == availableLayers.end())

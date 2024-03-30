@@ -6,17 +6,17 @@
 
 namespace window
 {
-    Window::Window(EventManager* eventManager, glm::ivec2 resolution)
-        : m_eventManager { eventManager }
+    Window::Window(EventManager* eventManager, glm::ivec2 dimensions)
+        : m_eventManager { eventManager }, m_dimensions { dimensions }
     {
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
         // Reason: window hints need to be set before creating the window
         // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
-        m_handle = glfwCreateWindow(resolution.x, resolution.y, "Minecraft", nullptr, nullptr);
+        m_handle = glfwCreateWindow(m_dimensions.x, m_dimensions.y, "Minecraft", nullptr, nullptr);
 
         glfwSetWindowUserPointer(m_handle, this);
 
