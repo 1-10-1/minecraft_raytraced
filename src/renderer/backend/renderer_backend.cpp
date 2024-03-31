@@ -47,12 +47,13 @@ namespace renderer::backend
                 m_details.extent = { m_details.capabilities.currentExtent.width, m_details.capabilities.currentExtent.height };
             }
 
-            m_details.extent = {
-                std::clamp(dimensions.width, m_details.capabilities.minImageExtent.width, m_details.capabilities.maxImageExtent.width),
+            m_details.extent = { std::clamp(dimensions.width,
+                                            m_details.capabilities.minImageExtent.width,
+                                            m_details.capabilities.maxImageExtent.width),
 
-                std::clamp(
-                    dimensions.height, m_details.capabilities.minImageExtent.height, m_details.capabilities.maxImageExtent.height)
-            };
+                                 std::clamp(dimensions.height,
+                                            m_details.capabilities.minImageExtent.height,
+                                            m_details.capabilities.maxImageExtent.height) };
         }
 
         // Choose format

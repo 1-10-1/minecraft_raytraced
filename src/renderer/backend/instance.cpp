@@ -62,7 +62,8 @@ namespace renderer::backend
             if (auto it = rn::find_if(supportedExtensions,
                                       [requiredExt](VkExtensionProperties const& supportedExt)
                                       {
-                                          return std::string_view(static_cast<char const*>(supportedExt.extensionName)) == requiredExt;
+                                          return std::string_view(static_cast<char const*>(supportedExt.extensionName)) ==
+                                                 requiredExt;
                                       });
                 it == supportedExtensions.end())
             {
@@ -122,8 +123,8 @@ namespace renderer::backend
             };
         }
 
-        std::function createDebugMessenger =
-            reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_handle, "vkCreateDebugUtilsMessengerEXT"));
+        std::function createDebugMessenger = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(m_handle, "vkCreateDebugUtilsMessengerEXT"));
 
         createDebugMessenger(m_handle, &m_debugMessengerInfo, nullptr, &m_debugMessenger) >> vkResultChecker;
     };

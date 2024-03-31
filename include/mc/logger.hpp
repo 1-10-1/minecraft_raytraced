@@ -81,11 +81,12 @@ namespace logger
 
         if constexpr (kDebug)
         {
-            Logger::get()->log(spdlog::source_loc { std::string_view(location.file_name()).substr(std::size(ROOT_SOURCE_PATH)).data(),
-                                                    static_cast<int>(location.line()),
-                                                    nullptr },
-                               lvl,
-                               fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...)));
+            Logger::get()->log(
+                spdlog::source_loc { std::string_view(location.file_name()).substr(std::size(ROOT_SOURCE_PATH)).data(),
+                                     static_cast<int>(location.line()),
+                                     nullptr },
+                lvl,
+                fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...)));
         }
         else
         {

@@ -76,5 +76,6 @@ public:
     }
 
 private:
-    std::array<std::vector<std::function<void(std::any const&)>>, static_cast<size_t>(EventType::EVENT_TYPE_MAX)> m_eventListeners {};
+    std::array<std::vector<std::function<void(std::any const&)>>, static_cast<size_t>(EventType::EVENT_TYPE_MAX)>
+        m_eventListeners {};
 };

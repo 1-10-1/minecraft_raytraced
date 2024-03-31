@@ -30,8 +30,8 @@ void Mesh::setupMesh() {}
 void Model::loadModel(std::string const& path)
 {
     Assimp::Importer importer;
-    aiScene const* scene =
-        importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+    aiScene const* scene = importer.ReadFile(
+        path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 
     if ((scene == nullptr) || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 || (scene->mRootNode == nullptr))
     {
@@ -67,12 +67,14 @@ auto Model::processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh
     {
         vertices.push_back({
             .position { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z },
-            .normal = mesh->HasNormals() ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
+            .normal =
+                mesh->HasNormals() ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
              : glm::vec3 {},
  // A vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
   // use models where a vertex can have multiple texture coordinates so we always take the first set (0).
-            .texCoords = mesh->mTextureCoords[0] != nullptr ? glm::vec2 { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y }
-                                                            : glm::vec2 {},
+            .texCoords = mesh->mTextureCoords[0] != nullptr
+                             ? glm::vec2 { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y }
+                             : glm::vec2 {},
             .tangent   = mesh->mTextureCoords[0] != nullptr
                              ? glm::vec3 { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z }
                              : glm::vec3 {},

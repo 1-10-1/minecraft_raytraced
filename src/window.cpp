@@ -6,7 +6,8 @@
 
 namespace window
 {
-    Window::Window(EventManager* eventManager, glm::ivec2 dimensions) : m_eventManager { eventManager }, m_dimensions { dimensions }
+    Window::Window(EventManager* eventManager, glm::ivec2 dimensions)
+        : m_eventManager { eventManager }, m_dimensions { dimensions }
     {
         glfwInit();
 
