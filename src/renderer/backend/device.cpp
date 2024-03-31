@@ -20,13 +20,13 @@ namespace renderer::backend
         int score {};
     };
 
-    Device::Device(VkInstance instance, Surface const& surface)
+    Device::Device(Instance& instance, Surface const& surface)
     {
         selectPhysicalDevice(instance, surface);
         selectLogicalDevice();
     }
 
-    void Device::selectPhysicalDevice(VkInstance instance, Surface const& surface)
+    void Device::selectPhysicalDevice(Instance& instance, Surface const& surface)
     {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -44,7 +44,7 @@ namespace renderer::backend
 
         for (auto* device : devices)
         {
-            auto const& queueFamilyIndices { findQueueFamilies(device, surface.get()) };
+            auto const& queueFamilyIndices { findQueueFamilies(device, surface) };
 
             VkPhysicalDeviceProperties deviceProperties {};
             VkPhysicalDeviceFeatures deviceFeatures {};
@@ -114,7 +114,7 @@ namespace renderer::backend
             MC_THROW Error(GraphicsError, "Could not find a suitable graphics card");
         }
 
-        m_physicalDevice     = bestCandidate.device;
+        m_physicalHandle     = bestCandidate.device;
         m_queueFamilyIndices = bestCandidate.queueFamilyIndices;
 
         std::string_view deviceType;
@@ -173,11 +173,11 @@ namespace renderer::backend
             .pEnabledFeatures        = &deviceFeatures,
         };
 
-        vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_device) >> vkResultChecker;
+        vkCreateDevice(m_physicalHandle, &deviceCreateInfo, nullptr, &m_logicalHandle) >> vkResultChecker;
 
-        vkGetDeviceQueue(m_device, m_queueFamilyIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
+        vkGetDeviceQueue(m_logicalHandle, m_queueFamilyIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
 
-        vkGetDeviceQueue(m_device, m_queueFamilyIndices.presentFamily.value(), 0, &m_presentQueue);
+        vkGetDeviceQueue(m_logicalHandle, m_queueFamilyIndices.presentFamily.value(), 0, &m_presentQueue);
     }
 
     auto Device::checkDeviceExtensionSupport(VkPhysicalDevice device) -> bool
@@ -248,6 +248,6 @@ namespace renderer::backend
 
     Device::~Device()
     {
-        vkDestroyDevice(m_device, nullptr);
+        vkDestroyDevice(m_logicalHandle, nullptr);
     }
 }  // namespace renderer::backend

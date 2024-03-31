@@ -4,6 +4,7 @@
 #include "./backend/renderer_backend.hpp"
 
 #include "glm/fwd.hpp"
+#include "mc/events.hpp"
 
 namespace renderer
 {
@@ -12,10 +13,10 @@ namespace renderer
     public:
         explicit Renderer(EventManager& eventManager, GLFWwindow* window, glm::uvec2 initialFramebufferDimensions);
 
-        void render();
+        void onRender(AppRenderEvent const& /* unused */);
+        void onFramebufferResize(WindowFramebufferResizeEvent const& event);
 
     private:
         backend::RendererBackend m_backend;
-        int x { 2 };
     };
 }  // namespace renderer

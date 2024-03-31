@@ -18,7 +18,8 @@ namespace renderer::backend
         auto operator=(Instance const&) -> Instance& = delete;
         auto operator=(Instance&&) -> Instance&      = delete;
 
-        [[nodiscard]] auto get() const -> VkInstance { return m_handle; };
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkInstance() const { return m_handle; }
 
     private:
         void initValidationLayers();

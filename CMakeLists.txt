@@ -16,7 +16,6 @@ ENDIF(NOT CMAKE_BUILD_TYPE)
 
 add_subdirectory(lib)
 
-
 list(APPEND SOURCE_FILES
     src/main.cpp
     src/timer.cpp
@@ -31,8 +30,9 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/render.cpp
     src/renderer/backend/instance.cpp
+    src/renderer/backend/surface.cpp
+    src/renderer/backend/swapchain.cpp
     src/renderer/backend/device.cpp
-    src/renderer/render.cpp
     src/renderer/renderer.cpp
 
     # src/graphics/validation_layer.cpp

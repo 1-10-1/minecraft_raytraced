@@ -1,5 +1,7 @@
 #pragma once
 
+#include "instance.hpp"
+
 #include <optional>
 #include <vector>
 
@@ -27,29 +29,33 @@ namespace renderer::backend
     class Device
     {
     public:
-        explicit Device(VkInstance instance, Surface const& surface);
+        explicit Device(Instance& instance, Surface const& surface);
         ~Device();
 
         Device(Device const&) = delete;
-        Device(Device&&)      = delete;
+        Device(Device&&)      = default;
 
         auto operator=(Device const&) -> Device& = delete;
         auto operator=(Device&&) -> Device&      = default;
 
-        [[nodiscard]] auto get() const -> VkDevice { return m_device; }
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkDevice() const { return m_logicalHandle; }
 
-        [[nodiscard]] auto getPhysical() const -> VkPhysicalDevice { return m_physicalDevice; }
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkPhysicalDevice() const { return m_physicalHandle; }
+
+        [[nodiscard]] auto getQueueFamilyIndices() const -> QueueFamilyIndices const& { return m_queueFamilyIndices; }
 
     private:
-        void selectPhysicalDevice(VkInstance instance, Surface const& surface);
+        void selectPhysicalDevice(Instance& instance, Surface const& surface);
         void selectLogicalDevice();
 
         static auto checkDeviceExtensionSupport(VkPhysicalDevice device) -> bool;
 
         static auto findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) -> QueueFamilyIndices const&;
 
-        VkDevice m_device { VK_NULL_HANDLE };
-        VkPhysicalDevice m_physicalDevice { VK_NULL_HANDLE };
+        VkDevice m_logicalHandle { VK_NULL_HANDLE };
+        VkPhysicalDevice m_physicalHandle { VK_NULL_HANDLE };
 
         QueueFamilyIndices m_queueFamilyIndices {};
 
