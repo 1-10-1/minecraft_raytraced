@@ -5,9 +5,7 @@
 
 namespace renderer
 {
-    Renderer::Renderer(EventManager& eventManager,
-                       GLFWwindow* window,
-                       glm::ivec2 initialFramebufferDimensions)
+    Renderer::Renderer(EventManager& eventManager, GLFWwindow* window, glm::uvec2 initialFramebufferDimensions)
         : m_backend { backend::RendererBackend(eventManager, window, initialFramebufferDimensions) }
     {
     }

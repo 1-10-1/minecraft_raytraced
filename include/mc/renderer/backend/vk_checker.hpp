@@ -10,10 +10,7 @@ namespace renderer::backend
     {
     public:
         // NOLINTNEXTLINE(google-explicit-constructor)
-        ResultGrabber(VkResult res, std::source_location loc = std::source_location::current())
-            : result { res }, location { loc }
-        {
-        }
+        ResultGrabber(VkResult res, std::source_location loc = std::source_location::current()) : result { res }, location { loc } {}
 
         VkResult result;
         std::source_location location;

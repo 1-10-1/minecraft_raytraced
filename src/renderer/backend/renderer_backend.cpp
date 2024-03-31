@@ -7,23 +7,17 @@
 
 namespace renderer::backend
 {
-    RendererBackend::RendererBackend(EventManager& eventManager,
-                                     GLFWwindow* window,
-                                     glm::ivec2 initialFramebufferDimensions)
-        : m_window { window },
-          m_surface { window, m_instance.get() },
-          m_device { Device(m_instance.get(), m_surface) }
+    RendererBackend::RendererBackend(EventManager& eventManager, GLFWwindow* window, glm::uvec2 initialFramebufferDimensions)
+        : m_window { window }, m_surface { window, m_instance.get() }, m_device { Device(m_instance.get(), m_surface) }
     {
         m_surface.refresh(m_device.getPhysical(),
-                          { .width  = static_cast<uint32_t>(initialFramebufferDimensions.x),
-                            .height = static_cast<uint32_t>(initialFramebufferDimensions.y) });
+                          { .width = initialFramebufferDimensions.x, .height = initialFramebufferDimensions.y });
 
         eventManager.addListener(this, &RendererBackend::onFramebufferResized);
     }
 
     void Surface::refresh(VkPhysicalDevice device, VkExtent2D dimensions)
     {
-        logger::info("Surface created");
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &m_details.capabilities);
 
         uint32_t formatCount {};
@@ -40,29 +34,25 @@ namespace renderer::backend
 
         m_details.formats.resize(formatCount);
 
-        vkGetPhysicalDeviceSurfaceFormatsKHR(
-            device, m_surface, &formatCount, m_details.formats.data());
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, m_details.formats.data());
 
         m_details.presentModes.resize(presentModeCount);
 
-        vkGetPhysicalDeviceSurfacePresentModesKHR(
-            device, m_surface, &presentModeCount, m_details.presentModes.data());
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, m_details.presentModes.data());
 
         // Choose extent
         {
             if (m_details.capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
             {
-                m_details.extent = { m_details.capabilities.currentExtent.width,
-                                     m_details.capabilities.currentExtent.height };
+                m_details.extent = { m_details.capabilities.currentExtent.width, m_details.capabilities.currentExtent.height };
             }
 
-            m_details.extent = { std::clamp(dimensions.width,
-                                            m_details.capabilities.minImageExtent.width,
-                                            m_details.capabilities.maxImageExtent.width),
+            m_details.extent = {
+                std::clamp(dimensions.width, m_details.capabilities.minImageExtent.width, m_details.capabilities.maxImageExtent.width),
 
-                                 std::clamp(dimensions.height,
-                                            m_details.capabilities.minImageExtent.height,
-                                            m_details.capabilities.maxImageExtent.height) };
+                std::clamp(
+                    dimensions.height, m_details.capabilities.minImageExtent.height, m_details.capabilities.maxImageExtent.height)
+            };
         }
 
         // Choose format

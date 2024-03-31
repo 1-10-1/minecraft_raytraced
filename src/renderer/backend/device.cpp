@@ -137,18 +137,14 @@ namespace renderer::backend
                 deviceType = "Unknown";
         }
 
-        logger::info(R"(Using physical device "{}" of type "{}")",
-                     bestCandidate.properties.deviceName,
-                     deviceType);
+        logger::info(R"(Using physical device "{}" of type "{}")", bestCandidate.properties.deviceName, deviceType);
     }
 
     void Device::selectLogicalDevice()
     {
-        std::unordered_set<uint32_t> queueFamilies = {
-            m_queueFamilyIndices.graphicsFamily.value(),
-            m_queueFamilyIndices.presentFamily.value(),
-            m_queueFamilyIndices.transferFamily.value()
-        };
+        std::unordered_set<uint32_t> queueFamilies = { m_queueFamilyIndices.graphicsFamily.value(),
+                                                       m_queueFamilyIndices.presentFamily.value(),
+                                                       m_queueFamilyIndices.transferFamily.value() };
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
@@ -158,7 +154,7 @@ namespace renderer::backend
 
         for (uint32_t queueFamily : queueFamilies)
         {
-            queueCreateInfos.push_back({ .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            queueCreateInfos.push_back({ .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                                          .queueFamilyIndex = queueFamily,
                                          .queueCount       = 1,
                                          .pQueuePriorities = &queuePriority });
@@ -179,8 +175,7 @@ namespace renderer::backend
 
         vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_device) >> vkResultChecker;
 
-        vkGetDeviceQueue(
-            m_device, m_queueFamilyIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
+        vkGetDeviceQueue(m_device, m_queueFamilyIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
 
         vkGetDeviceQueue(m_device, m_queueFamilyIndices.presentFamily.value(), 0, &m_presentQueue);
     }
@@ -191,11 +186,9 @@ namespace renderer::backend
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
         std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(
-            device, nullptr, &extensionCount, availableExtensions.data());
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-        std::unordered_set<std::string> requiredExtensions(m_requiredExtensions.begin(),
-                                                           m_requiredExtensions.end());
+        std::unordered_set<std::string> requiredExtensions(m_requiredExtensions.begin(), m_requiredExtensions.end());
 
         for (auto const& extension : availableExtensions)
         {
@@ -205,8 +198,7 @@ namespace renderer::backend
         return requiredExtensions.empty();
     }
 
-    auto Device::findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
-        -> QueueFamilyIndices const&
+    auto Device::findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) -> QueueFamilyIndices const&
     {
         static std::unordered_map<VkPhysicalDevice, QueueFamilyIndices> memo;
 
@@ -230,8 +222,7 @@ namespace renderer::backend
                 break;
             }
 
-            if ((queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) != 0u &&
-                (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0u)
+            if ((queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) != 0u && (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0u)
             {
                 indices.transferFamily = i;
             }

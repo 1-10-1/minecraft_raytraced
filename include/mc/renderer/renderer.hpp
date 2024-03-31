@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../event_manager.hpp"
-#include "../logger.hpp"
 #include "./backend/renderer_backend.hpp"
 
 #include "glm/fwd.hpp"
@@ -11,9 +10,7 @@ namespace renderer
     class Renderer
     {
     public:
-        explicit Renderer(EventManager& eventManager,
-                          GLFWwindow* window,
-                          glm::ivec2 initialFramebufferDimensions);
+        explicit Renderer(EventManager& eventManager, GLFWwindow* window, glm::uvec2 initialFramebufferDimensions);
 
         void render();
 

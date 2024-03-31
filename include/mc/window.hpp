@@ -21,10 +21,7 @@ namespace window
         auto operator=(Window const&) -> Window& = default;
         auto operator=(Window&&) -> Window&      = default;
 
-        [[nodiscard]] auto shouldClose() const -> bool
-        {
-            return m_shouldClose || glfwWindowShouldClose(m_handle);
-        }
+        [[nodiscard]] auto shouldClose() const -> bool { return m_shouldClose || glfwWindowShouldClose(m_handle); }
 
         [[nodiscard]] auto getHandle() const -> GLFWwindow* { return m_handle; }
 

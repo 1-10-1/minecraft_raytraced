@@ -54,22 +54,16 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
-        explicit RendererBackend(EventManager& eventManager,
-                                 GLFWwindow* window,
-                                 glm::ivec2 initialFramebufferDimensions);
+        explicit RendererBackend(EventManager& eventManager, GLFWwindow* window, glm::uvec2 initialFramebufferDimensions);
 
         void render();
 
-        void onFramebufferResized(WindowFramebufferResizeEvent const& event)
-        {
-            recreate_surface(event.dimensions);
-        };
+        void onFramebufferResized(WindowFramebufferResizeEvent const& event) { recreate_surface(event.dimensions); };
 
     private:
         void recreate_surface(glm::uvec2 dimensions)
         {
-            m_surface.refresh(m_device.getPhysical(),
-                              { .width = dimensions.x, .height = dimensions.y });
+            m_surface.refresh(m_device.getPhysical(), { .width = dimensions.x, .height = dimensions.y });
         }
 
         Instance m_instance;

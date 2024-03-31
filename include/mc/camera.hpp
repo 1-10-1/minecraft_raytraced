@@ -43,22 +43,13 @@ public:
 
     [[nodiscard]] auto getVerticalFov() const -> float { return m_verticalFov; }
 
-    [[nodiscard]] auto getHorizontalFov() const -> double
-    {
-        return 2.0 * std::atan((0.5f * getNearWindowWidth()) / m_near);
-    }
+    [[nodiscard]] auto getHorizontalFov() const -> double { return 2.0 * std::atan((0.5f * getNearWindowWidth()) / m_near); }
 
-    [[nodiscard]] auto getNearWindowWidth() const -> float
-    {
-        return m_aspectRatio * m_nearPlaneHeight;
-    }
+    [[nodiscard]] auto getNearWindowWidth() const -> float { return m_aspectRatio * m_nearPlaneHeight; }
 
     [[nodiscard]] auto getNearWindowHeight() const -> float { return m_nearPlaneHeight; }
 
-    [[nodiscard]] auto getFarWindowWidth() const -> float
-    {
-        return m_aspectRatio * m_farPlaneHeight;
-    }
+    [[nodiscard]] auto getFarWindowWidth() const -> float { return m_aspectRatio * m_farPlaneHeight; }
 
     [[nodiscard]] auto getFarWindowHeight() const -> float { return m_farPlaneHeight; }
 
@@ -70,11 +61,7 @@ public:
 
     void setLens(float verticalFov, glm::uvec2 dimensions, float near_z, float far_z)
     {
-        setLens(verticalFov,
-                static_cast<float>(dimensions.x),
-                static_cast<float>(dimensions.y),
-                near_z,
-                far_z);
+        setLens(verticalFov, static_cast<float>(dimensions.x), static_cast<float>(dimensions.y), near_z, far_z);
     }
 
     void lookAt(glm::vec3 const& position, glm::vec3 const& target, glm::vec3 const& world_up);

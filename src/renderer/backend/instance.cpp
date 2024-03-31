@@ -36,8 +36,7 @@ namespace renderer::backend
 
             supportedExtensions.resize(extensionCount);
 
-            vkEnumerateInstanceExtensionProperties(
-                nullptr, &extensionCount, supportedExtensions.data());
+            vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, supportedExtensions.data());
         }
 
         {
@@ -63,14 +62,11 @@ namespace renderer::backend
             if (auto it = rn::find_if(supportedExtensions,
                                       [requiredExt](VkExtensionProperties const& supportedExt)
                                       {
-                                          return std::string_view(static_cast<char const*>(
-                                                     supportedExt.extensionName)) == requiredExt;
+                                          return std::string_view(static_cast<char const*>(supportedExt.extensionName)) == requiredExt;
                                       });
                 it == supportedExtensions.end())
             {
-                MC_THROW Error(
-                    GraphicsError,
-                    std::format("Extension {} is required but isn't supported", requiredExt));
+                MC_THROW Error(GraphicsError, std::format("Extension {} is required but isn't supported", requiredExt));
             }
         }
 
@@ -96,9 +92,8 @@ namespace renderer::backend
     {
         if constexpr (kDebug)
         {
-            std::function destroyDebugMessenger =
-                reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-                    vkGetInstanceProcAddr(m_handle, "vkDestroyDebugUtilsMessengerEXT"));
+            std::function destroyDebugMessenger = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+                vkGetInstanceProcAddr(m_handle, "vkDestroyDebugUtilsMessengerEXT"));
 
             destroyDebugMessenger(m_handle, m_debugMessenger, nullptr);
         }
@@ -119,28 +114,24 @@ namespace renderer::backend
             if (auto it = rn::find_if(availableLayers,
                                       [neededLayer](VkLayerProperties const& layer)
                                       {
-                                          return std::string_view(static_cast<char const*>(
-                                                     layer.layerName)) == neededLayer;
+                                          return std::string_view(static_cast<char const*>(layer.layerName)) == neededLayer;
                                       });
                 it == availableLayers.end())
             {
-                logger::warn("Validation layer '{}' was requested but isn't available",
-                             neededLayer);
+                logger::warn("Validation layer '{}' was requested but isn't available", neededLayer);
             };
         }
 
-        std::function createDebugMessenger = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-            vkGetInstanceProcAddr(m_handle, "vkCreateDebugUtilsMessengerEXT"));
+        std::function createDebugMessenger =
+            reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_handle, "vkCreateDebugUtilsMessengerEXT"));
 
-        createDebugMessenger(m_handle, &m_debugMessengerInfo, nullptr, &m_debugMessenger) >>
-            vkResultChecker;
+        createDebugMessenger(m_handle, &m_debugMessengerInfo, nullptr, &m_debugMessenger) >> vkResultChecker;
     };
 
-    VKAPI_ATTR auto VKAPI_CALL
-    Instance::validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                      VkDebugUtilsMessageTypeFlagsEXT messageType,
-                                      VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
-                                      void* pUserData) -> VkBool32
+    VKAPI_ATTR auto VKAPI_CALL Instance::validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                                                 VkDebugUtilsMessageTypeFlagsEXT messageType,
+                                                                 VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
+                                                                 void* pUserData) -> VkBool32
     {
         std::string_view message = pCallbackData->pMessage;
 

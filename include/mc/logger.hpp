@@ -59,9 +59,7 @@ namespace logger
         if constexpr (kDebug)
         {
             Logger::get()->log(
-                spdlog::source_loc { std::string_view(fmtstr.location.file_name())
-                                         .substr(std::size(ROOT_SOURCE_PATH))
-                                         .data(),
+                spdlog::source_loc { std::string_view(fmtstr.location.file_name()).substr(std::size(ROOT_SOURCE_PATH)).data(),
                                      static_cast<int>(fmtstr.location.line()),
                                      nullptr },
                 lvl,
@@ -69,15 +67,12 @@ namespace logger
         }
         else
         {
-            Logger::get()->log(
-                lvl,
-                fmt::vformat(fmtstr.message, fmt::make_format_args(std::forward<Args>(args)...)));
+            Logger::get()->log(lvl, fmt::vformat(fmtstr.message, fmt::make_format_args(std::forward<Args>(args)...)));
         }
     }
 
     template<level lvl, typename... Args>
-    ALWAYS_INLINE constexpr void
-    logAt(std::source_location location, std::string_view const& fmtstr, Args&&... args)
+    ALWAYS_INLINE constexpr void logAt(std::source_location location, std::string_view const& fmtstr, Args&&... args)
     {
         if constexpr (lvl < SPDLOG_ACTIVE_LEVEL)
         {
@@ -86,19 +81,15 @@ namespace logger
 
         if constexpr (kDebug)
         {
-            Logger::get()->log(
-                spdlog::source_loc { std::string_view(location.file_name())
-                                         .substr(std::size(ROOT_SOURCE_PATH))
-                                         .data(),
-                                     static_cast<int>(location.line()),
-                                     nullptr },
-                lvl,
-                fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...)));
+            Logger::get()->log(spdlog::source_loc { std::string_view(location.file_name()).substr(std::size(ROOT_SOURCE_PATH)).data(),
+                                                    static_cast<int>(location.line()),
+                                                    nullptr },
+                               lvl,
+                               fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...)));
         }
         else
         {
-            Logger::get()->log(
-                lvl, fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...)));
+            Logger::get()->log(lvl, fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...)));
         }
     }
 

@@ -112,10 +112,7 @@ public:
 class KeyHoldEvent : public InputEvent
 {
 public:
-    explicit KeyHoldEvent(InputManager const* inputManager, Key heldDownKey)
-        : InputEvent { inputManager }, key { heldDownKey }
-    {
-    }
+    explicit KeyHoldEvent(InputManager const* inputManager, Key heldDownKey) : InputEvent { inputManager }, key { heldDownKey } {}
 
     Key key;
 
@@ -125,10 +122,7 @@ public:
 class CursorMoveEvent : public InputEvent
 {
 public:
-    explicit CursorMoveEvent(InputManager const* inputManager, glm::uvec2 pos)
-        : InputEvent { inputManager }, position { pos }
-    {
-    }
+    explicit CursorMoveEvent(InputManager const* inputManager, glm::uvec2 pos) : InputEvent { inputManager }, position { pos } {}
 
     glm::ivec2 position;
 
@@ -144,10 +138,7 @@ public:
         Released = GLFW_RELEASE
     };
 
-    MouseButtonEvent(InputManager const* inputManager,
-                     MouseButton mouseButton,
-                     Action buttonAction,
-                     int mods)
+    MouseButtonEvent(InputManager const* inputManager, MouseButton mouseButton, Action buttonAction, int mods)
         : InputEvent { inputManager },
           button { mouseButton },
           action { buttonAction },
@@ -168,9 +159,7 @@ class MouseScrollEvent : public InputEvent
 {
 public:
     MouseScrollEvent(InputManager const* inputManager, glm::vec2 delta)
-        : InputEvent { inputManager },
-          wheelDelta { delta },
-          position { getInputManager()->getCurrentCursorPosition() }
+        : InputEvent { inputManager }, wheelDelta { delta }, position { getInputManager()->getCurrentCursorPosition() }
     {
     }
 

@@ -20,8 +20,7 @@ namespace renderer::backend
 
         [[nodiscard]] auto isComplete() const -> bool
         {
-            return graphicsFamily.has_value() && presentFamily.has_value() &&
-                   transferFamily.has_value();
+            return graphicsFamily.has_value() && presentFamily.has_value() && transferFamily.has_value();
         };
     };
 
@@ -47,8 +46,7 @@ namespace renderer::backend
 
         static auto checkDeviceExtensionSupport(VkPhysicalDevice device) -> bool;
 
-        static auto findQueueFamilies(VkPhysicalDevice device,
-                                      VkSurfaceKHR surface) -> QueueFamilyIndices const&;
+        static auto findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) -> QueueFamilyIndices const&;
 
         VkDevice m_device { VK_NULL_HANDLE };
         VkPhysicalDevice m_physicalDevice { VK_NULL_HANDLE };
@@ -58,8 +56,6 @@ namespace renderer::backend
         VkQueue m_graphicsQueue { VK_NULL_HANDLE };
         VkQueue m_presentQueue { VK_NULL_HANDLE };
 
-        inline static std::vector<char const*> const m_requiredExtensions {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME
-        };
+        inline static std::vector<char const*> const m_requiredExtensions { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
     };
 }  // namespace renderer::backend

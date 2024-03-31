@@ -16,8 +16,7 @@
 class LogErrorAndThrow
 {
 public:
-    LogErrorAndThrow(std::exception const& err,
-                     std::source_location loc = std::source_location::current())
+    LogErrorAndThrow(std::exception const& err, std::source_location loc = std::source_location::current())
     {
         logger::logAt<logger::level::err>(loc, err.what());
         throw err;
@@ -65,11 +64,8 @@ enum ErrorType
 class Error : public std::runtime_error
 {
 public:
-    Error(ErrorType type,
-          std::string const& msg,
-          std::source_location loc = std::source_location::current())
-        : std::runtime_error { fmt::format("[{}] {}", magic_enum::enum_name(type), msg) },
-          m_location(loc)
+    Error(ErrorType type, std::string const& msg, std::source_location loc = std::source_location::current())
+        : std::runtime_error { fmt::format("[{}] {}", magic_enum::enum_name(type), msg) }, m_location(loc)
     {
     }
 

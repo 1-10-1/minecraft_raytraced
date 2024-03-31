@@ -35,8 +35,7 @@ public:
     template<typename Duration>
     [[nodiscard]] static auto getCurrentTime()
     {
-        return std::chrono::time_point<std::chrono::steady_clock, Duration>(
-            std::chrono::steady_clock::now().time_since_epoch());
+        return std::chrono::time_point<std::chrono::steady_clock, Duration>(std::chrono::steady_clock::now().time_since_epoch());
     }
 
     void tick();
@@ -45,9 +44,8 @@ public:
     void unpause();
 
 private:
-    std::chrono::time_point<Clock> m_baseTimePoint { Clock::now() },
-        m_pauseTimePoint { m_baseTimePoint }, m_prevTimePoint { m_baseTimePoint },
-        m_latestTimePoint { m_baseTimePoint };
+    std::chrono::time_point<Clock> m_baseTimePoint { Clock::now() }, m_pauseTimePoint { m_baseTimePoint },
+        m_prevTimePoint { m_baseTimePoint }, m_latestTimePoint { m_baseTimePoint };
 
     bool m_isPaused { false };
     Milliseconds m_deltaTime { 0.0 }, m_pauseTime { 0.0 };

@@ -12,8 +12,7 @@ public:
     template<typename T>
     static auto between(T a, T b) -> T
     {
-        static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>,
-                      "Between expected either integer or float params.");
+        static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>, "Between expected either integer or float params.");
 
         if constexpr (std::is_floating_point_v<T>)
         {
