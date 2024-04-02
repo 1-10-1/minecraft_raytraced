@@ -1,6 +1,7 @@
 #pragma once
 
 #include "command.hpp"
+#include "constants.hpp"
 #include "device.hpp"
 #include "framebuffers.hpp"
 #include "instance.hpp"
@@ -16,6 +17,13 @@
 
 namespace renderer::backend
 {
+    struct FrameResources
+    {
+        VkSemaphore imageAvailableSemaphore { VK_NULL_HANDLE };
+        VkSemaphore renderFinishedSemaphore { VK_NULL_HANDLE };
+        VkFence inFlightFence { VK_NULL_HANDLE };
+    };
+
     class RendererBackend
     {
     public:
@@ -49,9 +57,8 @@ namespace renderer::backend
         Framebuffers m_framebuffers;
         CommandManager m_commandManager;
 
-        VkSemaphore m_imageAvailableSemaphore { VK_NULL_HANDLE };
-        VkSemaphore m_renderFinishedSemaphore { VK_NULL_HANDLE };
+        std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 
-        VkFence m_inFlightFence { VK_NULL_HANDLE };
+        uint32_t m_currentFrame { 0 };
     };
 }  // namespace renderer::backend

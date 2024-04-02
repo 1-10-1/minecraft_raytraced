@@ -1,5 +1,8 @@
 #include <mc/renderer/backend/command.hpp>
+#include <mc/renderer/backend/constants.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
+#include <mc/utils.hpp>
+
 #include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
@@ -18,10 +21,10 @@ namespace renderer::backend
             .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool        = m_cmdPool,
             .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = 1,
+            .commandBufferCount = Utils::size(m_cmdBuffers),
         };
 
-        vkAllocateCommandBuffers(device, &allocInfo, &m_cmdBuffer) >> vkResultChecker;
+        vkAllocateCommandBuffers(device, &allocInfo, m_cmdBuffers.data()) >> vkResultChecker;
     }
 
     CommandManager::~CommandManager()

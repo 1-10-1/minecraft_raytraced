@@ -24,7 +24,6 @@ namespace renderer::backend
         {
             vkDeviceWaitIdle(m_device);
         }
-
         destroySyncObjects();
     }
 
@@ -39,16 +38,22 @@ namespace renderer::backend
             .flags = VK_FENCE_CREATE_SIGNALED_BIT,
         };
 
-        vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) >> vkResultChecker;
-        vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) >> vkResultChecker;
-        vkCreateFence(m_device, &fenceInfo, nullptr, &m_inFlightFence) >> vkResultChecker;
+        for (FrameResources& frame : m_frameResources)
+        {
+            vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &frame.imageAvailableSemaphore) >> vkResultChecker;
+            vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &frame.renderFinishedSemaphore) >> vkResultChecker;
+            vkCreateFence(m_device, &fenceInfo, nullptr, &frame.inFlightFence) >> vkResultChecker;
+        }
     }
 
     void RendererBackend::destroySyncObjects()
     {
-        vkDestroySemaphore(m_device, m_imageAvailableSemaphore, nullptr);
-        vkDestroySemaphore(m_device, m_renderFinishedSemaphore, nullptr);
-        vkDestroyFence(m_device, m_inFlightFence, nullptr);
+        for (FrameResources& frame : m_frameResources)
+        {
+            vkDestroySemaphore(m_device, frame.imageAvailableSemaphore, nullptr);
+            vkDestroySemaphore(m_device, frame.renderFinishedSemaphore, nullptr);
+            vkDestroyFence(m_device, frame.inFlightFence, nullptr);
+        }
     }
 
 }  // namespace renderer::backend

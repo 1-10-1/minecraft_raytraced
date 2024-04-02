@@ -7,25 +7,27 @@ namespace renderer::backend
 {
     void RendererBackend::render()
     {
-        VkCommandBuffer cmdBuf = m_commandManager.getCommandBuffer();
-        vkWaitForFences(m_device, 1, &m_inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+        VkCommandBuffer cmdBuf = m_commandManager.getCommandBuffer(m_currentFrame);
 
-        vkResetFences(m_device, 1, &m_inFlightFence);
+        auto frame = m_frameResources[m_currentFrame];
+
+        vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+
+        vkResetFences(m_device, 1, &frame.inFlightFence);
 
         uint32_t imageIndex {};
-        vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+        vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, frame.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
-        vkResetCommandBuffer(cmdBuf,
-                             0);  // Try removing this cause I think submit resets it automatically
+        vkResetCommandBuffer(cmdBuf, 0);
 
         recordCommandBuffer(imageIndex);
 
-        std::array waitSemaphores { m_imageAvailableSemaphore };
+        std::array waitSemaphores { frame.imageAvailableSemaphore };
         std::array waitStages = std::to_array<VkPipelineStageFlags>({
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         });
 
-        std::array signalSemaphores = { m_renderFinishedSemaphore };
+        std::array signalSemaphores = { frame.renderFinishedSemaphore };
 
         VkSubmitInfo submitInfo {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -41,7 +43,7 @@ namespace renderer::backend
             .pSignalSemaphores    = signalSemaphores.data(),
         };
 
-        vkQueueSubmit(m_device.getGraphicsQueue(), 1, &submitInfo, m_inFlightFence) >> vkResultChecker;
+        vkQueueSubmit(m_device.getGraphicsQueue(), 1, &submitInfo, frame.inFlightFence) >> vkResultChecker;
 
         std::array swapChains = { static_cast<VkSwapchainKHR>(m_swapchain) };
 
@@ -58,11 +60,13 @@ namespace renderer::backend
         };
 
         vkQueuePresentKHR(m_device.getPresentQueue(), &presentInfo);
+
+        m_currentFrame = (m_currentFrame + 1) % kNumFramesInFlight;
     }
 
     void RendererBackend::recordCommandBuffer(uint32_t imageIndex)
     {
-        VkCommandBuffer cmdBuf = m_commandManager.getCommandBuffer();
+        VkCommandBuffer cmdBuf = m_commandManager.getCommandBuffer(m_currentFrame);
 
         VkExtent2D imageExtent = m_swapchain.getImageExtent();
 
