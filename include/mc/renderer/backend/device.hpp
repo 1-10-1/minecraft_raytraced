@@ -46,6 +46,10 @@ namespace renderer::backend
 
         [[nodiscard]] auto getQueueFamilyIndices() const -> QueueFamilyIndices const& { return m_queueFamilyIndices; }
 
+        [[nodiscard]] auto getGraphicsQueue() const -> VkQueue { return m_graphicsQueue; }
+
+        [[nodiscard]] auto getPresentQueue() const -> VkQueue { return m_presentQueue; }
+
     private:
         void selectPhysicalDevice(Instance& instance, Surface const& surface);
         void selectLogicalDevice();

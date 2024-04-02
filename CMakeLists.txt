@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
 
-project(minecraft
-    LANGUAGES CXX)
+project(minecraft LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,8 +29,12 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/render.cpp
     src/renderer/backend/instance.cpp
+    src/renderer/backend/framebuffers.cpp
     src/renderer/backend/surface.cpp
+    src/renderer/backend/command.cpp
+    src/renderer/backend/pipeline.cpp
     src/renderer/backend/swapchain.cpp
+    src/renderer/backend/render_pass.cpp
     src/renderer/backend/device.cpp
     src/renderer/renderer.cpp
 

@@ -4,7 +4,6 @@
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
-#include <ranges>
 #include <vector>
 
 #include <GLFW/glfw3.h>

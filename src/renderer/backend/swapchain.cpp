@@ -1,5 +1,6 @@
 #include <mc/renderer/backend/swapchain.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
+
 #include <vulkan/vulkan_core.h>
 
 #include <ranges>
@@ -9,10 +10,11 @@ namespace vi = std::ranges::views;
 
 namespace renderer::backend
 {
-    Swapchain::Swapchain(Device const& device, Surface& surface, glm::uvec2 initialDimensions) : m_device { device }
+    Swapchain::Swapchain(Device const& device, Surface& surface, glm::uvec2 initialDimensions)
+        : m_device { device }, m_imageExtent { .width = initialDimensions.x, .height = initialDimensions.y }
     {
         // Surface is first initialized here
-        surface.refresh(device, { .width = initialDimensions.x, .height = initialDimensions.y });
+        surface.refresh(device, m_imageExtent);
 
         auto const& details = surface.getDetails();
 
