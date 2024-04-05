@@ -1,3 +1,4 @@
+#include "mc/defines.hpp"
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/instance.hpp>
@@ -7,6 +8,7 @@
 #include <vector>
 
 #include <GLFW/glfw3.h>
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -133,6 +135,8 @@ namespace renderer::backend
                                                                  VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
                                                                  void* pUserData) -> VkBool32
     {
+        ZoneNamedN(validationZone, "Validation layer callback", kDebug);
+
         std::string_view message = pCallbackData->pMessage;
 
         if (messageSeverity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ||

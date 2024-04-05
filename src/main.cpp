@@ -6,17 +6,40 @@
 #include <array>
 #include <filesystem>
 
+#include <tracy/Tracy.hpp>
+
 #ifdef __linux__
 #    include <libgen.h>
 #    include <linux/limits.h>
 #    include <unistd.h>
 #endif
 
+#if PROFILED
+// NOLINTBEGIN
+void* operator new(size_t count)
+{
+    auto ptr = malloc(count);
+    TracyAlloc(ptr, count);
+    return ptr;
+}
+#endif
+
+void operator delete(void* ptr) noexcept
+{
+    TracyFree(ptr);
+    free(ptr);
+}
+
+// NOLINTEND
+
 void switchCwd();
 
 auto main() -> int
 {
     switchCwd();
+
+    [[maybe_unused]] std::string_view appInfo = "Minecraft Clone Game";
+    TracyAppInfo(appInfo.data(), appInfo.size());
 
     logger::Logger::init();
 

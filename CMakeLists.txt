@@ -9,9 +9,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Vulkan REQUIRED)
 
-IF(NOT CMAKE_BUILD_TYPE)
+option(PROFILED_BUILD "" OFF)
+
+if(NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug or Release)" FORCE)
-ENDIF(NOT CMAKE_BUILD_TYPE)
+endif()
 
 add_subdirectory(lib)
 
@@ -38,9 +40,7 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/device.cpp
     src/renderer/renderer.cpp
 
-    # src/graphics/validation_layer.cpp
     # src/camera.cpp
-    # src/graphics/assetloader.cpp
 )
 
 # TODO: Figure out how to make this work
@@ -64,6 +64,7 @@ list(APPEND LIBS
     glm::glm
     glfw
     magic_enum::magic_enum
+    Tracy::TracyClient
     # assimp::assimp
 )
 
@@ -83,15 +84,23 @@ else()
     target_compile_definitions(${PROJECT_NAME} PUBLIC DEBUG=false)
 endif()
 
+if (PROFILED_BUILD)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PROFILED=true)
+else()
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PROFILED=false)
+endif()
+
 target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
 
-target_compile_options(${PROJECT_NAME} PUBLIC
+target_compile_options(${PROJECT_NAME} PRIVATE
     -std=c++23 -Wall -Wunused -mavx2 -Werror
     -Wno-format -Wno-switch
     -Wno-deprecated-declarations -march=native
     $<$<CONFIG:Release>:-O3 -ffast-math -finline-functions>
-    $<$<CONFIG:Debug>:-mtune=native>
+    $<$<CONFIG:Debug>:-mtune=native> # -fsanitize=address -g -fno-omit-frame-pointer>
 )
+
+target_link_options(${PROJECT_NAME} PRIVATE) #-fsanitize=address -g -fno-omit-frame-pointer)
 
 set(SHADER_FILES
     ${CMAKE_SOURCE_DIR}/res/shaders/main.frag
@@ -135,7 +144,7 @@ foreach(SHADER_FILE ${SHADER_FILES})
                 -o "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.spv"
                 -std=450core
                 --target-spv=spv1.5
-                --target-env=vulkan1.2
+                --target-env=vulkan1.3
                 -fshader-stage=${SHADER_TYPE}
         DEPENDS ${SHADER_FILE}
         COMMENT "Compiling ${SHADER_TYPE} Shader: ${SHADER_FILE}"
@@ -153,3 +162,4 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/res $<TARGET_FILE_DIR:${PROJECT_NAME}>/res
 )
+

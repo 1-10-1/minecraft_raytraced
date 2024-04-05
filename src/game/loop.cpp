@@ -4,6 +4,7 @@
 #include <mc/logger.hpp>
 
 #include <fmt/printf.h>
+#include <tracy/Tracy.hpp>
 
 namespace game
 {
@@ -13,9 +14,11 @@ namespace game
 
         while (!m_window.shouldClose())
         {
+            window::Window::pollEvents();
+
             m_eventManager.dispatchEvent(AppRenderEvent {});
 
-            window::Window::pollEvents();
+            FrameMark;
         };
     }
 }  // namespace game

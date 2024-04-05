@@ -34,3 +34,6 @@
 [submodule "lib/glslang"]
 	path = lib/glslang
 	url = https://github.com/KhronosGroup/glslang
+[submodule "lib/tracy"]
+	path = lib/tracy
+	url = https://github.com/wolfpld/tracy

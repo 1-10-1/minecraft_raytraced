@@ -1,17 +1,24 @@
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/render.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
+
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
 {
     void RendererBackend::render()
     {
+        ZoneScopedN("Backend render");
+
         VkCommandBuffer cmdBuf = m_commandManager.getCommandBuffer(m_currentFrame);
 
         auto frame = m_frameResources[m_currentFrame];
 
-        vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+        {
+            ZoneNamedN(tracy_fence_wait_zone, "In-flight fence wait", true);
+            vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+        }
 
         vkResetFences(m_device, 1, &frame.inFlightFence);
 
@@ -20,7 +27,10 @@ namespace renderer::backend
 
         vkResetCommandBuffer(cmdBuf, 0);
 
-        recordCommandBuffer(imageIndex);
+        {
+            ZoneNamedN(tracy_cmd_rec_zone, "Command buffer recording", true);
+            recordCommandBuffer(imageIndex);
+        }
 
         std::array waitSemaphores { frame.imageAvailableSemaphore };
         std::array waitStages = std::to_array<VkPipelineStageFlags>({
@@ -43,7 +53,10 @@ namespace renderer::backend
             .pSignalSemaphores    = signalSemaphores.data(),
         };
 
-        vkQueueSubmit(m_device.getGraphicsQueue(), 1, &submitInfo, frame.inFlightFence) >> vkResultChecker;
+        {
+            ZoneNamedN(tracy_queue_submit_zone, "Queue Submit", true);
+            vkQueueSubmit(m_device.getGraphicsQueue(), 1, &submitInfo, frame.inFlightFence) >> vkResultChecker;
+        }
 
         std::array swapChains = { static_cast<VkSwapchainKHR>(m_swapchain) };
 
@@ -59,7 +72,10 @@ namespace renderer::backend
             .pResults = nullptr,
         };
 
-        vkQueuePresentKHR(m_device.getPresentQueue(), &presentInfo);
+        {
+            ZoneNamedN(tracy_queue_present_zone, "Queue present", true);
+            vkQueuePresentKHR(m_device.getPresentQueue(), &presentInfo);
+        }
 
         m_currentFrame = (m_currentFrame + 1) % kNumFramesInFlight;
     }

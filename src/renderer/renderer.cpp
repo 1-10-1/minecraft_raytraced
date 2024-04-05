@@ -1,7 +1,9 @@
-#include "glm/fwd.hpp"
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 #include <mc/renderer/renderer.hpp>
+
+#include <glm/fwd.hpp>
+#include <tracy/Tracy.hpp>
 
 namespace renderer
 {
@@ -14,6 +16,7 @@ namespace renderer
 
     void Renderer::onRender(AppRenderEvent const& /* unused */)
     {
+        ZoneScopedN("Frontend render");
         m_backend.render();
     }
 

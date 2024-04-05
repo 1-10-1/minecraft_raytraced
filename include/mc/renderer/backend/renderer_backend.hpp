@@ -39,8 +39,10 @@ namespace renderer::backend
         void render();
         void recordCommandBuffer(uint32_t imageIndex);
 
-        void recreate_surface(glm::uvec2 dimensions)
+        void handleWindowResize(glm::uvec2 dimensions)
         {
+            vkDeviceWaitIdle(m_device);
+
             m_surface.refresh(m_device, { .width = dimensions.x, .height = dimensions.y });
         }
 

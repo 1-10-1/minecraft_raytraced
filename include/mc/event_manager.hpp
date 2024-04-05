@@ -1,17 +1,15 @@
 #pragma once
 
-#include <any>
+#include "events.hpp"
+#include "mc/defines.hpp"
 
+#include <any>
 #include <functional>
-#include <glm/ext/vector_float2.hpp>
 #include <utility>
 
-#include "events.hpp"
-
-// Whenever you have time, please work on fixing the following issue:
-// When an event listener is registered with a "this" parameter, make sure that the object
-// that "this" points to does not get destroyed without notifying the event queue so that it can be
-// properly cleaned up.
+#include <glm/ext/vector_float2.hpp>
+#include <magic_enum.hpp>
+#include <tracy/Tracy.hpp>
 
 class EventManager
 {
@@ -67,6 +65,12 @@ public:
     template<EventSpec Event>
     void dispatchEvent(Event const& event)
     {
+        ZoneScopedN("Event Dispatch");
+
+        [[maybe_unused]] std::string_view eventName = magic_enum::enum_name(Event::eventType);
+
+        ZoneText(eventName.data(), eventName.size());
+
         auto event_any = std::make_any<Event const&>(event);
 
         for (auto const& listener : m_eventListeners[static_cast<size_t>(Event::eventType)])

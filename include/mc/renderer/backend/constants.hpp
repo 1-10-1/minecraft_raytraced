@@ -4,5 +4,5 @@
 
 namespace renderer::backend
 {
-    constexpr uint32_t kNumFramesInFlight = 2;
+    constexpr uint32_t kNumFramesInFlight = 3;
 }
