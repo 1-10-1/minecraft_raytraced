@@ -1,4 +1,5 @@
 #include <mc/logger.hpp>
+
 #include <mc/renderer/backend/render.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
@@ -15,22 +16,31 @@ namespace renderer::backend
 
         auto frame = m_frameResources[m_currentFrame];
 
+        vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+
+        uint32_t imageIndex {};
+
         {
-            ZoneNamedN(tracy_fence_wait_zone, "In-flight fence wait", true);
-            vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+            VkResult result = vkAcquireNextImageKHR(
+                m_device, m_swapchain, UINT64_MAX, frame.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+            if (result == VK_ERROR_OUT_OF_DATE_KHR)
+            {
+                updateSwapchain();
+                return;
+            }
+
+            if (result != VK_SUBOPTIMAL_KHR)
+            {
+                result >> vkResultChecker;
+            }
         }
 
         vkResetFences(m_device, 1, &frame.inFlightFence);
 
-        uint32_t imageIndex {};
-        vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, frame.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
-
         vkResetCommandBuffer(cmdBuf, 0);
 
-        {
-            ZoneNamedN(tracy_cmd_rec_zone, "Command buffer recording", true);
-            recordCommandBuffer(imageIndex);
-        }
+        recordCommandBuffer(imageIndex);
 
         std::array waitSemaphores { frame.imageAvailableSemaphore };
         std::array waitStages = std::to_array<VkPipelineStageFlags>({
@@ -73,8 +83,18 @@ namespace renderer::backend
         };
 
         {
-            ZoneNamedN(tracy_queue_present_zone, "Queue present", true);
-            vkQueuePresentKHR(m_device.getPresentQueue(), &presentInfo);
+            ZoneNamedN(tracy_queue_present_zone, "Queue presentation", true);
+            VkResult result = vkQueuePresentKHR(m_device.getPresentQueue(), &presentInfo);
+
+            if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_windowResized)
+            {
+                updateSwapchain();
+                m_windowResized = false;
+            }
+            else
+            {
+                result >> vkResultChecker;
+            }
         }
 
         m_currentFrame = (m_currentFrame + 1) % kNumFramesInFlight;
@@ -82,6 +102,10 @@ namespace renderer::backend
 
     void RendererBackend::recordCommandBuffer(uint32_t imageIndex)
     {
+#if PROFILED
+        TracyVkCtx tracyCtx = m_frameResources[m_currentFrame].tracyContext;
+#endif
+
         VkCommandBuffer cmdBuf = m_commandManager.getCommandBuffer(m_currentFrame);
 
         VkExtent2D imageExtent = m_swapchain.getImageExtent();
@@ -94,45 +118,54 @@ namespace renderer::backend
 
         vkBeginCommandBuffer(cmdBuf, &beginInfo) >> vkResultChecker;
 
-        VkClearValue clearColor = { { { 0.529f, 0.356f, 0.788f, 1.0f } } };
+        {
+            TracyVkZone(tracyCtx, cmdBuf, "GPU Render");
 
-        VkRenderPassBeginInfo renderPassInfo {
-            .sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .renderPass  = m_renderPass,
-            .framebuffer = m_framebuffers[imageIndex],
-            .renderArea  = {
-                .offset = { 0, 0 },
+            VkClearValue clearColor = { { { 0.529f, 0.356f, 0.788f, 1.0f } } };
+
+            VkRenderPassBeginInfo renderPassInfo {
+                .sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                .renderPass  = m_renderPass,
+                .framebuffer = m_framebuffers[imageIndex],
+                .renderArea  = {
+                    .offset = { 0, 0 },
+                    .extent = imageExtent,
+                },
+                .clearValueCount = 1,
+                .pClearValues    = &clearColor,
+            };
+
+            vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+            VkViewport viewport {
+                .x        = 0.0f,
+                .y        = 0.0f,
+                .width    = static_cast<float>(imageExtent.width),
+                .height   = static_cast<float>(imageExtent.height),
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+            };
+
+            vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+
+            VkRect2D scissor {
+                .offset = {0, 0},
                 .extent = imageExtent,
-            },
-            .clearValueCount = 1,
-            .pClearValues    = &clearColor,
-        };
+            };
 
-        vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+            vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+            {
+                TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
+                vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+            }
 
-        VkViewport viewport {
-            .x        = 0.0f,
-            .y        = 0.0f,
-            .width    = static_cast<float>(imageExtent.width),
-            .height   = static_cast<float>(imageExtent.height),
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-        };
+            vkCmdEndRenderPass(cmdBuf);
+        }
 
-        vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
-
-        VkRect2D scissor {
-            .offset = {0, 0},
-            .extent = imageExtent,
-        };
-
-        vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
-
-        vkCmdDraw(cmdBuf, 3, 1, 0, 0);
-
-        vkCmdEndRenderPass(cmdBuf);
+        TracyVkCollect(tracyCtx, cmdBuf);
 
         vkEndCommandBuffer(cmdBuf) >> vkResultChecker;
     }

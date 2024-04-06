@@ -14,24 +14,6 @@
 #    include <unistd.h>
 #endif
 
-#if PROFILED
-// NOLINTBEGIN
-void* operator new(size_t count)
-{
-    auto ptr = malloc(count);
-    TracyAlloc(ptr, count);
-    return ptr;
-}
-#endif
-
-void operator delete(void* ptr) noexcept
-{
-    TracyFree(ptr);
-    free(ptr);
-}
-
-// NOLINTEND
-
 void switchCwd();
 
 auto main() -> int

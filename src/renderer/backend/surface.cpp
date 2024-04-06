@@ -1,10 +1,11 @@
 #include <mc/renderer/backend/surface.hpp>
 
 #include <mc/exceptions.hpp>
+#include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
 {
-    void Surface::refresh(VkPhysicalDevice device, VkExtent2D dimensions)
+    void Surface::refresh(VkPhysicalDevice device)
     {
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &m_details.capabilities);
 
@@ -36,11 +37,13 @@ namespace renderer::backend
             }
             else
             {
-                m_details.extent = { std::clamp(dimensions.width,
+                glm::uvec2 dimensions = m_window.getFramebufferDimensions();
+
+                m_details.extent = { std::clamp(dimensions.x,
                                                 m_details.capabilities.minImageExtent.width,
                                                 m_details.capabilities.maxImageExtent.width),
 
-                                     std::clamp(dimensions.height,
+                                     std::clamp(dimensions.y,
                                                 m_details.capabilities.minImageExtent.height,
                                                 m_details.capabilities.maxImageExtent.height) };
             }

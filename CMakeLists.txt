@@ -97,7 +97,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     -Wno-format -Wno-switch
     -Wno-deprecated-declarations -march=native
     $<$<CONFIG:Release>:-O3 -ffast-math -finline-functions>
-    $<$<CONFIG:Debug>:-mtune=native> # -fsanitize=address -g -fno-omit-frame-pointer>
+    $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
 )
 
 target_link_options(${PROJECT_NAME} PRIVATE) #-fsanitize=address -g -fno-omit-frame-pointer)
@@ -162,4 +162,3 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/res $<TARGET_FILE_DIR:${PROJECT_NAME}>/res
 )
-

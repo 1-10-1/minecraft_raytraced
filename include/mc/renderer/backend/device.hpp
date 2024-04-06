@@ -66,6 +66,14 @@ namespace renderer::backend
         VkQueue m_graphicsQueue { VK_NULL_HANDLE };
         VkQueue m_presentQueue { VK_NULL_HANDLE };
 
-        inline static std::vector<char const*> const m_requiredExtensions { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+        // clang-format off
+        inline static std::vector<char const*> const m_requiredExtensions
+        {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+#if PROFILED
+            VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
+#endif
+        };
+        // clang-format on
     };
 }  // namespace renderer::backend

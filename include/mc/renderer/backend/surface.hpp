@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../window.hpp"
 #include "instance.hpp"
 
 #include <vector>
@@ -25,9 +26,9 @@ namespace renderer::backend
     class Surface
     {
     public:
-        Surface(GLFWwindow* window, Instance& instance) : m_instance { instance }
+        Surface(window::Window& window, Instance& instance) : m_instance { instance }, m_window { window }
         {
-            glfwCreateWindowSurface(instance, window, nullptr, &m_surface);
+            glfwCreateWindowSurface(instance, window.getHandle(), nullptr, &m_surface);
         };
 
         ~Surface() { vkDestroySurfaceKHR(m_instance, m_surface, nullptr); };
@@ -43,10 +44,13 @@ namespace renderer::backend
 
         [[nodiscard]] auto getDetails() const -> SurfaceDetails const& { return m_details; }
 
-        void refresh(VkPhysicalDevice device, VkExtent2D dimensions);
+        [[nodiscard]] auto getFramebufferExtent() const -> VkExtent2D { return m_details.extent; }
+
+        void refresh(VkPhysicalDevice device);
 
     private:
         Instance& m_instance;
+        window::Window& m_window;
         VkSurfaceKHR m_surface { VK_NULL_HANDLE };
         SurfaceDetails m_details {};
 

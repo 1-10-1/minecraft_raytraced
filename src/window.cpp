@@ -6,8 +6,7 @@
 
 namespace window
 {
-    Window::Window(EventManager* eventManager, glm::ivec2 dimensions)
-        : m_eventManager { eventManager }, m_dimensions { dimensions }
+    Window::Window(EventManager* eventManager, glm::uvec2 windowDimensions) : m_eventManager { eventManager }
     {
         glfwInit();
 
@@ -16,7 +15,19 @@ namespace window
 
         // Reason: window hints need to be set before creating the window
         // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
-        m_handle = glfwCreateWindow(m_dimensions.x, m_dimensions.y, "Minecraft", nullptr, nullptr);
+        m_handle = glfwCreateWindow(
+            static_cast<int>(windowDimensions.x), static_cast<int>(windowDimensions.y), "Minecraft", nullptr, nullptr);
+
+        int fbWidth {};
+        int fbHeight {};
+        glfwGetFramebufferSize(m_handle, &fbWidth, &fbHeight);
+
+        int scWidth {};
+        int scHeight {};
+        glfwGetWindowSize(m_handle, &scWidth, &scHeight);
+
+        m_windowDimensions      = { static_cast<uint32_t>(scWidth), static_cast<uint32_t>(scHeight) };
+        m_framebufferDimensions = { static_cast<uint32_t>(fbWidth), static_cast<uint32_t>(fbHeight) };
 
         glfwSetWindowUserPointer(m_handle, this);
 
@@ -100,7 +111,15 @@ namespace window
 
     void Window::windowSizeCallback(GLFWwindow* window, int width, int height)
     {
+        if (width == 0 || height == 0)
+        {
+            glfwWaitEvents();
+            return;
+        }
+
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+        self->m_windowDimensions = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
         self->m_eventManager->dispatchEvent(WindowResizeEvent({ width, height }));
     }
@@ -108,6 +127,8 @@ namespace window
     void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height)
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+        self->m_framebufferDimensions = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
         self->m_eventManager->dispatchEvent(WindowFramebufferResizeEvent({ width, height }));
     }
@@ -132,8 +153,8 @@ namespace window
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(
-            WindowFocusChangedEvent(focused == 0 ? WindowFocusChangedEvent::Defocused : WindowFocusChangedEvent::Focused));
+        self->m_eventManager->dispatchEvent(WindowFocusChangedEvent(focused == 0 ? WindowFocusChangedEvent::Defocused
+                                                                                 : WindowFocusChangedEvent::Focused));
     }
 
     void Window::windowMinimizeCallback(GLFWwindow* window, int iconified)
@@ -144,6 +165,7 @@ namespace window
         }
 
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
+        logger::info("Window minimize!");
 
         self->m_eventManager->dispatchEvent(WindowMinOrMaximizeEvent(WindowMinOrMaximizeEvent::Minimized));
     }
@@ -156,6 +178,7 @@ namespace window
         }
 
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
+        logger::info("Window maximise!");
 
         self->m_eventManager->dispatchEvent(WindowMinOrMaximizeEvent(WindowMinOrMaximizeEvent::Maximized));
     }
@@ -193,8 +216,8 @@ namespace window
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(
-            CursorFocusChangedEvent(entered != 0 ? CursorFocusChangedEvent::Focused : CursorFocusChangedEvent::Defocused));
+        self->m_eventManager->dispatchEvent(CursorFocusChangedEvent(entered != 0 ? CursorFocusChangedEvent::Focused
+                                                                                 : CursorFocusChangedEvent::Defocused));
     }
 
     void Window::scrollCallback(GLFWwindow* window, double x, double y)

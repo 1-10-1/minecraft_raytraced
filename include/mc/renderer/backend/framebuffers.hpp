@@ -11,7 +11,7 @@ namespace renderer::backend
     class Framebuffers
     {
     public:
-        Framebuffers(Device const& device, RenderPass const& renderPass, Swapchain const& swapchain);
+        explicit Framebuffers(Device const& device, RenderPass const& renderPass, Swapchain const& swapchain);
         ~Framebuffers();
 
         Framebuffers(Framebuffers const&) = delete;
@@ -21,6 +21,9 @@ namespace renderer::backend
         auto operator=(Framebuffers&&) -> Framebuffers&      = delete;
 
         [[nodiscard]] auto operator[](size_t index) const -> VkFramebuffer { return m_swapChainFramebuffers[index]; }
+
+        void create(RenderPass const& renderPass, Swapchain const& swapchain);
+        void destroy();
 
     private:
         Device const& m_device;

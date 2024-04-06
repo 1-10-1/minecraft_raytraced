@@ -1,3 +1,4 @@
+#include "mc/logger.hpp"
 #include <mc/renderer/backend/swapchain.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
@@ -10,13 +11,23 @@ namespace vi = std::ranges::views;
 
 namespace renderer::backend
 {
-    Swapchain::Swapchain(Device const& device, Surface& surface, glm::uvec2 initialDimensions)
-        : m_device { device }, m_imageExtent { .width = initialDimensions.x, .height = initialDimensions.y }
+    Swapchain::Swapchain(Device const& device, Surface& surface) : m_device { device }
     {
-        // Surface is first initialized here
-        surface.refresh(device, m_imageExtent);
+        create(surface);
+    }
+
+    Swapchain::~Swapchain()
+    {
+        destroy();
+    }
+
+    void Swapchain::create(Surface& surface)
+    {
+        surface.refresh(m_device);
 
         auto const& details = surface.getDetails();
+
+        m_imageExtent = details.extent;
 
         std::uint32_t imageCount = details.capabilities.minImageCount + 1;
 
@@ -25,7 +36,7 @@ namespace renderer::backend
             imageCount = details.capabilities.maxImageCount;
         }
 
-        QueueFamilyIndices const& queueFamilyIndices = device.getQueueFamilyIndices();
+        QueueFamilyIndices const& queueFamilyIndices = m_device.getQueueFamilyIndices();
 
         std::array<std::uint32_t, 2> queueFamilyIndicesArray { queueFamilyIndices.graphicsFamily.value(),
                                                                queueFamilyIndices.presentFamily.value() };
@@ -80,11 +91,11 @@ namespace renderer::backend
                                       .layerCount     = 1, },
             };
 
-            vkCreateImageView(device, &createInfo, nullptr, &m_imageViews[i]);
+            vkCreateImageView(m_device, &createInfo, nullptr, &m_imageViews[i]);
         }
     }
 
-    Swapchain::~Swapchain()
+    void Swapchain::destroy()
     {
         for (auto* imageView : m_imageViews)
         {

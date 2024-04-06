@@ -3,7 +3,6 @@
 #include "../event_manager.hpp"
 #include "./backend/renderer_backend.hpp"
 
-#include "glm/fwd.hpp"
 #include "mc/events.hpp"
 
 namespace renderer
@@ -11,7 +10,7 @@ namespace renderer
     class Renderer
     {
     public:
-        explicit Renderer(EventManager& eventManager, GLFWwindow* window, glm::uvec2 initialFramebufferDimensions);
+        explicit Renderer(EventManager& eventManager, window::Window& window);
 
         void onRender(AppRenderEvent const& /* unused */);
         void onFramebufferResize(WindowFramebufferResizeEvent const& event);

@@ -1,4 +1,6 @@
 #include <mc/renderer/backend/framebuffers.hpp>
+#include <mc/renderer/backend/render_pass.hpp>
+#include <mc/renderer/backend/swapchain.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
 #include <ranges>
@@ -12,6 +14,16 @@ namespace renderer::backend
 {
     Framebuffers::Framebuffers(Device const& device, RenderPass const& renderPass, Swapchain const& swapchain)
         : m_device { device }, m_swapChainFramebuffers(swapchain.getImageViews().size())
+    {
+        create(renderPass, swapchain);
+    }
+
+    Framebuffers::~Framebuffers()
+    {
+        destroy();
+    }
+
+    void Framebuffers::create(RenderPass const& renderPass, Swapchain const& swapchain)
     {
         VkExtent2D swapchainExtent = swapchain.getImageExtent();
 
@@ -29,11 +41,11 @@ namespace renderer::backend
                 .layers          = 1,
             };
 
-            vkCreateFramebuffer(device, &framebufferInfo, nullptr, &m_swapChainFramebuffers[i]) >> vkResultChecker;
+            vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_swapChainFramebuffers[i]) >> vkResultChecker;
         }
     }
 
-    Framebuffers::~Framebuffers()
+    void Framebuffers::destroy()
     {
         for (auto* framebuffer : m_swapChainFramebuffers)
         {

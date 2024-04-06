@@ -12,7 +12,5 @@ constexpr bool kProfiled = true;
 constexpr bool kProfiled = false;
 #endif
 
-#define PROFILED_BLOCK if constexpr (kProfiled)
-
 #define ALWAYS_INLINE  // TODO(aether): Do something about this
 #define NEVER_INLINE [[clang::noinline]]

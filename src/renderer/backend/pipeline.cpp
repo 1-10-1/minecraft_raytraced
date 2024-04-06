@@ -8,8 +8,6 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#error Suggestion: Two options: Split the game and renderer into two threads and wait for the render thread to idle before invoking resize, or constrain the window to a set resolution at the beginning but you'll prolly still need to handle things like VK_OUTDATED_KHR or sm
-
 namespace
 {
     auto readShader(std::string_view const& filepath) -> std::vector<char>;

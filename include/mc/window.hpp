@@ -11,7 +11,7 @@ namespace window
     class Window
     {
     public:
-        explicit Window(EventManager* eventManager, glm::ivec2 resolution);
+        explicit Window(EventManager* eventManager, glm::uvec2 dimensions);
 
         ~Window();
 
@@ -21,11 +21,18 @@ namespace window
         auto operator=(Window const&) -> Window& = default;
         auto operator=(Window&&) -> Window&      = default;
 
-        [[nodiscard]] auto shouldClose() const -> bool { return m_shouldClose || (glfwWindowShouldClose(m_handle) != 0); }
+        explicit operator GLFWwindow*() { return m_handle; }
+
+        [[nodiscard]] auto shouldClose() const -> bool
+        {
+            return m_shouldClose || (glfwWindowShouldClose(m_handle) != 0);
+        }
 
         [[nodiscard]] auto getHandle() const -> GLFWwindow* { return m_handle; }
 
-        [[nodiscard]] auto getDimensions() const -> glm::uvec2 { return m_dimensions; }
+        [[nodiscard]] auto getWindowDimensions() const -> glm::uvec2 { return m_windowDimensions; }
+
+        [[nodiscard]] auto getFramebufferDimensions() const -> glm::uvec2 { return m_framebufferDimensions; }
 
         static void pollEvents();
 
@@ -68,6 +75,7 @@ namespace window
         EventManager* m_eventManager;
         GLFWwindow* m_handle {};
 
-        glm::uvec2 m_dimensions {};
+        glm::uvec2 m_framebufferDimensions {};
+        glm::uvec2 m_windowDimensions {};
     };
 }  // namespace window

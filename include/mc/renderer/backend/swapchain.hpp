@@ -10,7 +10,7 @@ namespace renderer::backend
     class Swapchain
     {
     public:
-        Swapchain(Device const& device, Surface& surface, glm::uvec2 initialDimensions);
+        Swapchain(Device const& device, Surface& surface);
 
         Swapchain(Swapchain const&)                    = delete;
         Swapchain(Swapchain&&)                         = delete;
@@ -18,6 +18,9 @@ namespace renderer::backend
         auto operator=(Swapchain&&) -> Swapchain&      = delete;
 
         ~Swapchain();
+
+        void create(Surface& surface);
+        void destroy();
 
         // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VkSwapchainKHR() const { return m_handle; }
@@ -30,8 +33,10 @@ namespace renderer::backend
         Device const& m_device;
 
         VkSwapchainKHR m_handle { VK_NULL_HANDLE };
+
         std::vector<VkImage> m_images;
         std::vector<VkImageView> m_imageViews;
-        VkExtent2D m_imageExtent;
+
+        VkExtent2D m_imageExtent {};
     };
 }  // namespace renderer::backend
