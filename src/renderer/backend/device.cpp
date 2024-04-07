@@ -249,6 +249,6 @@ namespace renderer::backend
 
     Device::~Device()
     {
-        // vkDestroyDevice(m_logicalHandle, nullptr);
+        vkDestroyDevice(m_logicalHandle, nullptr);
     }
 }  // namespace renderer::backend
