@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
 
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 project(minecraft LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)

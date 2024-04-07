@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <GLFW/glfw3.h>
+#include <fmt/core.h>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -63,8 +64,8 @@ namespace renderer::backend
             if (auto it = rn::find_if(supportedExtensions,
                                       [requiredExt](VkExtensionProperties const& supportedExt)
                                       {
-                                          return std::string_view(static_cast<char const*>(supportedExt.extensionName)) ==
-                                                 requiredExt;
+                                          return std::string_view(static_cast<char const*>(
+                                                     supportedExt.extensionName)) == requiredExt;
                                       });
                 it == supportedExtensions.end())
             {
@@ -116,7 +117,8 @@ namespace renderer::backend
             if (auto it = rn::find_if(availableLayers,
                                       [neededLayer](VkLayerProperties const& layer)
                                       {
-                                          return std::string_view(static_cast<char const*>(layer.layerName)) == neededLayer;
+                                          return std::string_view(static_cast<char const*>(layer.layerName)) ==
+                                                 neededLayer;
                                       });
                 it == availableLayers.end())
             {
@@ -130,10 +132,11 @@ namespace renderer::backend
         createDebugMessenger(m_handle, &m_debugMessengerInfo, nullptr, &m_debugMessenger) >> vkResultChecker;
     };
 
-    VKAPI_ATTR auto VKAPI_CALL Instance::validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                                                 VkDebugUtilsMessageTypeFlagsEXT messageType,
-                                                                 VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
-                                                                 void* pUserData) -> VkBool32
+    VKAPI_ATTR auto VKAPI_CALL
+    Instance::validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                      VkDebugUtilsMessageTypeFlagsEXT messageType,
+                                      VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
+                                      void* pUserData) -> VkBool32
     {
         ZoneNamedN(validationZone, "Validation layer callback", kDebug);
 

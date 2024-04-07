@@ -1,5 +1,6 @@
 #include <mc/exceptions.hpp>
 #include <mc/renderer/backend/pipeline.hpp>
+#include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
@@ -112,8 +113,8 @@ namespace renderer::backend
             .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
             .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
             .alphaBlendOp        = VK_BLEND_OP_ADD,
-            .colorWriteMask =
-                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+            .colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+                              VK_COLOR_COMPONENT_A_BIT,
         };
         VkPipelineColorBlendStateCreateInfo colorBlending {
             .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,

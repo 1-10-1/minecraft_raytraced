@@ -97,7 +97,7 @@ namespace renderer::backend
         }
     }
 
-    void RendererBackend::handleWindowResize()
+    void RendererBackend::scheduleSwapchainUpdate()
     {
         m_windowResized = true;
     }

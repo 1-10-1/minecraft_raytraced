@@ -165,7 +165,6 @@ namespace window
         }
 
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
-        logger::info("Window minimize!");
 
         self->m_eventManager->dispatchEvent(WindowMinOrMaximizeEvent(WindowMinOrMaximizeEvent::Minimized));
     }
@@ -178,7 +177,6 @@ namespace window
         }
 
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
-        logger::info("Window maximise!");
 
         self->m_eventManager->dispatchEvent(WindowMinOrMaximizeEvent(WindowMinOrMaximizeEvent::Maximized));
     }

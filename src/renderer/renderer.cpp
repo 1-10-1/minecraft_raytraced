@@ -22,6 +22,6 @@ namespace renderer
 
     void Renderer::onFramebufferResize(WindowFramebufferResizeEvent const& /* event */)
     {
-        m_backend.handleWindowResize();
+        m_backend.scheduleSwapchainUpdate();
     }
 }  // namespace renderer

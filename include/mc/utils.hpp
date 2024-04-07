@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <cstdint>
 #include <functional>
 
@@ -36,11 +35,11 @@ namespace Utils
         }
     }
 
-    template<typename ReturnType, typename MemberType, typename ClassType>
+    template<typename ReturnType = uint32_t, typename MemberType, typename ClassType>
     auto member_offset(MemberType ClassType::*member) -> ReturnType
     {
 #pragma GCC diagnostic ignored "-Wreturn-type"
-        return static_cast<ReturnType>(
-            reinterpret_cast<uint64_t>(reinterpret_cast<char const volatile*>(&((reinterpret_cast<ClassType*>(0))->*member))));
+        return static_cast<ReturnType>(reinterpret_cast<uint64_t>(
+            reinterpret_cast<char const volatile*>(&((reinterpret_cast<ClassType*>(0))->*member))));
     }
 }  // namespace Utils

@@ -44,7 +44,7 @@ namespace renderer::backend
         void render();
         void recordCommandBuffer(uint32_t imageIndex);
 
-        void handleWindowResize();
+        void scheduleSwapchainUpdate();
 
     private:
         void updateSwapchain();
