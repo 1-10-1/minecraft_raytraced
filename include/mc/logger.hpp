@@ -35,6 +35,8 @@ namespace logger
     template<typename... Args>
     using LocationCapturingString = std::type_identity_t<LocationCapturingStringImpl<Args...>>;
 
+    constexpr auto simplifyFunctionSignature(std::string const& sig) -> std::string;
+
     class Logger
     {
     public:
@@ -57,17 +59,41 @@ namespace logger
 
         if constexpr (kDebug)
         {
+            std::string simplifiedFuncSig = simplifyFunctionSignature(fmtstr.location.function_name());
+
             Logger::get()->log(
-                spdlog::source_loc {
+                spdlog::source_loc(
                     std::string_view(fmtstr.location.file_name()).substr(std::size(ROOT_SOURCE_PATH)).data(),
                     static_cast<int>(fmtstr.location.line()),
-                    nullptr },
+                    simplifiedFuncSig.c_str()),
                 lvl,
                 std::format(fmtstr.message, std::forward<Args>(args)...));
         }
         else
         {
             Logger::get()->log(lvl, std::format(fmtstr.message, std::forward<Args>(args)...));
+        }
+    }
+
+    template<level lvl, typename... Args>
+    ALWAYS_INLINE constexpr void
+    logAt(spdlog::source_loc location, std::format_string<Args...> const& fmtstr, Args&&... args)
+    {
+        if constexpr (lvl < SPDLOG_ACTIVE_LEVEL)
+        {
+            return;
+        }
+
+        if constexpr (kDebug)
+        {
+            std::string simplifiedFuncSig = simplifyFunctionSignature(location.funcname);
+            location.funcname             = simplifiedFuncSig.c_str();
+            location.filename = std::string_view(location.filename).substr(std::size(ROOT_SOURCE_PATH)).data();
+            Logger::get()->log(location, lvl, std::format(fmtstr, std::forward<Args>(args)...));
+        }
+        else
+        {
+            Logger::get()->log(lvl, std::format(fmtstr, std::forward<Args>(args)...));
         }
     }
 
@@ -80,19 +106,10 @@ namespace logger
             return;
         }
 
-        if constexpr (kDebug)
-        {
-            Logger::get()->log(
-                spdlog::source_loc { std::string_view(location.file_name()).substr(std::size(ROOT_SOURCE_PATH)).data(),
-                                     static_cast<int>(location.line()),
-                                     nullptr },
-                lvl,
-                std::format(fmtstr, std::forward<Args>(args)...));
-        }
-        else
-        {
-            Logger::get()->log(lvl, std::format(fmtstr, std::forward<Args>(args)...));
-        }
+        logAt<lvl>(
+            spdlog::source_loc(location.file_name(), static_cast<int>(location.line()), location.function_name()),
+            fmtstr,
+            std::forward<Args>(args)...);
     }
 
     template<typename... Args>
@@ -130,4 +147,20 @@ namespace logger
     {
         log<level::critical>(formatString, std::forward<Args>(args)...);
     }
+
+    constexpr auto simplifyFunctionSignature(std::string const& sig) -> std::string
+    {
+        size_t param_begin = sig.find_first_of('(');
+        size_t first_space = sig.find_first_of(' ');
+
+        bool isConstructorDeconstructor = first_space == std::string::npos || first_space > param_begin;
+
+        if (isConstructorDeconstructor)
+        {
+            return sig.substr(0, param_begin);
+        }
+
+        return sig.substr(first_space + 1, param_begin - first_space - 1);
+    }
+
 }  // namespace logger

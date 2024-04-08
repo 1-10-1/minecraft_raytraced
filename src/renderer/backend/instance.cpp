@@ -5,6 +5,8 @@
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
+#include <print>
+#include <ranges>
 #include <stacktrace>
 #include <vector>
 
@@ -170,18 +172,33 @@ namespace renderer::backend
                 type = "Unknown";
         }
 
-        for (auto trace : std::stacktrace::current())
+        auto stacktrace = std::stacktrace::current();
+        std::string srcFile;
+        std::string srcFunc;
+        int srcLine {};
+
+        for (auto [i, trace] : vi::enumerate(stacktrace))
         {
-            fmt::println("[STACK] {}:{}", trace.source_file(), trace.source_line());
+            // Find the second source file on the stacktrace thats inside the root source path
+            // (the first stacktrace is the one we're in right now (this function))
+            if (trace.source_file().starts_with(ROOT_SOURCE_PATH) && i > 1)
+            {
+                srcFile = trace.source_file();
+                srcFunc = trace.description();
+                srcLine = static_cast<int>(trace.source_line());
+                break;
+            };
         }
+
+        spdlog::source_loc location(srcFile.data(), srcLine, srcFunc.data());
 
         switch (messageSeverity)
         {
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-                logger::warn("({}) {}", type, pCallbackData->pMessage);
+                logger::logAt<logger::level::warn>(location, "({}) {}", type, pCallbackData->pMessage);
                 break;
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-                logger::error("({}) {}", type, pCallbackData->pMessage);
+                logger::logAt<logger::level::err>(location, "({}) {}", type, pCallbackData->pMessage);
                 break;
             default:
                 return VK_FALSE;
