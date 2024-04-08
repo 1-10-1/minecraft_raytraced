@@ -66,6 +66,7 @@ list(APPEND LIBS
     glfw
     magic_enum::magic_enum
     Tracy::TracyClient
+    stdc++exp
     # assimp::assimp
 )
 
@@ -163,3 +164,4 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/res $<TARGET_FILE_DIR:${PROJECT_NAME}>/res
 )
+

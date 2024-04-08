@@ -18,7 +18,7 @@ class LogErrorAndThrow
 public:
     LogErrorAndThrow(std::exception const& err, std::source_location loc = std::source_location::current())
     {
-        logger::logAt<logger::level::err>(loc, err.what());
+        logger::logAt<logger::level::err>(loc, "{}", err.what());
         throw err;
     }
 };

@@ -5,6 +5,7 @@
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
+#include <stacktrace>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -167,6 +168,11 @@ namespace renderer::backend
                 break;
             default:
                 type = "Unknown";
+        }
+
+        for (auto trace : std::stacktrace::current())
+        {
+            fmt::println("[STACK] {}:{}", trace.source_file(), trace.source_line());
         }
 
         switch (messageSeverity)

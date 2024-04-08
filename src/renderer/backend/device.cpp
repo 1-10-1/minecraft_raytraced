@@ -1,4 +1,5 @@
 #include <mc/exceptions.hpp>
+#include <mc/logger.hpp>
 #include <mc/renderer/backend/device.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
@@ -76,8 +77,8 @@ namespace renderer::backend
                 {
                     necessaryConditionsMet = false;
 
-                    logger::trace("Graphics card {} rejected as it was unable to satisfy the "
-                                  "following condition: {}",
+                logger::trace("Graphics card {} rejected as it was unable to satisfy the "
+                              "following condition: {}",
                                   deviceProperties.deviceName,
                                   conditionName);
 
@@ -249,6 +250,6 @@ namespace renderer::backend
 
     Device::~Device()
     {
-        vkDestroyDevice(m_logicalHandle, nullptr);
+        // vkDestroyDevice(m_logicalHandle, nullptr);
     }
 }  // namespace renderer::backend
