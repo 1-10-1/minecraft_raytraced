@@ -3,6 +3,8 @@
 #include "constants.hpp"
 #include "device.hpp"
 
+#include <array>
+
 #include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
