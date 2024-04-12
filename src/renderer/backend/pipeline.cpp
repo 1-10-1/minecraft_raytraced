@@ -61,12 +61,15 @@ namespace renderer::backend
             .pDynamicStates    = dynamicStates.data(),
         };
 
+        VkVertexInputBindingDescription vertexBindingDescription = Vertex::getBindingDescription();
+        std::array vertexAttributeDescriptions                   = Vertex::getAttributeDescriptions();
+
         VkPipelineVertexInputStateCreateInfo vertexInputInfo {
             .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-            .vertexBindingDescriptionCount   = 0,
-            .pVertexBindingDescriptions      = nullptr,  // Optional
-            .vertexAttributeDescriptionCount = 0,
-            .pVertexAttributeDescriptions    = nullptr,  // Optional
+            .vertexBindingDescriptionCount   = 1,
+            .pVertexBindingDescriptions      = &vertexBindingDescription,
+            .vertexAttributeDescriptionCount = Utils::size(vertexAttributeDescriptions),
+            .pVertexAttributeDescriptions    = vertexAttributeDescriptions.data(),
         };
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly {

@@ -1,6 +1,7 @@
 #include <mc/logger.hpp>
 
 #include <mc/renderer/backend/render.hpp>
+#include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
 #include <tracy/Tracy.hpp>
@@ -12,7 +13,7 @@ namespace renderer::backend
     {
         ZoneScopedN("Backend render");
 
-        VkCommandBuffer cmdBuf = m_commandManager.getCommandBuffer(m_currentFrame);
+        VkCommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
 
         auto frame = m_frameResources[m_currentFrame];
 
@@ -106,7 +107,7 @@ namespace renderer::backend
         TracyVkCtx tracyCtx = m_frameResources[m_currentFrame].tracyContext;
 #endif
 
-        VkCommandBuffer cmdBuf = m_commandManager.getCommandBuffer(m_currentFrame);
+        VkCommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
 
         VkExtent2D imageExtent = m_swapchain.getImageExtent();
 
@@ -139,6 +140,11 @@ namespace renderer::backend
 
             vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
+            auto vertexBuffers = std::to_array<VkBuffer>({ m_vertexBuffer });
+            auto offsets       = std::to_array<VkDeviceSize>({ 0 });
+
+            vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers.data(), offsets.data());
+
             VkViewport viewport {
                 .x        = 0.0f,
                 .y        = 0.0f,
@@ -159,7 +165,7 @@ namespace renderer::backend
 
             {
                 TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
-                vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+                vkCmdDraw(cmdBuf, Utils::size(vertices), 1, 0, 0);
             }
 
             vkCmdEndRenderPass(cmdBuf);

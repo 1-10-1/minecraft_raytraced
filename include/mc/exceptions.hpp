@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <string>
 
-#include <fmt/core.h>
 #include <magic_enum.hpp>
 
 #include "logger.hpp"
@@ -33,7 +32,7 @@ class LogErrorAndExit
 public:
     LogErrorAndExit(std::exception const& err)
     {
-        logger::error(err.what());
+        logger::error("{}", err.what());
         exit(-1);
     }
 };
@@ -65,7 +64,7 @@ class Error : public std::runtime_error
 {
 public:
     Error(ErrorType type, std::string const& msg, std::source_location loc = std::source_location::current())
-        : std::runtime_error { fmt::format("[{}] {}", magic_enum::enum_name(type), msg) }, m_location(loc)
+        : std::runtime_error { std::format("[{}] {}", magic_enum::enum_name(type), msg) }, m_location(loc)
     {
     }
 

@@ -23,7 +23,7 @@ namespace logger
 
         for (auto& sink : sinks)
         {
-            sink->set_pattern(kDebug ? "%^[%l] [%r] [%g:%# %!]\n-> %v%$\n" : "%^[%l] [%r]\n-> %v%$\n");
+            sink->set_pattern(kDebug ? "%^[%l] [%r] [%g:%# %!]%$\n-> %v\n" : "%^[%l] [%r]%$\n-> %v\n");
         }
 
         m_logger = std::make_shared<spdlog::logger>("MAIN", sinks.begin(), sinks.end());

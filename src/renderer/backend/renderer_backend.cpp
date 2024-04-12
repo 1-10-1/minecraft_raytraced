@@ -1,6 +1,7 @@
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
+#include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
@@ -21,7 +22,12 @@ namespace renderer::backend
           m_renderPass { m_device, m_surface },
           m_framebuffers { m_device, m_renderPass, m_swapchain },
           m_pipeline { m_device, m_renderPass },
-          m_commandManager { m_device }
+          m_commandManager { m_device },
+          m_vertexBuffer { m_device,
+                           m_commandManager,
+                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                           vertices.data(),
+                           Utils::size(vertices) * sizeof(Vertex) }
     {
 #if PROFILED
         auto vkGetPhysicalDeviceCalibratableTimeDomainsEXT =
@@ -40,7 +46,7 @@ namespace renderer::backend
             ctx = TracyVkContextCalibrated(static_cast<VkPhysicalDevice>(m_device),
                                            static_cast<VkDevice>(m_device),
                                            m_device.getGraphicsQueue(),
-                                           m_commandManager.getCommandBuffer(i),
+                                           m_commandManager.getGraphicsCmdBuffer(i),
                                            vkGetPhysicalDeviceCalibratableTimeDomainsEXT,
                                            vkGetCalibratedTimestampsEXT);
 

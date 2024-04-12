@@ -48,15 +48,16 @@ namespace renderer::backend
 
         [[nodiscard]] auto getGraphicsQueue() const -> VkQueue { return m_graphicsQueue; }
 
+        [[nodiscard]] auto getTransferQueue() const -> VkQueue { return m_transferQueue; }
+
         [[nodiscard]] auto getPresentQueue() const -> VkQueue { return m_presentQueue; }
+
+        [[nodiscard]] auto findSuitableMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
+            -> uint32_t;
 
     private:
         void selectPhysicalDevice(Instance& instance, Surface const& surface);
         void selectLogicalDevice();
-
-        static auto checkDeviceExtensionSupport(VkPhysicalDevice device) -> bool;
-
-        static auto findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) -> QueueFamilyIndices const&;
 
         VkDevice m_logicalHandle { VK_NULL_HANDLE };
         VkPhysicalDevice m_physicalHandle { VK_NULL_HANDLE };
@@ -65,15 +66,7 @@ namespace renderer::backend
 
         VkQueue m_graphicsQueue { VK_NULL_HANDLE };
         VkQueue m_presentQueue { VK_NULL_HANDLE };
+        VkQueue m_transferQueue { VK_NULL_HANDLE };
 
-        // clang-format off
-        inline static std::vector<char const*> const m_requiredExtensions
-        {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-#if PROFILED
-            VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
-#endif
-        };
-        // clang-format on
-    };
+    };  // namespace renderer::backend
 }  // namespace renderer::backend

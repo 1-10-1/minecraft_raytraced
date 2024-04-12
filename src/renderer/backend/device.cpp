@@ -10,6 +10,89 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
+namespace
+{
+    using namespace renderer::backend;
+
+    // clang-format off
+    constexpr std::array requiredExtensions
+    {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+#if PROFILED
+        VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
+#endif
+    };
+
+    // clang-format on
+
+    auto checkDeviceExtensionSupport(VkPhysicalDevice device) -> bool
+    {
+        uint32_t extensionCount = 0;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+        std::unordered_set<std::string> requiredExtensionsSet(requiredExtensions.begin(), requiredExtensions.end());
+
+        for (auto const& extension : availableExtensions)
+        {
+            requiredExtensionsSet.erase(static_cast<char const*>(extension.extensionName));
+        }
+
+        return requiredExtensionsSet.empty();
+    }
+
+    auto findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) -> QueueFamilyIndices const&
+    {
+        static std::unordered_map<VkPhysicalDevice, QueueFamilyIndices> memo;
+
+        if (memo.find(device) != memo.end())
+        {
+            return memo[device];
+        }
+
+        auto& indices = memo[device];
+
+        uint32_t queueFamilyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+        for (uint32_t i = 0; auto const& queueFamily : queueFamilies)
+        {
+            if (indices.isComplete())
+            {
+                break;
+            }
+
+            if ((queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) != 0u &&
+                (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0u)
+            {
+                indices.transferFamily = i;
+            }
+
+            if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0u)
+            {
+                indices.graphicsFamily = i;
+            }
+
+            VkBool32 presentSupport = 0u;
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+
+            if (presentSupport != 0u)
+            {
+                indices.presentFamily = i;
+            }
+
+            ++i;
+        }
+
+        return indices;
+    }
+}  // namespace
+
 namespace renderer::backend
 {
     struct DeviceCandidate
@@ -123,22 +206,20 @@ namespace renderer::backend
         switch (bestCandidate.properties.deviceType)
         {
             case (VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU):
-                deviceType = "Integrated";
+                deviceType = "integrated gpu";
                 break;
             case (VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU):
-                deviceType = "Discrete GPU";
+                deviceType = "discrete GPU";
                 break;
             case (VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU):
-                deviceType = "Virtual GPU";
+                deviceType = "virtual GPU";
                 break;
             case (VK_PHYSICAL_DEVICE_TYPE_CPU):
                 deviceType = "CPU";
                 break;
-            default:
-                deviceType = "Unknown";
         }
 
-        logger::info(R"(Using physical device "{}" of type "{}")", bestCandidate.properties.deviceName, deviceType);
+        logger::info("Using {} {} for rendering", deviceType, bestCandidate.properties.deviceName);
     }
 
     void Device::selectLogicalDevice()
@@ -169,8 +250,8 @@ namespace renderer::backend
             .pQueueCreateInfos       = queueCreateInfos.data(),
             .enabledLayerCount       = 0,
             .ppEnabledLayerNames     = nullptr,
-            .enabledExtensionCount   = Utils::size(m_requiredExtensions),
-            .ppEnabledExtensionNames = m_requiredExtensions.data(),
+            .enabledExtensionCount   = Utils::size(requiredExtensions),
+            .ppEnabledExtensionNames = requiredExtensions.data(),
             .pEnabledFeatures        = &deviceFeatures,
         };
 
@@ -179,73 +260,25 @@ namespace renderer::backend
         vkGetDeviceQueue(m_logicalHandle, m_queueFamilyIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
 
         vkGetDeviceQueue(m_logicalHandle, m_queueFamilyIndices.presentFamily.value(), 0, &m_presentQueue);
+
+        vkGetDeviceQueue(m_logicalHandle, m_queueFamilyIndices.transferFamily.value(), 0, &m_transferQueue);
     }
 
-    auto Device::checkDeviceExtensionSupport(VkPhysicalDevice device) -> bool
+    auto Device::findSuitableMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const -> uint32_t
     {
-        uint32_t extensionCount = 0;
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+        VkPhysicalDeviceMemoryProperties memoryProperties;
+        vkGetPhysicalDeviceMemoryProperties(m_physicalHandle, &memoryProperties);
 
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
-        std::unordered_set<std::string> requiredExtensions(m_requiredExtensions.begin(), m_requiredExtensions.end());
-
-        for (auto const& extension : availableExtensions)
+        for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++)
         {
-            requiredExtensions.erase(static_cast<char const*>(extension.extensionName));
+            if ((typeFilter & (1 << i)) != 0 &&
+                (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            {
+                return i;
+            }
         }
 
-        return requiredExtensions.empty();
-    }
-
-    auto Device::findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) -> QueueFamilyIndices const&
-    {
-        static std::unordered_map<VkPhysicalDevice, QueueFamilyIndices> memo;
-
-        if (memo.find(device) != memo.end())
-        {
-            return memo[device];
-        }
-
-        auto& indices = memo[device];
-
-        uint32_t queueFamilyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
-        for (uint32_t i = 0; auto const& queueFamily : queueFamilies)
-        {
-            if (indices.isComplete())
-            {
-                break;
-            }
-
-            if ((queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) != 0u &&
-                (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0u)
-            {
-                indices.transferFamily = i;
-            }
-
-            if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0u)
-            {
-                indices.graphicsFamily = i;
-            }
-
-            VkBool32 presentSupport = 0u;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-
-            if (presentSupport != 0u)
-            {
-                indices.presentFamily = i;
-            }
-
-            ++i;
-        }
-
-        return indices;
+        MC_THROW Error(RendererError, "Failed to find a suitable memory type.");
     }
 
     Device::~Device()

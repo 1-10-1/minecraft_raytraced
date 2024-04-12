@@ -54,6 +54,10 @@ namespace renderer::backend
         VkSurfaceKHR m_surface { VK_NULL_HANDLE };
         SurfaceDetails m_details {};
 
+#if PROFILED
         bool m_vsync { false };
+#else
+        bool m_vsync { true };
+#endif
     };
 }  // namespace renderer::backend

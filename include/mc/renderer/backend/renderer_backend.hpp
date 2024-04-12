@@ -5,6 +5,7 @@
 #include "device.hpp"
 #include "framebuffers.hpp"
 #include "instance.hpp"
+#include "mc/renderer/backend/buffer.hpp"
 #include "pipeline.hpp"
 #include "render_pass.hpp"
 #include "surface.hpp"
@@ -59,6 +60,7 @@ namespace renderer::backend
         Framebuffers m_framebuffers;
         Pipeline m_pipeline;
         CommandManager m_commandManager;
+        StagedBuffer m_vertexBuffer;
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 

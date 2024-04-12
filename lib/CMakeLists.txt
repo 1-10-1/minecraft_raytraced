@@ -28,7 +28,6 @@ add_subdirectory(magic_enum)
 # Tracy
 if (PROFILED_BUILD)
 add_subdirectory(tracy)
-add_subdirectory(tracy/profiler)
 else()
 set(TRACY_ENABLE OFF)
 add_subdirectory(tracy)

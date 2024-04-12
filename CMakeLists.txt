@@ -34,6 +34,7 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/instance.cpp
     src/renderer/backend/framebuffers.cpp
     src/renderer/backend/surface.cpp
+    src/renderer/backend/buffer.cpp
     src/renderer/backend/command.cpp
     src/renderer/backend/pipeline.cpp
     src/renderer/backend/swapchain.cpp

@@ -1,5 +1,5 @@
 # TODO do something about this
-Checks: "clang-diagnostic-*,clang-analyzer-*,readability-*,cppcoreguidelines-*,modernize-*,bugprone-*,google-*,performance-*,-bugprone-macro-parentheses,-readability-magic-numbers,-readability-uppercase-literal-suffix,-cppcoreguidelines-pro-type-union-access,-readability-identifier-length,-bugprone-easily-swappable-parameters,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-pro-bounds-constant-array-index,-bugprone-unchecked-optional-access,-cppcoreguidelines-avoid-const-or-ref-data-members,-cppcoreguidelines-non-private-member-variables-in-classes"
+Checks: "clang-diagnostic-*,clang-analyzer-*,readability-*,cppcoreguidelines-*,modernize-*,bugprone-*,google-*,performance-*,-bugprone-macro-parentheses,-readability-magic-numbers,-readability-uppercase-literal-suffix,-cppcoreguidelines-pro-type-union-access,-readability-identifier-length,-bugprone-easily-swappable-parameters,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-pro-bounds-constant-array-index,-bugprone-unchecked-optional-access,-cppcoreguidelines-avoid-const-or-ref-data-members,-cppcoreguidelines-non-private-member-variables-in-classes,-google-build-using-namespace"
 WarningsAsErrors: false
 HeaderFilterRegex: "include/mc/*"
 AnalyzeTemporaryDtors: false

@@ -141,7 +141,7 @@ namespace renderer::backend
                                       VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
                                       void* pUserData) -> VkBool32
     {
-        ZoneNamedN(validationZone, "Validation layer callback", kDebug);
+        ZoneScopedN("Validation layer callback");
 
         std::string_view message = pCallbackData->pMessage;
 
