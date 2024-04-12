@@ -89,6 +89,11 @@ namespace
             ++i;
         }
 
+        if (!indices.transferFamily.has_value() && indices.graphicsFamily.has_value())
+        {
+            indices.transferFamily = indices.graphicsFamily.value();
+        }
+
         return indices;
     }
 }  // namespace
