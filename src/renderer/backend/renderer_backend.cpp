@@ -27,7 +27,12 @@ namespace renderer::backend
                            m_commandManager,
                            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                            vertices.data(),
-                           Utils::size(vertices) * sizeof(Vertex) }
+                           Utils::size(vertices) * sizeof(Vertex) },
+          m_indexBuffer { m_device,
+                          m_commandManager,
+                          VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                          indices.data(),
+                          Utils::size(indices) * sizeof(uint32_t) }
     {
 #if PROFILED
         auto vkGetPhysicalDeviceCalibratableTimeDomainsEXT =

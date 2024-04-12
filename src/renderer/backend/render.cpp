@@ -145,6 +145,8 @@ namespace renderer::backend
 
             vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers.data(), offsets.data());
 
+            vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
             VkViewport viewport {
                 .x        = 0.0f,
                 .y        = 0.0f,
@@ -165,7 +167,7 @@ namespace renderer::backend
 
             {
                 TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
-                vkCmdDraw(cmdBuf, Utils::size(vertices), 1, 0, 0);
+                vkCmdDrawIndexed(cmdBuf, Utils::size(indices), 1, 0, 0, 0);
             }
 
             vkCmdEndRenderPass(cmdBuf);

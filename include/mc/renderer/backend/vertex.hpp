@@ -43,11 +43,15 @@ namespace renderer::backend
     // clang-format off
 
     std::vector<Vertex> const vertices = {
-        { {  0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
-        { {  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f } },
-        { { -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f } }
+        { { -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
+        { {  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
+        { {  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f } },
+        { { -0.5f,  0.5f }, { 1.0f, 1.0f, 1.0f } },
     };
 
+    std::vector<uint32_t> const indices = {
+        0, 1, 2, 2, 3, 0
+    };
     // clang-format on
 
 }  // namespace renderer::backend

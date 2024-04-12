@@ -61,6 +61,7 @@ namespace renderer::backend
         Pipeline m_pipeline;
         CommandManager m_commandManager;
         StagedBuffer m_vertexBuffer;
+        StagedBuffer m_indexBuffer;
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 
