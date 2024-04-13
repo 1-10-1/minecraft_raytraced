@@ -1,7 +1,9 @@
+#include "mc/events.hpp"
 #include <mc/exceptions.hpp>
 #include <mc/game/game.hpp>
 #include <mc/game/loop.hpp>
 #include <mc/logger.hpp>
+#include <mc/renderer/renderer.hpp>
 
 #include <array>
 #include <filesystem>
@@ -25,11 +27,22 @@ auto main() -> int
 
     logger::Logger::init();
 
-    game::Game game {};  // TODO(aether): Game shouldn't be the top-most class
+    EventManager eventManager {};
+    window::Window window { eventManager };
+    renderer::Renderer m_renderer { eventManager, window };
+    game::Game game {};
 
     MC_TRY
     {
-        game.runLoop();
+        while (!window.shouldClose())
+        {
+            window::Window::pollEvents();
+
+            eventManager.dispatchEvent(AppUpdateEvent {});
+            eventManager.dispatchEvent(AppRenderEvent {});
+
+            FrameMark;
+        }
     }
     MC_CATCH(...)
     {

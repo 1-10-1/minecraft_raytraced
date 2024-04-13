@@ -26,7 +26,6 @@ list(APPEND SOURCE_FILES
     src/utils.cpp
     src/window.cpp
 
-    src/game/loop.cpp
     src/game/game.cpp
 
     src/renderer/backend/vk_checker.cpp
@@ -83,7 +82,7 @@ target_compile_definitions(
 )
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC DEBUG=true)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC DEBUG=true ASSERTIONS_ENABLED)
 else()
     target_compile_definitions(${PROJECT_NAME} PUBLIC DEBUG=false)
 endif()

@@ -11,15 +11,15 @@ namespace window
     class Window
     {
     public:
-        explicit Window(EventManager* eventManager);
+        explicit Window(EventManager& eventManager);
 
         ~Window();
 
         Window(Window&&) noexcept;
 
-        Window(Window const&)                    = default;
-        auto operator=(Window const&) -> Window& = default;
-        auto operator=(Window&&) -> Window&      = default;
+        Window(Window const&)                    = delete;
+        auto operator=(Window const&) -> Window& = delete;
+        auto operator=(Window&&) -> Window&      = delete;
 
         explicit operator GLFWwindow*() { return m_handle; }
 
@@ -35,8 +35,6 @@ namespace window
         [[nodiscard]] auto getFramebufferDimensions() const -> glm::uvec2 { return m_framebufferDimensions; }
 
         static void pollEvents();
-
-        void prepare();
 
         static void keyCallback(GLFWwindow* window, int keyid, int scancode, int action, int mods);
 
@@ -72,7 +70,7 @@ namespace window
         bool m_shouldClose {};
 
         InputManager m_inputManager {};
-        EventManager* m_eventManager;
+        EventManager& m_eventManager;
         GLFWwindow* m_handle {};
 
         glm::uvec2 m_framebufferDimensions {};

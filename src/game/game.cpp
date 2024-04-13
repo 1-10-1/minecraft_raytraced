@@ -5,28 +5,7 @@
 
 namespace game
 {
-    Game::Game()
-        : m_window { window::Window(&m_eventManager) }, m_renderer { renderer::Renderer(m_eventManager, m_window) }
-    {
-        m_eventManager.subscribe(this, &Game::onCursorMove);
-    };
+    Game::Game() = default;
 
-    void Game::onCursorMove(CursorMoveEvent const& event)
-    {
-        static int count = 0;
-        ++count;
-
-        if (count == 1000)
-        {
-            logger::debug("onCursorMove event detached");
-            // m_eventManager.unsubscribe(this, &Game::onCursorMove);
-        }
-
-        if (count > 1000)
-        {
-            return;
-        }
-
-        logger::debug("[{}] cursor moved to position ({}, {})", count, event.position.x, event.position.y);
-    }
+    void onUpdate(AppUpdateEvent const& /* unused */) {};
 }  // namespace game

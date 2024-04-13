@@ -7,7 +7,7 @@
 
 namespace window
 {
-    Window::Window(EventManager* eventManager) : m_eventManager { eventManager }
+    Window::Window(EventManager& eventManager) : m_eventManager { eventManager }
     {
         glfwInit();
 
@@ -84,11 +84,6 @@ namespace window
         glfwTerminate();
     }
 
-    void Window::prepare()
-    {
-        m_eventManager->dispatchEvent(WindowRefreshEvent {});
-    }
-
     void Window::pollEvents()
     {
         glfwPollEvents();
@@ -105,15 +100,15 @@ namespace window
         {
             case GLFW_PRESS:
                 inputManager.setKey(key, true);
-                self->m_eventManager->dispatchEvent(KeyPressEvent(&inputManager, key, mods, false));
+                self->m_eventManager.dispatchEvent(KeyPressEvent(&inputManager, key, mods, false));
                 break;
             case GLFW_REPEAT:
                 inputManager.setKey(key, true);
-                self->m_eventManager->dispatchEvent(KeyPressEvent(&inputManager, key, mods, true));
+                self->m_eventManager.dispatchEvent(KeyPressEvent(&inputManager, key, mods, true));
                 break;
             case GLFW_RELEASE:
                 inputManager.setKey(key, false);
-                self->m_eventManager->dispatchEvent(KeyReleaseEvent(&inputManager, key, mods));
+                self->m_eventManager.dispatchEvent(KeyReleaseEvent(&inputManager, key, mods));
                 break;
             default:
                 break;
@@ -124,7 +119,7 @@ namespace window
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(WindowMoveEvent({ x, y }));
+        self->m_eventManager.dispatchEvent(WindowMoveEvent({ x, y }));
     }
 
     void Window::windowSizeCallback(GLFWwindow* window, int width, int height)
@@ -139,7 +134,7 @@ namespace window
 
         self->m_windowDimensions = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
-        self->m_eventManager->dispatchEvent(WindowResizeEvent({ width, height }));
+        self->m_eventManager.dispatchEvent(WindowResizeEvent({ width, height }));
     }
 
     void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height)
@@ -148,14 +143,14 @@ namespace window
 
         self->m_framebufferDimensions = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
-        self->m_eventManager->dispatchEvent(WindowFramebufferResizeEvent({ width, height }));
+        self->m_eventManager.dispatchEvent(WindowFramebufferResizeEvent({ width, height }));
     }
 
     void Window::windowCloseCallback(GLFWwindow* window)
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(WindowCloseEvent());
+        self->m_eventManager.dispatchEvent(WindowCloseEvent());
 
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
@@ -164,15 +159,15 @@ namespace window
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(WindowRefreshEvent());
+        self->m_eventManager.dispatchEvent(WindowRefreshEvent());
     }
 
     void Window::windowFocusCallback(GLFWwindow* window, int focused)
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(WindowFocusChangedEvent(focused == 0 ? WindowFocusChangedEvent::Defocused
-                                                                                 : WindowFocusChangedEvent::Focused));
+        self->m_eventManager.dispatchEvent(WindowFocusChangedEvent(focused == 0 ? WindowFocusChangedEvent::Defocused
+                                                                                : WindowFocusChangedEvent::Focused));
     }
 
     void Window::windowMinimizeCallback(GLFWwindow* window, int iconified)
@@ -184,7 +179,7 @@ namespace window
 
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(WindowMinOrMaximizeEvent(WindowMinOrMaximizeEvent::Minimized));
+        self->m_eventManager.dispatchEvent(WindowMinOrMaximizeEvent(WindowMinOrMaximizeEvent::Minimized));
     }
 
     void Window::windowMaximizeCallback(GLFWwindow* window, int maximized)
@@ -196,7 +191,7 @@ namespace window
 
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(WindowMinOrMaximizeEvent(WindowMinOrMaximizeEvent::Maximized));
+        self->m_eventManager.dispatchEvent(WindowMinOrMaximizeEvent(WindowMinOrMaximizeEvent::Maximized));
     }
 
     void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -206,7 +201,7 @@ namespace window
         MouseButton mousebutton = glfwIntToMouseButton(button);
         auto buttonaction       = static_cast<MouseButtonEvent::Action>(action);
 
-        self->m_eventManager->dispatchEvent(MouseButtonEvent(&self->m_inputManager, mousebutton, buttonaction, mods));
+        self->m_eventManager.dispatchEvent(MouseButtonEvent(&self->m_inputManager, mousebutton, buttonaction, mods));
 
         switch (buttonaction)
         {
@@ -225,22 +220,22 @@ namespace window
 
         self->m_inputManager.setCursorPos({ x, y });
 
-        self->m_eventManager->dispatchEvent(CursorMoveEvent(&self->m_inputManager, { x, y }));
+        self->m_eventManager.dispatchEvent(CursorMoveEvent(&self->m_inputManager, { x, y }));
     }
 
     void Window::cursorEnterCallback(GLFWwindow* window, int entered)
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(CursorFocusChangedEvent(entered != 0 ? CursorFocusChangedEvent::Focused
-                                                                                 : CursorFocusChangedEvent::Defocused));
+        self->m_eventManager.dispatchEvent(CursorFocusChangedEvent(entered != 0 ? CursorFocusChangedEvent::Focused
+                                                                                : CursorFocusChangedEvent::Defocused));
     }
 
     void Window::scrollCallback(GLFWwindow* window, double x, double y)
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(MouseScrollEvent(&self->m_inputManager, { x, y }));
+        self->m_eventManager.dispatchEvent(MouseScrollEvent(&self->m_inputManager, { x, y }));
     }
 
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
@@ -248,7 +243,7 @@ namespace window
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager->dispatchEvent(WindowDragAndDropEvent(static_cast<size_t>(count), paths));
+        self->m_eventManager.dispatchEvent(WindowDragAndDropEvent(static_cast<size_t>(count), paths));
     }
 
 }  // namespace window
