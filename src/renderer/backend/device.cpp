@@ -70,6 +70,7 @@ namespace
             if ((queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) != 0u &&
                 (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0u)
             {
+                logger::debug("Found a dedicated transfer queue!");
                 indices.transferFamily = i;
             }
 
@@ -91,6 +92,7 @@ namespace
 
         if (!indices.transferFamily.has_value() && indices.graphicsFamily.has_value())
         {
+            logger::debug("Could not find a dedicated transfer queue. Using the graphics queue for this purpose.");
             indices.transferFamily = indices.graphicsFamily.value();
         }
 
@@ -251,11 +253,11 @@ namespace renderer::backend
 
         VkDeviceCreateInfo deviceCreateInfo {
             .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .queueCreateInfoCount    = Utils::size(queueCreateInfos),
+            .queueCreateInfoCount    = utils::size(queueCreateInfos),
             .pQueueCreateInfos       = queueCreateInfos.data(),
             .enabledLayerCount       = 0,
             .ppEnabledLayerNames     = nullptr,
-            .enabledExtensionCount   = Utils::size(requiredExtensions),
+            .enabledExtensionCount   = utils::size(requiredExtensions),
             .ppEnabledExtensionNames = requiredExtensions.data(),
             .pEnabledFeatures        = &deviceFeatures,
         };

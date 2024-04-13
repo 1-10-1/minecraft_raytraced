@@ -29,7 +29,7 @@ namespace
                                         .size                  = size,
                                         .usage                 = usage,
                                         .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
-                                        .queueFamilyIndexCount = Utils::size(indices),
+                                        .queueFamilyIndexCount = utils::size(indices),
                                         .pQueueFamilyIndices   = indices.data() };
 
         vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) >> vkResultChecker;

@@ -1,9 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 
-namespace Utils
+namespace utils
 {
     template<typename Class, typename Ret, typename... Args>
     auto captureThis(Ret (Class::*func)(Args...), Class* instance) -> std::function<Ret(Args...)>
@@ -42,4 +43,6 @@ namespace Utils
         return static_cast<ReturnType>(reinterpret_cast<uint64_t>(
             reinterpret_cast<char const volatile*>(&((reinterpret_cast<ClassType*>(0))->*member))));
     }
-}  // namespace Utils
+
+    [[nodiscard]] auto readBytes(std::filesystem::path const& filepath) -> std::vector<char>;
+}  // namespace utils

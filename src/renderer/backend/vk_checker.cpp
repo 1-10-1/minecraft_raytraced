@@ -1,5 +1,3 @@
-#include <ranges>
-
 #include <mc/defines.hpp>
 #include <mc/exceptions.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>

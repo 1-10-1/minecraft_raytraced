@@ -1,3 +1,4 @@
+#include <mc/formatters/glm_types.hpp>
 #include <mc/logger.hpp>
 #include <mc/window.hpp>
 
@@ -6,12 +7,29 @@
 
 namespace window
 {
-    Window::Window(EventManager* eventManager, glm::uvec2 windowDimensions) : m_eventManager { eventManager }
+    Window::Window(EventManager* eventManager) : m_eventManager { eventManager }
     {
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+        GLFWvidmode const* mode = glfwGetVideoMode(monitor);
+
+        glm::ivec2 windowDimensions { static_cast<float>(mode->width) / 1.5f, static_cast<float>(mode->height) / 1.5f };
+
+        logger::debug("Monitor info\nScreen size: {}x{}\nChosen window size: {}x{}\nBit "
+                      "depths: R/G/B {}/{}/{}\nRefresh rate: {}Hz",
+                      mode->width,
+                      mode->height,
+                      windowDimensions.x,
+                      windowDimensions.y,
+                      mode->redBits,
+                      mode->greenBits,
+                      mode->blueBits,
+                      mode->refreshRate);
 
         // Reason: window hints need to be set before creating the window
         // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)

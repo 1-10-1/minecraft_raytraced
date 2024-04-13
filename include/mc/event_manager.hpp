@@ -1,15 +1,20 @@
 #pragma once
 
 #include "events.hpp"
-#include "mc/defines.hpp"
+#include "logger.hpp"
 
 #include <any>
-#include <functional>
+#include <ranges>
 #include <utility>
 
 #include <glm/ext/vector_float2.hpp>
 #include <magic_enum.hpp>
 #include <tracy/Tracy.hpp>
+
+namespace rn = std::ranges;
+namespace vi = std::ranges::views;
+
+constexpr void dormantEventCallback(std::any const& /*unused*/) {}
 
 class EventManager
 {
@@ -24,43 +29,55 @@ public:
     ~EventManager() = default;
 
     template<EventSpec Event>
-    void addListener(std::function<void(Event const&)> listener)
+    void subscribe(std::function<void(Event const&)> listener)
     {
-        m_eventListeners[std::to_underlying(Event::eventType)].push_back(
-            [listener = std::move(listener)](std::any const& event)
-            {
-                listener(std::any_cast<Event const&>(event));
-            });
-    }
-
-    template<EventSpec Event>
-    void addListener(void (*listener)(Event const&))
-    {
-        addListener(std::function(listener));
+        m_eventListeners[std::to_underlying(Event::eventType)].push_back(std::move(listener));
     }
 
     template<EventSpec Event, typename Class>
-    void addListener(Class* instance, void (Class::*func)(Event const&))
+    void subscribe(Class* instance, std::functionvoid (Class::*func)(Event const&))
     {
-        m_eventListeners[std::to_underlying(Event::eventType)].push_back(
-            [func, instance](std::any const& event)
-            {
-                (instance->*func)(std::any_cast<Event const&>(event));
-            });
+        m_eventListeners[std::to_underlying(Event::eventType)].push_back(std::function<void(Event const&)>(func));
     };
 
     template<typename Class, EventSpec... Events>
-    void addListeners(Class* instance, void (Class::*... funcs)(Events const&))
+    void subscribe(Class* instance, void (Class::*... funcs)(Events const&))
 
     {
-        (addListener(instance, funcs), ...);
+        (subscribe(instance, funcs), ...);
     }
 
     template<EventSpec... Events>
-    void addListeners(void(... funcs)(Events const&))
+    void subscribe(void(... funcs)(Events const&))
     {
-        (addListener(funcs), ...);
+        (subscribe(funcs), ...);
     }
+
+    template<typename Class, EventSpec Event>
+    void unsubscribe(Class* instance, void (Class::*func)(Event const&))
+    {
+        for (auto const& [index, callback] : vi::enumerate(m_eventListeners[static_cast<size_t>(Event::eventType)]))
+        {
+            if (callback.type().hash_code() != typeid(func).hash_code())
+            {
+                return;
+            }
+
+            auto callbackPtr = std::any_cast<void (Class::*)(Event const&)>(callback);
+
+            if (callbackPtr == func)
+            {
+                logger::info("Found the callback ptr for event {} at position {}",
+                             magic_enum::enum_name(Event::eventType).data(),
+                             index + 1);
+                return;
+            }
+        }
+
+        logger::info("Could not locate a single callback for event {}. Size: {}",
+                     magic_enum::enum_name(Event::eventType).data(),
+                     m_eventListeners[static_cast<size_t>(Event::eventType)].size());
+    };
 
     template<EventSpec Event>
     void dispatchEvent(Event const& event)
@@ -71,15 +88,18 @@ public:
 
         ZoneText(eventName.data(), eventName.size());
 
-        auto event_any = std::make_any<Event const&>(event);
+        logger::debug("Hi {}", magic_enum::enum_name(Event::eventType));
 
-        for (auto const& listener : m_eventListeners[static_cast<size_t>(Event::eventType)])
+        for (std::any const& listener : m_eventListeners[static_cast<size_t>(Event::eventType)])
         {
-            listener(event_any);
+            std::any_cast<std::function<void(Event const&)>>(listener)(event);
         }
+
+        logger::debug("bye");
     }
 
 private:
-    std::array<std::vector<std::function<void(std::any const&)>>, static_cast<size_t>(EventType::EVENT_TYPE_MAX)>
-        m_eventListeners {};
+    std::array<std::vector<std::any>, static_cast<size_t>(EventType::EVENT_TYPE_MAX)> m_eventListeners {};
+
+    // create a dormant array for each event type and store its index
 };

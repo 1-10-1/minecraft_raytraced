@@ -23,6 +23,7 @@ list(APPEND SOURCE_FILES
     src/timer.cpp
     src/key.cpp
     src/logger.cpp
+    src/utils.cpp
     src/window.cpp
 
     src/game/loop.cpp

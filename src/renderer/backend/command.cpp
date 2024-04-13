@@ -70,7 +70,7 @@ namespace renderer::backend
             .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool        = m_graphicsCommandPool,
             .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = Utils::size(m_graphicsCommandBuffers),
+            .commandBufferCount = utils::size(m_graphicsCommandBuffers),
         };
 
         vkAllocateCommandBuffers(device, &allocInfo, m_graphicsCommandBuffers.data()) >> vkResultChecker;

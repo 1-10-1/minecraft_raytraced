@@ -1,4 +1,3 @@
-#include "mc/logger.hpp"
 #include <mc/renderer/backend/swapchain.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 

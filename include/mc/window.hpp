@@ -11,7 +11,7 @@ namespace window
     class Window
     {
     public:
-        explicit Window(EventManager* eventManager, glm::uvec2 dimensions);
+        explicit Window(EventManager* eventManager);
 
         ~Window();
 

@@ -167,7 +167,7 @@ namespace renderer::backend
 
             {
                 TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
-                vkCmdDrawIndexed(cmdBuf, Utils::size(indices), 1, 0, 0, 0);
+                vkCmdDrawIndexed(cmdBuf, utils::size(indices), 1, 0, 0, 0);
             }
 
             vkCmdEndRenderPass(cmdBuf);

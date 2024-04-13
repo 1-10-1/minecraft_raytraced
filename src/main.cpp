@@ -20,12 +20,12 @@ auto main() -> int
 {
     switchCwd();
 
-    [[maybe_unused]] std::string_view appInfo = "Minecraft Clone Game";
-    TracyAppInfo(appInfo.data(), appInfo.size());
+    [[maybe_unused]] std::string_view appName = "Minecraft Clone Game";
+    TracyAppInfo(appName.data(), appName.size());
 
     logger::Logger::init();
 
-    game::Game game {};
+    game::Game game {};  // TODO(aether): Game shouldn't be the top-most class
 
     MC_TRY
     {
@@ -40,8 +40,8 @@ auto main() -> int
 }
 
 void switchCwd()
-#ifdef __linux__
 {
+#ifdef __linux__
     std::array<char, PATH_MAX> result {};
     ssize_t count = readlink("/proc/self/exe", result.data(), PATH_MAX);
 
@@ -53,8 +53,5 @@ void switchCwd()
     }
 
     std::filesystem::current_path(path);
-}
-#else
-{
-}
 #endif
+}

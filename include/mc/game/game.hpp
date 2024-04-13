@@ -13,6 +13,8 @@ namespace game
 
         void runLoop();
 
+        void onCursorMove(CursorMoveEvent const& event);
+
     private:
         EventManager m_eventManager {};
         window::Window m_window;

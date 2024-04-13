@@ -176,9 +176,9 @@ namespace renderer::backend
             .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .pNext                   = kDebug ? &m_debugMessengerInfo : nullptr,
             .pApplicationInfo        = &appInfo,
-            .enabledLayerCount       = Utils::size(m_validationLayers),
+            .enabledLayerCount       = utils::size(m_validationLayers),
             .ppEnabledLayerNames     = m_validationLayers.data(),
-            .enabledExtensionCount   = Utils::size(requiredExtensions),
+            .enabledExtensionCount   = utils::size(requiredExtensions),
             .ppEnabledExtensionNames = requiredExtensions.data(),
         };
 

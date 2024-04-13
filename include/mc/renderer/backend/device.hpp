@@ -3,7 +3,6 @@
 #include "instance.hpp"
 
 #include <optional>
-#include <vector>
 
 #include <vulkan/vulkan_core.h>
 

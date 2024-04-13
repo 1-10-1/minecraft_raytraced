@@ -4,15 +4,9 @@
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
-#include <fstream>
 #include <string_view>
 #include <vector>
 #include <vulkan/vulkan_core.h>
-
-namespace
-{
-    auto readShader(std::string_view const& filepath) -> std::vector<char>;
-}  // namespace
 
 namespace renderer::backend
 {
@@ -20,7 +14,7 @@ namespace renderer::backend
     {
         auto createShaderModule = [&device](std::string_view const& shaderPath)
         {
-            std::vector<char> shaderCode = readShader(shaderPath);
+            std::vector<char> shaderCode = utils::readBytes(shaderPath);
 
             VkShaderModuleCreateInfo createInfo {
                 .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -57,7 +51,7 @@ namespace renderer::backend
 
         VkPipelineDynamicStateCreateInfo dynamicState {
             .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-            .dynamicStateCount = Utils::size(dynamicStates),
+            .dynamicStateCount = utils::size(dynamicStates),
             .pDynamicStates    = dynamicStates.data(),
         };
 
@@ -68,7 +62,7 @@ namespace renderer::backend
             .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .vertexBindingDescriptionCount   = 1,
             .pVertexBindingDescriptions      = &vertexBindingDescription,
-            .vertexAttributeDescriptionCount = Utils::size(vertexAttributeDescriptions),
+            .vertexAttributeDescriptionCount = utils::size(vertexAttributeDescriptions),
             .pVertexAttributeDescriptions    = vertexAttributeDescriptions.data(),
         };
 
@@ -140,7 +134,7 @@ namespace renderer::backend
 
         VkGraphicsPipelineCreateInfo pipelineInfo {
             .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-            .stageCount          = Utils::size(m_shaderStages),
+            .stageCount          = utils::size(m_shaderStages),
             .pStages             = m_shaderStages.data(),
             .pVertexInputState   = &vertexInputInfo,
             .pInputAssemblyState = &inputAssembly,
@@ -169,26 +163,3 @@ namespace renderer::backend
         vkDestroyShaderModule(m_device, m_vertShaderModule, nullptr);
     }
 }  // namespace renderer::backend
-
-namespace
-{
-    auto readShader(std::string_view const& filepath) -> std::vector<char>
-    {
-        std::ifstream file(filepath.data(), std::ios::ate | std::ios::binary);
-
-        if (!file.is_open())
-        {
-            MC_THROW Error(AssetError, fmt::format("Failed to read shader file at path {}", filepath));
-        }
-
-        auto fileSize = file.tellg();
-        std::vector<char> buffer(static_cast<std::size_t>(fileSize));
-
-        file.seekg(0);
-        file.read(buffer.data(), fileSize);
-
-        file.close();
-
-        return buffer;
-    }
-}  // namespace
