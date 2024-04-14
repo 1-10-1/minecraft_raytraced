@@ -1,3 +1,4 @@
+#include <format>
 #include <mc/logger.hpp>
 
 #include <mc/renderer/backend/render.hpp>
@@ -12,6 +13,10 @@ namespace renderer::backend
     void RendererBackend::render()
     {
         ZoneScopedN("Backend render");
+
+        [[maybe_unused]] std::string zoneName = std::format("Render frame {}", m_currentFrame + 1);
+
+        ZoneText(zoneName.c_str(), zoneName.size());
 
         VkCommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
 

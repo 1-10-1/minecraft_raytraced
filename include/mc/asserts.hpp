@@ -33,25 +33,7 @@
                 debugBreak();                                                  \
             }                                                                  \
         }
-
-#    if DEBUG
-#        define KASSERT_DEBUG(expr)                                          \
-            {                                                                \
-                if (expr)                                                    \
-                {                                                            \
-                }                                                            \
-                else                                                         \
-                {                                                            \
-                    report_assertion_failure(#expr, "", __FILE__, __LINE__); \
-                    debugBreak();                                            \
-                }                                                            \
-            }
-#    else
-#        define KASSERT_DEBUG(expr)
-#    endif
-
 #else
-#    define KASSERT(expr)
-#    define KASSERT_MSG(expr, message)
-#    define KASSERT_DEBUG(expr)
+#    define MC_ASSERT(expr)
+#    define MC_ASSERT_MSG(expr, message)
 #endif

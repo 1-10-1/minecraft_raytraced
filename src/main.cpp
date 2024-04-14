@@ -1,7 +1,6 @@
 #include "mc/events.hpp"
 #include <mc/exceptions.hpp>
 #include <mc/game/game.hpp>
-#include <mc/game/loop.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/renderer.hpp>
 
