@@ -55,6 +55,9 @@ namespace renderer::backend
             vkFreeMemory(m_device, m_memoryHandle, nullptr);
         }
 
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkBuffer() const { return m_bufferHandle; }
+
         void update(UniformBufferObject const& ubo);
 
     private:

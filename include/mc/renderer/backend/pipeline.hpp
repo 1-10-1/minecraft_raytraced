@@ -1,5 +1,6 @@
 #pragma once
 
+#include "descriptor.hpp"
 #include "device.hpp"
 #include "render_pass.hpp"
 
@@ -10,7 +11,7 @@ namespace renderer::backend
     class Pipeline
     {
     public:
-        explicit Pipeline(Device const& device, RenderPass const& renderPass);
+        explicit Pipeline(Device const& device, RenderPass const& renderPass, DescriptorManager const& descriptor);
 
         Pipeline(Pipeline const&)                    = delete;
         Pipeline(Pipeline&&)                         = delete;
@@ -21,6 +22,8 @@ namespace renderer::backend
 
         // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VkPipeline() const { return m_handle; }
+
+        [[nodiscard]] auto getLayout() const -> VkPipelineLayout { return m_layout; }
 
     private:
         Device const& m_device;

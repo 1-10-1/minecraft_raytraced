@@ -170,6 +170,8 @@ namespace renderer::backend
 
             vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
+            m_descriptorManager.bind(cmdBuf, m_pipeline.getLayout(), m_currentFrame);
+
             {
                 TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
                 vkCmdDrawIndexed(cmdBuf, utils::size(indices), 1, 0, 0, 0);

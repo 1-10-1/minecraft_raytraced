@@ -13,6 +13,7 @@ namespace renderer
         explicit Renderer(EventManager& eventManager, window::Window& window);
 
         void onRender(AppRenderEvent const& /* unused */);
+        void onUpdate(AppUpdateEvent const& /* unused */);
         void onFramebufferResize(WindowFramebufferResizeEvent const& event);
 
     private:

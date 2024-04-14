@@ -10,7 +10,8 @@
 
 namespace renderer::backend
 {
-    Pipeline::Pipeline(Device const& device, RenderPass const& renderPass) : m_device { device }
+    Pipeline::Pipeline(Device const& device, RenderPass const& renderPass, DescriptorManager const& descriptor)
+        : m_device { device }
     {
         auto createShaderModule = [&device](std::string_view const& shaderPath)
         {
@@ -83,8 +84,8 @@ namespace renderer::backend
             .depthClampEnable        = VK_FALSE,
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode             = VK_POLYGON_MODE_FILL,
-            .cullMode                = VK_CULL_MODE_BACK_BIT,
-            .frontFace               = VK_FRONT_FACE_CLOCKWISE,
+            .cullMode                = VK_CULL_MODE_NONE,
+            .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable         = VK_FALSE,
             .depthBiasConstantFactor = 0.0f,
             .depthBiasClamp          = 0.0f,
@@ -124,8 +125,8 @@ namespace renderer::backend
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo {
             .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount         = 0,
-            .pSetLayouts            = nullptr,
+            .setLayoutCount         = 1,
+            .pSetLayouts            = &descriptor.getLayout(),
             .pushConstantRangeCount = 0,
             .pPushConstantRanges    = nullptr,
         };

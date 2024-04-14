@@ -25,6 +25,7 @@ list(APPEND SOURCE_FILES
     src/logger.cpp
     src/utils.cpp
     src/window.cpp
+    src/camera.cpp
 
     src/game/game.cpp
 
@@ -37,12 +38,11 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/buffer.cpp
     src/renderer/backend/command.cpp
     src/renderer/backend/pipeline.cpp
+    src/renderer/backend/descriptor.cpp
     src/renderer/backend/swapchain.cpp
     src/renderer/backend/render_pass.cpp
     src/renderer/backend/device.cpp
     src/renderer/renderer.cpp
-
-    # src/camera.cpp
 )
 
 # TODO: Figure out how to make this work
@@ -75,7 +75,7 @@ add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 target_link_libraries(${PROJECT_NAME} ${LIBS})
 target_compile_definitions(
     ${PROJECT_NAME} PUBLIC FMT_EXCEPTIONS=0
-    GLM_FORCE_AVX2 GLFW_INCLUDE_VULKAN
+    GLM_FORCE_AVX2 GLFW_INCLUDE_VULKAN GLM_ENABLE_EXPERIMENTAL
     NOMINMAX GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE
     _CRT_SECURE_NO_WARNINGS MAGIC_ENUM_RANGE_MIN=-1 MAGIC_ENUM_RANGE_MAX=1000
     ROOT_SOURCE_PATH="${CMAKE_SOURCE_DIR}"

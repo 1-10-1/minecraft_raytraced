@@ -96,7 +96,7 @@ namespace renderer::backend
 
     UniformBuffer::UniformBuffer(Device& device, CommandManager& commandController) : m_device { device }
     {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+        constexpr VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
         BufferHandles handles =
             createBuffer(m_device,

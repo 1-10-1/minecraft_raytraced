@@ -43,6 +43,7 @@ namespace renderer::backend
         ~RendererBackend();
 
         void render();
+        void update();
         void recordCommandBuffer(uint32_t imageIndex);
 
         void scheduleSwapchainUpdate();
@@ -51,15 +52,20 @@ namespace renderer::backend
         void updateSwapchain();
         void createSyncObjects();
         void destroySyncObjects();
+        void updateUniforms();
 
         Instance m_instance;
         Surface m_surface;
         Device m_device;
+        CommandManager m_commandManager;
         Swapchain m_swapchain;
         RenderPass m_renderPass;
         Framebuffers m_framebuffers;
+
+        std::array<UniformBuffer, kNumFramesInFlight> m_uniformBuffers;
+        DescriptorManager m_descriptorManager;
+
         Pipeline m_pipeline;
-        CommandManager m_commandManager;
         StagedBuffer m_vertexBuffer;
         StagedBuffer m_indexBuffer;
 
