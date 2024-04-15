@@ -51,6 +51,21 @@ namespace renderer::backend
 
         [[nodiscard]] auto getPresentQueue() const -> VkQueue { return m_presentQueue; }
 
+        [[nodiscard]] auto getDeviceProperties() const -> VkPhysicalDeviceProperties const&
+        {
+            return m_deviceProperties;
+        }
+
+        [[nodiscard]] auto getDeviceFeatures() const -> VkPhysicalDeviceFeatures const& { return m_deviceFeatures; }
+
+        [[nodiscard]] auto getFormatProperties(VkFormat format) const -> VkFormatProperties
+        {
+            VkFormatProperties props;
+            vkGetPhysicalDeviceFormatProperties(m_physicalHandle, format, &props);
+
+            return props;
+        }
+
         [[nodiscard]] auto findSuitableMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
             -> uint32_t;
 
@@ -60,6 +75,11 @@ namespace renderer::backend
 
         VkDevice m_logicalHandle { VK_NULL_HANDLE };
         VkPhysicalDevice m_physicalHandle { VK_NULL_HANDLE };
+
+        VkPhysicalDeviceProperties m_deviceProperties {};
+        VkPhysicalDeviceFeatures m_deviceFeatures {};
+        VkPhysicalDeviceMemoryProperties m_memoryProperties {};
+        VkSampleCountFlagBits m_sampleCount {};
 
         QueueFamilyIndices m_queueFamilyIndices {};
 

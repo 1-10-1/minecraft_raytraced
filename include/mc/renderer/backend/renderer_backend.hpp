@@ -4,6 +4,7 @@
 #include "constants.hpp"
 #include "device.hpp"
 #include "framebuffers.hpp"
+#include "image.hpp"
 #include "instance.hpp"
 #include "mc/renderer/backend/buffer.hpp"
 #include "pipeline.hpp"
@@ -34,7 +35,9 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
-        explicit RendererBackend(window::Window& window, std::vector<Vertex> vertices, std::vector<uint32_t> indices);
+        explicit RendererBackend(window::Window& window,
+                                 std::vector<Vertex> const& vertices,
+                                 std::vector<uint32_t> const& indices);
 
         RendererBackend(RendererBackend const&)                    = delete;
         RendererBackend(RendererBackend&&)                         = delete;
@@ -70,6 +73,7 @@ namespace renderer::backend
         Framebuffers m_framebuffers;
 
         std::array<UniformBuffer, kNumFramesInFlight> m_uniformBuffers;
+        Texture m_texture;
         DescriptorManager m_descriptorManager;
 
         Pipeline m_pipeline;

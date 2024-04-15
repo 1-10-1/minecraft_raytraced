@@ -1,5 +1,4 @@
 #include "glm/ext/matrix_transform.hpp"
-#include "glm/trigonometric.hpp"
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
@@ -22,7 +21,7 @@ namespace vi = std::ranges::views;
 
 namespace renderer::backend
 {
-    RendererBackend::RendererBackend(window::Window& window, std::vector<Vertex> vertices, std::vector<uint32_t> indices)
+    RendererBackend::RendererBackend(window::Window& window, std::vector<Vertex> const& vertices, std::vector<uint32_t> const& indices)
         : m_surface { window, m_instance },
           m_device { m_instance, m_surface },
           m_commandManager { m_device },
@@ -30,7 +29,8 @@ namespace renderer::backend
           m_renderPass { m_device, m_surface },
           m_framebuffers { m_device, m_renderPass, m_swapchain },
           m_uniformBuffers {{{ m_device, m_commandManager }, { m_device, m_commandManager }}},  // TODO(aether)
-          m_descriptorManager { m_device, m_uniformBuffers },
+          m_texture{ m_device, m_commandManager, StbiImage("res/textures/viking_room (2).png") },
+          m_descriptorManager { m_device, m_uniformBuffers, m_texture.getImageView(), m_texture.getSampler() },
           m_pipeline { m_device, m_renderPass, m_descriptorManager },
 
           m_vertexBuffer { m_device,
@@ -43,7 +43,7 @@ namespace renderer::backend
                           m_commandManager,
                           VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                           indices.data(),
-                          utils::size(indices) * sizeof(decltype(indices)::value_type) },
+                          utils::size(indices) * sizeof(uint32_t) },
 
           m_numIndices { indices.size() }
     {

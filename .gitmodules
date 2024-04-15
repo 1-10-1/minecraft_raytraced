@@ -22,9 +22,6 @@
 [submodule "lib/tinyobjloader"]
 	path = lib/tinyobjloader
 	url = https://github.com/tinyobjloader/tinyobjloader
-[submodule "lib/stb"]
-	path = lib/stb
-	url = https://github.com/nothings/stb
 [submodule "lib/magic_enum"]
 	path = lib/magic_enum
 	url = https://github.com/Neargye/magic_enum
@@ -37,3 +34,6 @@
 [submodule "lib/tracy"]
 	path = lib/tracy
 	url = https://github.com/wolfpld/tracy
+[submodule "lib/stb/stb"]
+	path = lib/stb/stb
+	url = https://github.com/nothings/stb

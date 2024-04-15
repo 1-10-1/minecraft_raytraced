@@ -11,7 +11,9 @@ namespace renderer::backend
     {
     public:
         explicit DescriptorManager(Device& device,
-                                   std::array<UniformBuffer, kNumFramesInFlight> const& uniformBufferArray);
+                                   std::array<UniformBuffer, kNumFramesInFlight> const& uniformBufferArray,
+                                   VkImageView textureImageView,
+                                   VkSampler textureSampler);
         ~DescriptorManager();
 
         DescriptorManager(DescriptorManager const&)                    = delete;

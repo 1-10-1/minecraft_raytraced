@@ -115,9 +115,11 @@ namespace renderer::backend
         std::memcpy(m_bufferMapping, &ubo, sizeof(UniformBufferObject));
     }
 
-    TextureBuffer::TextureBuffer(Device& device, CommandManager& commandController) : m_device { device } {}
-
-    void TextureBuffer::init(void const* data, uint64_t sizeInBytes)
+    TextureBuffer::TextureBuffer(Device& device,
+                                 CommandManager& commandController,
+                                 unsigned char const* data,
+                                 uint64_t sizeInBytes)
+        : m_device { device }
     {
         BufferHandles handles =
             createBuffer(m_device,

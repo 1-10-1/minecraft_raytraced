@@ -72,7 +72,10 @@ namespace renderer::backend
     class TextureBuffer
     {
     public:
-        TextureBuffer(Device& device, CommandManager& commandController);
+        TextureBuffer(Device& device,
+                      CommandManager& commandController,
+                      unsigned char const* data,
+                      uint64_t sizeInBytes);
 
         TextureBuffer(TextureBuffer const&)                    = delete;
         TextureBuffer(TextureBuffer&&)                         = delete;
@@ -85,7 +88,10 @@ namespace renderer::backend
             vkFreeMemory(m_device, m_memoryHandle, nullptr);
         }
 
-        void init(void const* data, uint64_t sizeInBytes);
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkBuffer() const { return m_bufferHandle; }
+
+        void init();
 
     private:
         Device& m_device;

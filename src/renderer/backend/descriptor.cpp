@@ -10,7 +10,9 @@ namespace vi = std::ranges::views;
 namespace renderer::backend
 {
     DescriptorManager::DescriptorManager(Device& device,
-                                         std::array<UniformBuffer, kNumFramesInFlight> const& uniformBufferArray)
+                                         std::array<UniformBuffer, kNumFramesInFlight> const& uniformBufferArray,
+                                         VkImageView textureImageView,
+                                         VkSampler textureSampler)
         : m_device { device }
     {
         initLayout();
@@ -25,18 +27,37 @@ namespace renderer::backend
                 .range  = VK_WHOLE_SIZE,
             };
 
-            std::array descriptorWrites {
-                std::to_array<VkWriteDescriptorSet>({{
-                    .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                    .dstSet          = m_descriptorSets[i],
-                    .dstBinding      = 0,
-                    .dstArrayElement = 0,
-                    .descriptorCount = 1,
-                    .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                    .pBufferInfo     = &bufferInfo,
-                }}
-                )
+            VkDescriptorImageInfo imageInfo {
+                .sampler     = textureSampler,
+                .imageView   = textureImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             };
+
+            // clang-format off
+            std::array descriptorWrites
+            {
+                std::to_array<VkWriteDescriptorSet>({
+                    {
+                        .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                        .dstSet          = m_descriptorSets[i],
+                        .dstBinding      = 0,
+                        .dstArrayElement = 0,
+                        .descriptorCount = 1,
+                        .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        .pBufferInfo     = &bufferInfo,
+                    },
+                    {
+                        .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                        .dstSet          = m_descriptorSets[i],
+                        .dstBinding      = 1,
+                        .dstArrayElement = 0,
+                        .descriptorCount = 1,
+                        .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        .pImageInfo      = &imageInfo,
+                    },
+                })
+            };
+            // clang-format on
 
             vkUpdateDescriptorSets(m_device, utils::size(descriptorWrites), descriptorWrites.data(), 0, nullptr);
         }
@@ -70,7 +91,15 @@ namespace renderer::backend
             .pImmutableSamplers = nullptr,
         };
 
-        std::array bindings { uboLayoutBinding };
+        VkDescriptorSetLayoutBinding samplerLayoutBinding {
+            .binding            = 1,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount    = 1,
+            .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .pImmutableSamplers = nullptr,
+        };
+
+        std::array bindings { uboLayoutBinding, samplerLayoutBinding };
 
         VkDescriptorSetLayoutCreateInfo layoutInfo {
             .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -86,6 +115,11 @@ namespace renderer::backend
         std::array poolSizes {
             VkDescriptorPoolSize {
                                   .type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                  .descriptorCount = kNumFramesInFlight,
+                                  },
+
+            VkDescriptorPoolSize {
+                                  .type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                   .descriptorCount = kNumFramesInFlight,
                                   },
         };

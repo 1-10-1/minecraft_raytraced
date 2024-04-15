@@ -208,6 +208,30 @@ namespace renderer::backend
         m_physicalHandle     = bestCandidate.device;
         m_queueFamilyIndices = bestCandidate.queueFamilyIndices;
 
+        m_deviceProperties = bestCandidate.properties;
+        m_deviceFeatures   = bestCandidate.features;
+
+        VkPhysicalDeviceMemoryProperties properties;
+        vkGetPhysicalDeviceMemoryProperties(m_physicalHandle, &properties);
+        m_memoryProperties = properties;
+
+        VkSampleCountFlags sampleCounts = m_deviceProperties.limits.framebufferColorSampleCounts &
+                                          m_deviceProperties.limits.framebufferDepthSampleCounts;
+
+        std::array possibleSampleCounts {
+            VK_SAMPLE_COUNT_2_BIT,  VK_SAMPLE_COUNT_4_BIT,  VK_SAMPLE_COUNT_8_BIT,
+            VK_SAMPLE_COUNT_16_BIT, VK_SAMPLE_COUNT_32_BIT, VK_SAMPLE_COUNT_64_BIT,
+        };
+
+        m_sampleCount = VK_SAMPLE_COUNT_1_BIT;
+
+        for (auto count : possibleSampleCounts)
+        {
+            if ((count & sampleCounts) != 0)
+            {
+                m_sampleCount = count;
+            }
+        }
         std::string_view deviceType;
 
         switch (bestCandidate.properties.deviceType)
@@ -249,7 +273,7 @@ namespace renderer::backend
                                          .pQueuePriorities = &queuePriority });
         }
 
-        VkPhysicalDeviceFeatures deviceFeatures {};
+        VkPhysicalDeviceFeatures deviceFeatures { .samplerAnisotropy = VK_TRUE };
 
         VkDeviceCreateInfo deviceCreateInfo {
             .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
