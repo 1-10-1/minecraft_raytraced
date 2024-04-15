@@ -78,6 +78,7 @@ public:
     void yaw(float angle);
 
     void onUpdate(AppUpdateEvent const& event);
+    void onFramebufferResize(WindowFramebufferResizeEvent const& event);
 
 private:
     glm::vec3 m_position { 0.0f, 0.0f, 0.0f };

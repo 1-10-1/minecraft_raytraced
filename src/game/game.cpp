@@ -1,4 +1,3 @@
-#include "glm/trigonometric.hpp"
 #include <mc/events.hpp>
 #include <mc/game/game.hpp>
 #include <mc/logger.hpp>

@@ -33,7 +33,7 @@ auto main() -> int
     renderer::Renderer m_renderer { eventManager, window, camera };
     game::Game game { eventManager, window, camera };
 
-    eventManager.subscribe(&camera, &Camera::onUpdate);
+    eventManager.subscribe(&camera, &Camera::onUpdate, &Camera::onFramebufferResize);
 
     MC_TRY
     {

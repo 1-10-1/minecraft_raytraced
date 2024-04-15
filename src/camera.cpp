@@ -18,7 +18,7 @@ void Camera::setLens(float verticalFov, float width, float height, float near_z,
     m_nearPlaneHeight = 2.0f * m_near * tanf(0.5f * m_verticalFov);
     m_farPlaneHeight  = 2.0f * m_far * tanf(0.5f * m_verticalFov);
 
-    m_projection = glm::perspectiveRH(m_verticalFov, m_aspectRatio, m_near, m_far);
+    m_projection = glm::perspectiveFovRH(m_verticalFov, width, height, m_near, m_far);
 
     m_projection[1][1] *= -1.0f;
 }
@@ -75,8 +75,6 @@ void Camera::onUpdate(AppUpdateEvent const& event)
         return;
     }
 
-    logger::info("Pitch: {}° Yaw: {}°", m_pitch, m_yaw);
-
     m_look = glm::normalize(glm::vec3 { cos(glm::radians(m_yaw)) * cos(glm::radians(m_pitch)),
                                         sin(glm::radians(m_pitch)),
                                         sin(glm::radians(m_yaw)) * cos(glm::radians(m_pitch)) });
@@ -89,3 +87,9 @@ void Camera::onUpdate(AppUpdateEvent const& event)
 
     m_viewDirty = false;
 }
+
+void Camera::onFramebufferResize(WindowFramebufferResizeEvent const& event)
+{
+    setLens(
+        m_verticalFov, static_cast<float>(event.dimensions.x), static_cast<float>(event.dimensions.y), m_near, m_far);
+};

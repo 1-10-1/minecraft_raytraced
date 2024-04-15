@@ -94,12 +94,12 @@ namespace renderer::backend
     {
         ZoneScopedN("Backend update");
 
-        // static auto startTime = Timer::getCurrentTime<Timer::Seconds>();
-        //
-        // float time = static_cast<float>((startTime - Timer::getCurrentTime<Timer::Seconds>()).count());
+        static auto startTime = Timer::getCurrentTime<Timer::Seconds>();
+
+        float time = static_cast<float>((startTime - Timer::getCurrentTime<Timer::Seconds>()).count());
 
         updateUniforms(
-            glm::rotate(glm::mat4(1.0f), 0 * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)), view, projection);
+            glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)), view, projection);
     }
 
     void RendererBackend::createSyncObjects()
