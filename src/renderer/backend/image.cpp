@@ -19,8 +19,6 @@ namespace
                                VkImageLayout newLayout,
                                uint32_t mipLevels)
     {
-        // TODO(aether): pls stop passing shared pointers to classes that are only used in the renderer ASAP >:(
-
         VkPipelineStageFlags sourceStage {};
         VkPipelineStageFlags destinationStage {};
 

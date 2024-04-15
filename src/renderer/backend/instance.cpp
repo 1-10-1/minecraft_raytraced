@@ -34,14 +34,12 @@ namespace
         std::string_view message = pCallbackData->pMessage;
 
         if (messageSeverity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ||
-            message.ends_with("uses API version 1.2 which is older than the application "
-                              "specified API version of "
-                              "1.3. May cause issues."))
+            message.ends_with("not consumed by vertex shader."))  // TODO(aether)
         {
             return VK_FALSE;
         }
 
-        // [[maybe_unused]] Renderer* renderer { static_cast<Renderer*>(pUserData) };
+        // [[maybe_unused]] RendererBackend* renderer { static_cast<RendererBackend*>(pUserData) };
 
         std::string type;
 
