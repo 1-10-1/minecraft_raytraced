@@ -11,7 +11,10 @@
 namespace renderer
 {
     Renderer::Renderer(EventManager& eventManager, window::Window& window, Camera& camera)
-        : m_camera { camera }, m_backend { backend::RendererBackend(window) }
+        : m_camera { camera },
+          m_model { Model("res/models/viking_room.obj") },
+          m_backend { backend::RendererBackend(
+              window, m_model.meshes[0].getVertices(), m_model.meshes[0].getIndices()) }
     {
         eventManager.subscribe(this, &Renderer::onRender, &Renderer::onUpdate, &Renderer::onFramebufferResize);
 

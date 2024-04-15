@@ -7,7 +7,7 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 
-Camera::Camera() : m_position { 0.f, 0.f, 10.f } {}
+Camera::Camera() = default;
 
 void Camera::setLens(float verticalFov, float width, float height, float near_z, float far_z)
 {

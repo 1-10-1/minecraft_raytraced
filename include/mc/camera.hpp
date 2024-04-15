@@ -93,8 +93,8 @@ private:
     float m_nearPlaneHeight { 0.0f };
     float m_farPlaneHeight { 0.0f };
 
-    float m_pitch { 0.0f };
-    float m_yaw { -90.0f };
+    float m_pitch { -45.0f };
+    float m_yaw { -135.0f };
 
     bool m_viewDirty { true };
 

@@ -1,25 +1,17 @@
 #include <mc/assetloader.hpp>
+#include <mc/exceptions.hpp>
+#include <mc/logger.hpp>
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <sstream>
 #include <string>
 #include <vector>
 
-#include <kv/exceptions.h>
-#include <kv/logger.h>
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wimplicit-float-conversion"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#pragma clang diagnostic pop
 
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-Mesh::Mesh(std::vector<VertexData>&& vertices, std::vector<unsigned int>&& indices, std::vector<TextureData>&& textures)
+Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<unsigned int>&& indices, std::vector<TextureData>&& textures)
     : m_vertices { std::move(vertices) }, m_indices { std::move(indices) }, m_textures { std::move(textures) }
 {
     setupMesh();
@@ -59,7 +51,7 @@ void Model::processNode(aiNode* node, aiScene const* scene)
 
 auto Model::processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh
 {
-    std::vector<VertexData> vertices;
+    std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     std::vector<TextureData> textures;
 
@@ -67,9 +59,8 @@ auto Model::processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh
     {
         vertices.push_back({
             .position { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z },
-            .normal =
-                mesh->HasNormals() ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
-             : glm::vec3 {},
+            .normal = mesh->HasNormals() ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
+                                         : glm::vec3 {},
  // A vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
   // use models where a vertex can have multiple texture coordinates so we always take the first set (0).
             .texCoords = mesh->mTextureCoords[0] != nullptr
@@ -99,7 +90,8 @@ auto Model::processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh
     std::vector<TextureData> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, TextureType::Diffuse);
     textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
 
-    std::vector<TextureData> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, TextureType::Specular);
+    std::vector<TextureData> specularMaps =
+        loadMaterialTextures(material, aiTextureType_SPECULAR, TextureType::Specular);
     textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
 
     std::vector<TextureData> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, TextureType::Normal);

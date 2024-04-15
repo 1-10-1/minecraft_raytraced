@@ -10,6 +10,7 @@
 #include "render_pass.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
+#include "vertex.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/ext/vector_uint2.hpp>
@@ -33,7 +34,7 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
-        explicit RendererBackend(window::Window& window);
+        explicit RendererBackend(window::Window& window, std::vector<Vertex> vertices, std::vector<uint32_t> indices);
 
         RendererBackend(RendererBackend const&)                    = delete;
         RendererBackend(RendererBackend&&)                         = delete;
@@ -80,5 +81,7 @@ namespace renderer::backend
         uint32_t m_currentFrame { 0 };
 
         bool m_windowResized = false;
+
+        size_t m_numIndices;
     };
 }  // namespace renderer::backend

@@ -22,7 +22,7 @@ namespace vi = std::ranges::views;
 
 namespace renderer::backend
 {
-    RendererBackend::RendererBackend(window::Window& window)
+    RendererBackend::RendererBackend(window::Window& window, std::vector<Vertex> vertices, std::vector<uint32_t> indices)
         : m_surface { window, m_instance },
           m_device { m_instance, m_surface },
           m_commandManager { m_device },
@@ -43,7 +43,9 @@ namespace renderer::backend
                           m_commandManager,
                           VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                           indices.data(),
-                          utils::size(indices) * sizeof(decltype(indices)::value_type) }
+                          utils::size(indices) * sizeof(decltype(indices)::value_type) },
+
+          m_numIndices { indices.size() }
     {
 #if PROFILED
         auto vkGetPhysicalDeviceCalibratableTimeDomainsEXT =
@@ -94,12 +96,7 @@ namespace renderer::backend
     {
         ZoneScopedN("Backend update");
 
-        static auto startTime = Timer::getCurrentTime<Timer::Seconds>();
-
-        float time = static_cast<float>((startTime - Timer::getCurrentTime<Timer::Seconds>()).count());
-
-        updateUniforms(
-            glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)), view, projection);
+        updateUniforms(glm::identity<glm::mat4>(), view, projection);
     }
 
     void RendererBackend::createSyncObjects()

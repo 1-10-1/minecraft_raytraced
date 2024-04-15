@@ -1,5 +1,7 @@
 #pragma once
 
+#include "renderer/backend/vertex.hpp"
+
 #include <string>
 #include <vector>
 
@@ -7,21 +9,14 @@
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 
+using renderer::backend::Vertex;
+
 enum class TextureType
 {
     Diffuse,
     Specular,
     Height,
     Normal
-};
-
-struct VertexData
-{
-    glm::vec3 position;
-    glm::vec3 normal;
-    glm::vec2 texCoords;
-    glm::vec3 tangent;
-    glm::vec3 bitangent;
 };
 
 struct TextureData
@@ -33,9 +28,9 @@ struct TextureData
 class Mesh
 {
 public:
-    Mesh(std::vector<VertexData>&& vertices, std::vector<unsigned int>&& indices, std::vector<TextureData>&& textures);
+    Mesh(std::vector<Vertex>&& vertices, std::vector<unsigned int>&& indices, std::vector<TextureData>&& textures);
 
-    [[nodiscard]] auto getVertices() const -> std::vector<VertexData> const& { return m_vertices; }
+    [[nodiscard]] auto getVertices() const -> std::vector<Vertex> const& { return m_vertices; }
 
     [[nodiscard]] auto getIndices() const -> std::vector<uint32_t> const& { return m_indices; }
 
@@ -44,7 +39,7 @@ public:
 private:
     void setupMesh();
 
-    std::vector<VertexData> m_vertices;
+    std::vector<Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
     std::vector<TextureData> m_textures;
 };

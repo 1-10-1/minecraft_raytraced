@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../assetloader.hpp"
 #include "../camera.hpp"
 #include "../event_manager.hpp"
 #include "./backend/renderer_backend.hpp"
@@ -19,6 +20,8 @@ namespace renderer
 
     private:
         Camera& m_camera;
+
+        Model m_model;
 
         backend::RendererBackend m_backend;
     };

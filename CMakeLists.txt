@@ -26,6 +26,7 @@ list(APPEND SOURCE_FILES
     src/utils.cpp
     src/window.cpp
     src/camera.cpp
+    src/assetloader.cpp
 
     src/game/game.cpp
 
@@ -68,7 +69,7 @@ list(APPEND LIBS
     magic_enum::magic_enum
     Tracy::TracyClient
     stdc++exp
-    # assimp::assimp
+    assimp::assimp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})

@@ -11,8 +11,11 @@ namespace renderer::backend
     class Vertex
     {
     public:
-        glm::vec2 position;
-        glm::vec3 color;
+        glm::vec3 position;
+        glm::vec3 normal;
+        glm::vec2 texCoords;
+        glm::vec3 tangent;
+        glm::vec3 bitangent;
 
         static auto getBindingDescription() -> VkVertexInputBindingDescription
         {
@@ -26,31 +29,35 @@ namespace renderer::backend
                 {
                     .location = 0,
                     .binding  = 0,
-                    .format   = VK_FORMAT_R32G32_SFLOAT,
+                    .format   = VK_FORMAT_R32G32B32_SFLOAT,
                     .offset   = utils::member_offset(&Vertex::position),
                 },
                 {
                     .location = 1,
                     .binding  = 0,
                     .format   = VK_FORMAT_R32G32B32_SFLOAT,
-                    .offset   = utils::member_offset(&Vertex::color),
+                    .offset   = utils::member_offset(&Vertex::normal),
+                },
+                {
+                    .location = 2,
+                    .binding  = 0,
+                    .format   = VK_FORMAT_R32G32_SFLOAT,
+                    .offset   = utils::member_offset(&Vertex::texCoords),
+                },
+                {
+                    .location = 3,
+                    .binding  = 0,
+                    .format   = VK_FORMAT_R32G32B32_SFLOAT,
+                    .offset   = utils::member_offset(&Vertex::tangent),
+                },
+                {
+                    .location = 4,
+                    .binding  = 0,
+                    .format   = VK_FORMAT_R32G32B32_SFLOAT,
+                    .offset   = utils::member_offset(&Vertex::bitangent),
                 }
             });
             // clang-format on
         }
     };
-
-    // clang-format off
-    std::vector<Vertex> const vertices = {
-        { { -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
-        { {  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
-        { {  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f } },
-        { { -0.5f,  0.5f }, { 1.0f, 1.0f, 1.0f } },
-    };
-
-    std::vector<uint32_t> const indices = {
-        0, 1, 2, 2, 3, 0
-    };
-    // clang-format on
-
 }  // namespace renderer::backend
