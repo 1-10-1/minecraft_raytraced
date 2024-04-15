@@ -1,4 +1,3 @@
-#include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/trigonometric.hpp"
 #include <mc/exceptions.hpp>
@@ -91,11 +90,16 @@ namespace renderer::backend
 #endif
     }
 
-    void RendererBackend::update()
+    void RendererBackend::update(glm::mat4 view, glm::mat4 projection)
     {
         ZoneScopedN("Backend update");
 
-        updateUniforms();
+        // static auto startTime = Timer::getCurrentTime<Timer::Seconds>();
+        //
+        // float time = static_cast<float>((startTime - Timer::getCurrentTime<Timer::Seconds>()).count());
+
+        updateUniforms(
+            glm::rotate(glm::mat4(1.0f), 0 * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)), view, projection);
     }
 
     void RendererBackend::createSyncObjects()
@@ -143,29 +147,8 @@ namespace renderer::backend
         m_framebuffers.create(m_renderPass, m_swapchain);
     }
 
-    void RendererBackend::updateUniforms()
+    void RendererBackend::updateUniforms(glm::mat4 model, glm::mat4 view, glm::mat4 projection)
     {
-        static auto startTime = Timer::getCurrentTime<Timer::Seconds>();
-
-        float time = static_cast<float>((startTime - Timer::getCurrentTime<Timer::Seconds>()).count());
-
-        auto framebufExtent = m_surface.getFramebufferExtent();
-
-        UniformBufferObject ubo {
-            .model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-
-            .view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-
-            .proj =
-                glm::perspective(glm::radians(45.0f),
-                                 static_cast<float>(framebufExtent.width) / static_cast<float>(framebufExtent.height),
-                                 0.1f,
-                                 10.0f),
-
-        };
-
-        ubo.proj[1][1] *= -1;
-
-        m_uniformBuffers[m_currentFrame].update(ubo);
+        m_uniformBuffers[m_currentFrame].update({ .model = model, .view = view, .proj = projection });
     }
 }  // namespace renderer::backend

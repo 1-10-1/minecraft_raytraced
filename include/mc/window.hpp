@@ -66,6 +66,22 @@ namespace window
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
         static void dropCallback(GLFWwindow* window, int count, char const* paths[]);
 
+        void onUpdate(AppUpdateEvent const& event);
+
+        void disableCursor()
+        {
+            m_cursorDisabled = true;
+            glfwSetInputMode(m_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
+
+        void enableCursor()
+        {
+            m_cursorDisabled = false;
+            glfwSetInputMode(m_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+
+        void toggleCursor() { m_cursorDisabled ? enableCursor() : disableCursor(); }
+
     private:
         bool m_shouldClose {};
 
@@ -75,5 +91,7 @@ namespace window
 
         glm::uvec2 m_framebufferDimensions {};
         glm::uvec2 m_windowDimensions {};
+
+        bool m_cursorDisabled { false };
     };
 }  // namespace window

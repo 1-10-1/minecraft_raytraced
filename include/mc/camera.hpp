@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <mc/events.hpp>
 
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
@@ -43,7 +44,10 @@ public:
 
     [[nodiscard]] auto getVerticalFov() const -> float { return m_verticalFov; }
 
-    [[nodiscard]] auto getHorizontalFov() const -> double { return 2.0 * std::atan((0.5f * getNearWindowWidth()) / m_near); }
+    [[nodiscard]] auto getHorizontalFov() const -> double
+    {
+        return 2.0 * std::atan((0.5f * getNearWindowWidth()) / m_near);
+    }
 
     [[nodiscard]] auto getNearWindowWidth() const -> float { return m_aspectRatio * m_nearPlaneHeight; }
 
@@ -73,7 +77,7 @@ public:
     void pitch(float angle);
     void yaw(float angle);
 
-    void update();
+    void onUpdate(AppUpdateEvent const& event);
 
 private:
     glm::vec3 m_position { 0.0f, 0.0f, 0.0f };
@@ -89,7 +93,7 @@ private:
     float m_farPlaneHeight { 0.0f };
 
     float m_pitch { 0.0f };
-    float m_yaw { 0.0f };
+    float m_yaw { -90.0f };
 
     bool m_viewDirty { true };
 

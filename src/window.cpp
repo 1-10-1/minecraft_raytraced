@@ -12,7 +12,7 @@ namespace window
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
@@ -69,6 +69,8 @@ namespace window
         glfwSetCursorEnterCallback(m_handle, cursorEnterCallback);
         glfwSetScrollCallback(m_handle, scrollCallback);
         glfwSetDropCallback(m_handle, dropCallback);
+
+        m_eventManager.subscribe(this, &Window::onUpdate);
     };
 
     Window::Window(Window&& window) noexcept : m_eventManager { window.m_eventManager }, m_handle(window.m_handle) {}
@@ -84,6 +86,14 @@ namespace window
         glfwTerminate();
     }
 
+    void Window::onUpdate(AppUpdateEvent const& event)
+    {
+        for (Key key : m_inputManager.getDownKeys())
+        {
+            m_eventManager.dispatchEvent(KeyHoldEvent { &m_inputManager, key });
+        }
+    };
+
     void Window::pollEvents()
     {
         glfwPollEvents();
@@ -95,7 +105,6 @@ namespace window
         auto key                   = static_cast<Key>(keyid);
         InputManager& inputManager = self->m_inputManager;
 
-        // Todo: make a single event called KeyEvent and send them an action parameter
         switch (action)
         {
             case GLFW_PRESS:

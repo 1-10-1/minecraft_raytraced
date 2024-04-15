@@ -3,6 +3,7 @@
 #include "input_manager.hpp"
 #include "key.hpp"
 #include "mouse_buttons.hpp"
+#include "timer.hpp"
 
 #include <glm/vec2.hpp>
 
@@ -112,7 +113,10 @@ public:
 class KeyHoldEvent : public InputEvent
 {
 public:
-    explicit KeyHoldEvent(InputManager const* inputManager, Key heldDownKey) : InputEvent { inputManager }, key { heldDownKey } {}
+    explicit KeyHoldEvent(InputManager const* inputManager, Key heldDownKey)
+        : InputEvent { inputManager }, key { heldDownKey }
+    {
+    }
 
     Key key;
 
@@ -122,7 +126,10 @@ public:
 class CursorMoveEvent : public InputEvent
 {
 public:
-    explicit CursorMoveEvent(InputManager const* inputManager, glm::uvec2 pos) : InputEvent { inputManager }, position { pos } {}
+    explicit CursorMoveEvent(InputManager const* inputManager, glm::uvec2 pos)
+        : InputEvent { inputManager }, position { pos }
+    {
+    }
 
     glm::ivec2 position;
 
@@ -284,9 +291,11 @@ public:
 class AppUpdateEvent : public AppEvent
 {
 public:
-    AppUpdateEvent() = default;
+    explicit AppUpdateEvent(Timer const& timer) : globalTimer { timer } {}
 
     constexpr static auto eventType = EventType::AppUpdate;
+
+    Timer const& globalTimer;
 };
 
 class AppRenderEvent : public AppEvent

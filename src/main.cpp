@@ -1,8 +1,9 @@
-#include "mc/events.hpp"
+#include <mc/events.hpp>
 #include <mc/exceptions.hpp>
 #include <mc/game/game.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/renderer.hpp>
+#include <mc/timer.hpp>
 
 #include <array>
 #include <filesystem>
@@ -28,17 +29,24 @@ auto main() -> int
 
     EventManager eventManager {};
     window::Window window { eventManager };
-    renderer::Renderer m_renderer { eventManager, window };
-    game::Game game {};
+    Camera camera;
+    renderer::Renderer m_renderer { eventManager, window, camera };
+    game::Game game { eventManager, window, camera };
+
+    eventManager.subscribe(&camera, &Camera::onUpdate);
 
     MC_TRY
     {
+        Timer timer;
+
         while (!window.shouldClose())
         {
             window::Window::pollEvents();
 
-            eventManager.dispatchEvent(AppUpdateEvent {});
+            eventManager.dispatchEvent(AppUpdateEvent { timer });
             eventManager.dispatchEvent(AppRenderEvent {});
+
+            timer.tick();
 
             FrameMark;
         }

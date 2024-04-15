@@ -43,16 +43,22 @@ namespace renderer::backend
         ~RendererBackend();
 
         void render();
-        void update();
+        void update(glm::mat4 view, glm::mat4 projection);
         void recordCommandBuffer(uint32_t imageIndex);
 
         void scheduleSwapchainUpdate();
+
+        [[nodiscard]] auto getFramebufferSize() const -> glm::uvec2
+        {
+            VkExtent2D extent = m_swapchain.getImageExtent();
+            return { extent.width, extent.height };
+        }
 
     private:
         void updateSwapchain();
         void createSyncObjects();
         void destroySyncObjects();
-        void updateUniforms();
+        void updateUniforms(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
 
         Instance m_instance;
         Surface m_surface;

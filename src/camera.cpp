@@ -1,17 +1,16 @@
 #include <mc/camera.hpp>
+#include <mc/logger.hpp>
+
+#include <algorithm>
 
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 
-Camera::Camera()
-{
-    setLens(0.25f * glm::pi<float>(), 1.0f, 1.0f, 1.0f, 1000.0f);
-}
+Camera::Camera() : m_position { 0.f, 0.f, 10.f } {}
 
 void Camera::setLens(float verticalFov, float width, float height, float near_z, float far_z)
 {
-    // cache properties
     m_verticalFov     = verticalFov;
     m_aspectRatio     = height / width;
     m_near            = near_z;
@@ -19,7 +18,9 @@ void Camera::setLens(float verticalFov, float width, float height, float near_z,
     m_nearPlaneHeight = 2.0f * m_near * tanf(0.5f * m_verticalFov);
     m_farPlaneHeight  = 2.0f * m_far * tanf(0.5f * m_verticalFov);
 
-    m_projection = glm::perspectiveFovLH(m_verticalFov, width, height, m_near, m_far);
+    m_projection = glm::perspectiveRH(m_verticalFov, m_aspectRatio, m_near, m_far);
+
+    m_projection[1][1] *= -1.0f;
 }
 
 void Camera::lookAt(glm::vec3 const& position, glm::vec3 const& target, glm::vec3 const& up)
@@ -41,7 +42,7 @@ void Camera::moveX(float distance)
 
 void Camera::moveY(float distance)
 {
-    m_position = glm::vec3(distance) * m_up + m_position;
+    m_position = glm::vec3(distance) * glm::vec3 { 0.f, 1.f, 0.f } + m_position;
 
     m_viewDirty = true;
 }
@@ -53,53 +54,38 @@ void Camera::moveZ(float distance)
     m_viewDirty = true;
 }
 
-void Camera::pitch(float angle)
-{
-    m_pitch += angle;
-
-    glm::mat4 right { glm::rotate(glm::mat4 { 1.0f }, angle, glm::vec3 { 1.f, 0.f, 0.f }) };
-
-    m_up   = glm::transpose(glm::inverse(right)) * glm::vec4(m_up, 0.0f);
-    m_look = glm::transpose(glm::inverse(right)) * glm::vec4(m_look, 0.0f);
-
-    m_viewDirty = true;
-}
-
 void Camera::yaw(float angle)
 {
     m_yaw += angle;
 
-    glm::mat4 right { glm::rotate(glm::mat4 { 1.0f }, angle, glm::vec3 { 0.f, 1.f, 0.f }) };
+    m_viewDirty = true;
+}
 
-    m_up   = glm::transpose(glm::inverse(right)) * glm::vec4(m_up, 0.0f);
-    m_look = glm::transpose(glm::inverse(right)) * glm::vec4(m_look, 0.0f);
+void Camera::pitch(float angle)
+{
+    m_pitch = std::clamp(m_pitch + angle, -89.f, 89.f);
 
     m_viewDirty = true;
 }
 
-void Camera::update()
+void Camera::onUpdate(AppUpdateEvent const& event)
 {
     if (!m_viewDirty)
     {
         return;
     }
 
-    m_look  = glm::normalize(m_look);
-    m_up    = glm::normalize(glm::cross(m_look, m_right));
-    m_right = glm::cross(m_up, m_look);
+    logger::info("Pitch: {}° Yaw: {}°", m_pitch, m_yaw);
 
-    float x { -glm::dot(m_position, m_right) };
-    float y { -glm::dot(m_position, m_up) };
-    float z { -glm::dot(m_position, m_look) };
+    m_look = glm::normalize(glm::vec3 { cos(glm::radians(m_yaw)) * cos(glm::radians(m_pitch)),
+                                        sin(glm::radians(m_pitch)),
+                                        sin(glm::radians(m_yaw)) * cos(glm::radians(m_pitch)) });
 
-    // clang-format off
-    m_view = {
-        m_right.x, m_up.x, m_look.x, 0.0f,
-        m_right.y, m_up.y, m_look.y, 0.0f,
-        m_right.z, m_up.z, m_look.z, 0.0f,
-        x,         y,      z,        1.0f
-    };
-    // clang-format on
+    m_right = glm::normalize(glm::cross(m_look, glm::vec3 { 0.f, 1.f, 0.f }));
+
+    m_up = glm::normalize(glm::cross(m_right, m_look));
+
+    m_view = glm::lookAtRH(m_position, m_position + m_look, m_up);
 
     m_viewDirty = false;
 }
