@@ -89,14 +89,14 @@ namespace renderer::backend
         stbi_image_free(m_data);
     }
 
-    Image::Image(Device& device,
-                 CommandManager& commandController,
-                 glm::uvec2 dimensions,
+    Image::Image(Device const& device,
+                 CommandManager const& commandController,
+                 VkExtent2D dimensions,
                  VkFormat format,
                  VkSampleCountFlagBits sampleCount,
-                 uint32_t mipLevels,
                  VkImageUsageFlagBits usageFlags,
-                 VkImageAspectFlagBits aspectFlags)
+                 VkImageAspectFlagBits aspectFlags,
+                 uint32_t mipLevels)
         : m_device { device },
           m_commandManager { commandController },
           m_format { format },
@@ -144,7 +144,7 @@ namespace renderer::backend
             .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .imageType     = VK_IMAGE_TYPE_2D,
             .format        = format,
-            .extent        = {m_dimensions.x, m_dimensions.y, 1},
+            .extent        = {m_dimensions.width, m_dimensions.height, 1},
             .mipLevels     = mipLevels,
             .arrayLayers   = 1,
             .samples       = numSamples,
@@ -192,25 +192,23 @@ namespace renderer::backend
     Texture::Texture(Device& device, CommandManager& commandManager, StbiImage const& stbiImage)
         : m_device { device },
           m_commandManager { commandManager },
-
-          m_mipLevels { static_cast<uint32_t>(
-                            std::floor(std::log2(std::max(stbiImage.getDimensions().x, stbiImage.getDimensions().y)))) +
-                        1 },
-
-          m_sampler { VK_NULL_HANDLE },
-          m_buffer { m_device, m_commandManager, stbiImage.getData(), stbiImage.getDataSize() },
-
           m_image { m_device,
                     m_commandManager,
                     stbiImage.getDimensions(),
                     VK_FORMAT_R8G8B8A8_SRGB,
                     VK_SAMPLE_COUNT_1_BIT,
-                    m_mipLevels,
                     static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT),
-                    VK_IMAGE_ASPECT_COLOR_BIT }
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    static_cast<uint32_t>(std::floor(
+                        std::log2(std::max(stbiImage.getDimensions().width, stbiImage.getDimensions().height)))) +
+                        1 }
     {
-        glm::uvec2 dimensions = stbiImage.getDimensions();
+        VkExtent2D dimensions = stbiImage.getDimensions();
+
+        uint32_t mipLevels = m_image.getMipLevels();
+
+        TextureBuffer buffer { m_device, m_commandManager, stbiImage.getData(), stbiImage.getDataSize() };
 
         {
             ScopedCommandBuffer commandBuffer(
@@ -221,7 +219,7 @@ namespace renderer::backend
                                   VK_FORMAT_R8G8B8A8_SRGB,
                                   VK_IMAGE_LAYOUT_UNDEFINED,
                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                  m_mipLevels);
+                                  mipLevels);
 
             VkBufferImageCopy region {
                 .bufferOffset      = 0,
@@ -234,16 +232,17 @@ namespace renderer::backend
                     .layerCount     = 1,
                 },
                 .imageOffset = { 0, 0, 0 },
-                .imageExtent = { dimensions.x, dimensions.y, 1 },
+                .imageExtent = { dimensions.width, dimensions.height, 1 },
             };
 
-            vkCmdCopyBufferToImage(commandBuffer, m_buffer, m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+            vkCmdCopyBufferToImage(commandBuffer, buffer, m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
             //transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL here
-            generateMipmaps(commandBuffer, VK_FORMAT_R8G8B8A8_SRGB, m_mipLevels);
+            generateMipmaps(
+                commandBuffer, m_image, { dimensions.width, dimensions.height }, VK_FORMAT_R8G8B8A8_SRGB, mipLevels);
         }
 
-        createSamplers();
+        createSamplers(mipLevels);
     }
 
     Texture::~Texture()
@@ -251,7 +250,7 @@ namespace renderer::backend
         vkDestroySampler(m_device, m_sampler, nullptr);
     }
 
-    void Texture::createSamplers()
+    void Texture::createSamplers(uint32_t mipLevels)
     {
         VkPhysicalDeviceProperties const& deviceProperties = m_device.getDeviceProperties();
 
@@ -268,7 +267,7 @@ namespace renderer::backend
             .maxAnisotropy           = deviceProperties.limits.maxSamplerAnisotropy,
             .compareEnable           = VK_FALSE,
             .minLod                  = 0.0f,
-            .maxLod                  = static_cast<float>(m_mipLevels),
+            .maxLod                  = static_cast<float>(mipLevels),
             .borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
             .unnormalizedCoordinates = VK_FALSE,
         };
@@ -276,7 +275,11 @@ namespace renderer::backend
         vkCreateSampler(m_device, &samplerInfo, nullptr, &m_sampler);
     }
 
-    void Texture::generateMipmaps(ScopedCommandBuffer& commandBuffer, VkFormat imageFormat, uint32_t mipLevels)
+    void Texture::generateMipmaps(ScopedCommandBuffer& commandBuffer,
+                                  VkImage image,
+                                  VkExtent2D dimensions,
+                                  VkFormat imageFormat,
+                                  uint32_t mipLevels)
     {
         if ((m_device.getFormatProperties(imageFormat).optimalTilingFeatures &
              VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) == 0)
@@ -288,7 +291,7 @@ namespace renderer::backend
         .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image               = m_image,
+        .image               = image,
         .subresourceRange    = {
             .aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
             .levelCount      = 1,
@@ -297,10 +300,9 @@ namespace renderer::backend
         }
     };
 
-        auto mipWidth  = static_cast<int32_t>(m_image.getDimensions().x);
-        auto mipHeight = static_cast<int32_t>(m_image.getDimensions().y);
+        int mipWidth  = static_cast<int>(dimensions.width);
+        int mipHeight = static_cast<int>(dimensions.height);
 
-        // WARNING: Check if this is equivalent to a (1 -> miplevel) for loop
         for (uint32_t i = 1; i < mipLevels; ++i)
         {
             barrier.subresourceRange.baseMipLevel = i - 1;
@@ -342,9 +344,9 @@ namespace renderer::backend
             // clang-format on
 
             vkCmdBlitImage(commandBuffer,
-                           m_image,
+                           image,
                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                           m_image,
+                           image,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                            1,
                            &blit,

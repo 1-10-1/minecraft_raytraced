@@ -1,4 +1,6 @@
 #include "glm/ext/matrix_transform.hpp"
+#include "mc/renderer/backend/constants.hpp"
+#include "mc/renderer/backend/image.hpp"
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
@@ -8,7 +10,6 @@
 #include <mc/utils.hpp>
 
 #include <print>
-#include <ranges>
 
 #include <glm/ext.hpp>
 #include <glm/mat4x4.hpp>
@@ -25,10 +26,19 @@ namespace renderer::backend
         : m_surface { window, m_instance },
           m_device { m_instance, m_surface },
           m_commandManager { m_device },
+          m_colorAttachmentImage { m_device,
+                           m_commandManager,
+                           m_surface.getFramebufferExtent(),
+                           m_surface.getDetails().format,
+                           m_device.getMaxUsableSampleCount(),
+                           static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
+                                                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
+                           VK_IMAGE_ASPECT_COLOR_BIT },
+          m_depthStencilImage { m_device, m_commandManager, m_surface.getFramebufferExtent(), kDepthStencilFormat, m_device.getMaxUsableSampleCount(), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, static_cast<VkImageAspectFlagBits>(VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) },
           m_swapchain { m_device, m_surface },
           m_renderPass { m_device, m_surface },
-          m_framebuffers { m_device, m_renderPass, m_swapchain },
-          m_uniformBuffers {{{ m_device, m_commandManager }, { m_device, m_commandManager }}},  // TODO(aether)
+          m_framebuffers { m_device, m_renderPass, m_swapchain, m_colorAttachmentImage.getImageView(), m_depthStencilImage.getImageView() },
+          m_uniformBuffers {{{ m_device, m_commandManager }, { m_device, m_commandManager }}},
           m_texture{ m_device, m_commandManager, StbiImage("res/textures/viking_room (2).png") },
           m_descriptorManager { m_device, m_uniformBuffers, m_texture.getImageView(), m_texture.getSampler() },
           m_pipeline { m_device, m_renderPass, m_descriptorManager },
@@ -47,6 +57,8 @@ namespace renderer::backend
 
           m_numIndices { indices.size() }
     {
+        logger::debug("Drawing {} triangles", vertices.size() / 3);
+
 #if PROFILED
         auto vkGetPhysicalDeviceCalibratableTimeDomainsEXT =
             reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(
@@ -137,11 +149,17 @@ namespace renderer::backend
     {
         vkDeviceWaitIdle(m_device);
 
+        m_surface.refresh(m_device);
+
         m_framebuffers.destroy();
         m_swapchain.destroy();
 
+        m_colorAttachmentImage.resize(m_surface.getFramebufferExtent());
+        m_depthStencilImage.resize(m_surface.getFramebufferExtent());
+
         m_swapchain.create(m_surface);
-        m_framebuffers.create(m_renderPass, m_swapchain);
+        m_framebuffers.create(
+            m_renderPass, m_swapchain, m_colorAttachmentImage.getImageView(), m_depthStencilImage.getImageView());
     }
 
     void RendererBackend::updateUniforms(glm::mat4 model, glm::mat4 view, glm::mat4 projection)

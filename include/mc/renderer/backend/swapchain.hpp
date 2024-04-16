@@ -19,7 +19,7 @@ namespace renderer::backend
 
         ~Swapchain();
 
-        void create(Surface& surface);
+        void create(Surface& surface, bool refreshSurface = true);
         void destroy();
 
         // NOLINTNEXTLINE(google-explicit-constructor)

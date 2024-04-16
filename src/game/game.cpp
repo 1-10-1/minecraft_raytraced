@@ -79,8 +79,8 @@ namespace game
             previousPosition = event.position;
         }
 
-        float dx = 0.1f * static_cast<float>(event.position.x - previousPosition.x);
-        float dy = 0.1f * static_cast<float>(previousPosition.y - event.position.y);
+        float dx = 0.07f * static_cast<float>(event.position.x - previousPosition.x);
+        float dy = 0.07f * static_cast<float>(previousPosition.y - event.position.y);
 
         m_camera.yaw(dx);
         m_camera.pitch(dy);

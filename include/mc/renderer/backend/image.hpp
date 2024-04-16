@@ -23,14 +23,14 @@ namespace renderer::backend
         auto operator=(StbiImage const&) -> StbiImage& = delete;
         auto operator=(StbiImage&&) -> StbiImage&      = delete;
 
-        [[nodiscard]] auto getDimensions() const -> glm::uvec2 { return m_dimensions; }
+        [[nodiscard]] auto getDimensions() const -> VkExtent2D { return m_dimensions; }
 
         [[nodiscard]] auto getData() const -> unsigned char const* { return m_data; }
 
         [[nodiscard]] auto getDataSize() const -> size_t { return m_size; }
 
     private:
-        glm::uvec2 m_dimensions {};
+        VkExtent2D m_dimensions {};
         size_t m_size {};
         unsigned char* m_data { nullptr };
     };
@@ -38,14 +38,14 @@ namespace renderer::backend
     class Image
     {
     public:
-        Image(Device& device,
-              CommandManager& commandController,
-              glm::uvec2 dimensions,
+        Image(Device const& device,
+              CommandManager const& commandController,
+              VkExtent2D dimensions,
               VkFormat format,
               VkSampleCountFlagBits sampleCount,
-              uint32_t mipLevels,
               VkImageUsageFlagBits usageFlags,
-              VkImageAspectFlagBits aspectFlags);
+              VkImageAspectFlagBits aspectFlags,
+              uint32_t mipLevels = 1);
 
         ~Image();
 
@@ -59,9 +59,11 @@ namespace renderer::backend
 
         [[nodiscard]] auto getImageView() const -> VkImageView { return m_imageView; }
 
-        [[nodiscard]] auto getDimensions() const -> glm::uvec2 { return m_dimensions; }
+        [[nodiscard]] auto getDimensions() const -> VkExtent2D { return m_dimensions; }
 
-        void resize(glm::uvec2 dimensions)
+        [[nodiscard]] auto getMipLevels() const -> uint32_t { return m_mipLevels; }
+
+        void resize(VkExtent2D dimensions)
         {
             m_dimensions = dimensions;
 
@@ -88,12 +90,13 @@ namespace renderer::backend
         void create();
         void destroy();
 
-        Device& m_device;
-        CommandManager& m_commandManager;
+        Device const& m_device;
+        CommandManager const& m_commandManager;
 
         VkImage m_handle {};
         VkImageView m_imageView {};
         VkDeviceMemory m_imageMemory {};
+
         VkFormat m_format;
         VkSampleCountFlagBits m_sampleCount;
         VkImageUsageFlagBits m_usageFlags;
@@ -101,7 +104,7 @@ namespace renderer::backend
 
         uint32_t m_mipLevels;
 
-        glm::uvec2 m_dimensions {};
+        VkExtent2D m_dimensions {};
     };
 
     class Texture
@@ -116,6 +119,8 @@ namespace renderer::backend
 
         ~Texture();
 
+        [[nodiscard]] auto getPath() const -> std::string const& { return m_path; }
+
         [[nodiscard]] auto getSampler() const -> VkSampler { return m_sampler; }
 
         [[nodiscard]] auto getImageView() const -> VkImageView { return m_image.getImageView(); }
@@ -124,16 +129,19 @@ namespace renderer::backend
         Device& m_device;
         CommandManager& m_commandManager;
 
-        void createSamplers();
+        void createSamplers(uint32_t mipLevels);
 
-        void generateMipmaps(ScopedCommandBuffer& commandBuffer, VkFormat imageFormat, uint32_t mipLevels);
+        void generateMipmaps(ScopedCommandBuffer& commandBuffer,
+                             VkImage image,
+                             VkExtent2D dimensions,
+                             VkFormat imageFormat,
+                             uint32_t mipLevels);
 
         std::string m_path;
-        uint32_t m_mipLevels {};
-        VkSampler m_sampler;
 
-        TextureBuffer m_buffer;
         Image m_image;
+
+        VkSampler m_sampler { VK_NULL_HANDLE };
     };
 
 }  // namespace renderer::backend

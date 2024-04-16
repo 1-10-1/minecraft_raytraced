@@ -28,7 +28,7 @@ namespace renderer::backend
     class Device
     {
     public:
-        explicit Device(Instance& instance, Surface const& surface);
+        explicit Device(Instance& instance, Surface& surface);
         ~Device();
 
         Device(Device const&) = delete;
@@ -51,12 +51,13 @@ namespace renderer::backend
 
         [[nodiscard]] auto getPresentQueue() const -> VkQueue { return m_presentQueue; }
 
-        [[nodiscard]] auto getDeviceProperties() const -> VkPhysicalDeviceProperties const&
+        [[nodiscard]] auto getDeviceProperties() const -> VkPhysicalDeviceProperties
         {
-            return m_deviceProperties;
-        }
+            VkPhysicalDeviceProperties properties;
+            vkGetPhysicalDeviceProperties(m_physicalHandle, &properties);
 
-        [[nodiscard]] auto getDeviceFeatures() const -> VkPhysicalDeviceFeatures const& { return m_deviceFeatures; }
+            return properties;
+        }
 
         [[nodiscard]] auto getFormatProperties(VkFormat format) const -> VkFormatProperties
         {
@@ -69,16 +70,15 @@ namespace renderer::backend
         [[nodiscard]] auto findSuitableMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
             -> uint32_t;
 
+        [[nodiscard]] auto getMaxUsableSampleCount() const -> VkSampleCountFlagBits { return m_sampleCount; };
+
     private:
-        void selectPhysicalDevice(Instance& instance, Surface const& surface);
+        void selectPhysicalDevice(Instance& instance, Surface& surface);
         void selectLogicalDevice();
 
         VkDevice m_logicalHandle { VK_NULL_HANDLE };
         VkPhysicalDevice m_physicalHandle { VK_NULL_HANDLE };
 
-        VkPhysicalDeviceProperties m_deviceProperties {};
-        VkPhysicalDeviceFeatures m_deviceFeatures {};
-        VkPhysicalDeviceMemoryProperties m_memoryProperties {};
         VkSampleCountFlagBits m_sampleCount {};
 
         QueueFamilyIndices m_queueFamilyIndices {};

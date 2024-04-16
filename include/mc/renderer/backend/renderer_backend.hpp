@@ -68,6 +68,8 @@ namespace renderer::backend
         Surface m_surface;
         Device m_device;
         CommandManager m_commandManager;
+        Image m_colorAttachmentImage;
+        Image m_depthStencilImage;
         Swapchain m_swapchain;
         RenderPass m_renderPass;
         Framebuffers m_framebuffers;

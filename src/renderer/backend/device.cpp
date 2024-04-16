@@ -111,13 +111,13 @@ namespace renderer::backend
         int score {};
     };
 
-    Device::Device(Instance& instance, Surface const& surface)
+    Device::Device(Instance& instance, Surface& surface)
     {
         selectPhysicalDevice(instance, surface);
         selectLogicalDevice();
     }
 
-    void Device::selectPhysicalDevice(Instance& instance, Surface const& surface)
+    void Device::selectPhysicalDevice(Instance& instance, Surface& surface)
     {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -208,15 +208,8 @@ namespace renderer::backend
         m_physicalHandle     = bestCandidate.device;
         m_queueFamilyIndices = bestCandidate.queueFamilyIndices;
 
-        m_deviceProperties = bestCandidate.properties;
-        m_deviceFeatures   = bestCandidate.features;
-
-        VkPhysicalDeviceMemoryProperties properties;
-        vkGetPhysicalDeviceMemoryProperties(m_physicalHandle, &properties);
-        m_memoryProperties = properties;
-
-        VkSampleCountFlags sampleCounts = m_deviceProperties.limits.framebufferColorSampleCounts &
-                                          m_deviceProperties.limits.framebufferDepthSampleCounts;
+        VkSampleCountFlags sampleCounts = bestCandidate.properties.limits.framebufferColorSampleCounts &
+                                          bestCandidate.properties.limits.framebufferDepthSampleCounts;
 
         std::array possibleSampleCounts {
             VK_SAMPLE_COUNT_2_BIT,  VK_SAMPLE_COUNT_4_BIT,  VK_SAMPLE_COUNT_8_BIT,
@@ -233,6 +226,8 @@ namespace renderer::backend
             }
         }
         std::string_view deviceType;
+
+        surface.refresh(m_physicalHandle);
 
         switch (bestCandidate.properties.deviceType)
         {
@@ -273,7 +268,10 @@ namespace renderer::backend
                                          .pQueuePriorities = &queuePriority });
         }
 
-        VkPhysicalDeviceFeatures deviceFeatures { .samplerAnisotropy = VK_TRUE };
+        VkPhysicalDeviceFeatures deviceFeatures {
+            .sampleRateShading = VK_TRUE,
+            .samplerAnisotropy = VK_TRUE,
+        };
 
         VkDeviceCreateInfo deviceCreateInfo {
             .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

@@ -127,7 +127,8 @@ namespace renderer::backend
         {
             TracyVkZone(tracyCtx, cmdBuf, "GPU Render");
 
-            VkClearValue clearColor = { { { 0.529f, 0.356f, 0.788f, 1.0f } } };
+            std::array clearColors = { VkClearValue { .color = { { 0.529f, 0.356f, 0.788f, 1.0f } } },
+                                       VkClearValue { .depthStencil = { 1.0f, 0 } } };
 
             VkRenderPassBeginInfo renderPassInfo {
                 .sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -137,8 +138,8 @@ namespace renderer::backend
                     .offset = { 0, 0 },
                     .extent = imageExtent,
                 },
-                .clearValueCount = 1,
-                .pClearValues    = &clearColor,
+                .clearValueCount = utils::size(clearColors),
+                .pClearValues    = clearColors.data(),
             };
 
             vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);

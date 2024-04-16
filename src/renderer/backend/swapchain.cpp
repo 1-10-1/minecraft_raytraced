@@ -12,7 +12,7 @@ namespace renderer::backend
 {
     Swapchain::Swapchain(Device const& device, Surface& surface) : m_device { device }
     {
-        create(surface);
+        create(surface, false);
     }
 
     Swapchain::~Swapchain()
@@ -20,9 +20,12 @@ namespace renderer::backend
         destroy();
     }
 
-    void Swapchain::create(Surface& surface)
+    void Swapchain::create(Surface& surface, bool refreshSurface)
     {
-        surface.refresh(m_device);
+        if (refreshSurface)
+        {
+            surface.refresh(m_device);
+        }
 
         auto const& details = surface.getDetails();
 

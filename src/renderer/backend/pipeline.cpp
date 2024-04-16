@@ -67,6 +67,15 @@ namespace renderer::backend
             .pVertexAttributeDescriptions    = vertexAttributeDescriptions.data(),
         };
 
+        VkPipelineDepthStencilStateCreateInfo depthStencil {
+            .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            .depthTestEnable       = VK_TRUE,
+            .depthWriteEnable      = VK_TRUE,
+            .depthCompareOp        = VK_COMPARE_OP_LESS,
+            .depthBoundsTestEnable = VK_FALSE,
+            .stencilTestEnable     = VK_FALSE,
+        };
+
         VkPipelineInputAssemblyStateCreateInfo inputAssembly {
             .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
             .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
@@ -95,12 +104,12 @@ namespace renderer::backend
 
         VkPipelineMultisampleStateCreateInfo multisampling {
             .sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-            .rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT,
-            .sampleShadingEnable   = VK_FALSE,
-            .minSampleShading      = 1.0f,      // Optional
-            .pSampleMask           = nullptr,   // Optional
-            .alphaToCoverageEnable = VK_FALSE,  // Optional
-            .alphaToOneEnable      = VK_FALSE,  // Optional
+            .rasterizationSamples  = m_device.getMaxUsableSampleCount(),
+            .sampleShadingEnable   = VK_TRUE,
+            .minSampleShading      = 0.1f,
+            .pSampleMask           = nullptr,
+            .alphaToCoverageEnable = VK_FALSE,
+            .alphaToOneEnable      = VK_FALSE,
         };
 
         VkPipelineColorBlendAttachmentState colorBlendAttachment {
@@ -142,7 +151,7 @@ namespace renderer::backend
             .pViewportState      = &viewportState,
             .pRasterizationState = &rasterizer,
             .pMultisampleState   = &multisampling,
-            .pDepthStencilState  = nullptr,
+            .pDepthStencilState  = &depthStencil,
             .pColorBlendState    = &colorBlending,
             .pDynamicState       = &dynamicState,
             .layout              = m_layout,
