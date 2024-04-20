@@ -105,7 +105,7 @@ namespace renderer::backend
         VkPipelineMultisampleStateCreateInfo multisampling {
             .sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
             .rasterizationSamples  = m_device.getMaxUsableSampleCount(),
-            .sampleShadingEnable   = VK_TRUE,
+            .sampleShadingEnable   = VK_FALSE,
             .minSampleShading      = 0.1f,
             .pSampleMask           = nullptr,
             .alphaToCoverageEnable = VK_FALSE,
@@ -132,10 +132,12 @@ namespace renderer::backend
             .blendConstants  = {0.0f, 0.0f, 0.0f, 0.0f},
         };
 
+        VkDescriptorSetLayout descriptorLayout = descriptor.getLayout();
+
         VkPipelineLayoutCreateInfo pipelineLayoutInfo {
             .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount         = 1,
-            .pSetLayouts            = &descriptor.getLayout(),
+            .pSetLayouts            = &descriptorLayout,
             .pushConstantRangeCount = 0,
             .pPushConstantRanges    = nullptr,
         };

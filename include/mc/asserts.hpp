@@ -10,16 +10,16 @@
 #endif
 
 #ifdef ASSERTIONS_ENABLED
-#    define MC_ASSERT(expr)                                          \
-        {                                                            \
-            if (expr)                                                \
-            {                                                        \
-            }                                                        \
-            else                                                     \
-            {                                                        \
-                logger::critical("Assertion '{}' failed.", / #expr); \
-                debugBreak();                                        \
-            }                                                        \
+#    define MC_ASSERT(expr)                                        \
+        {                                                          \
+            if (expr)                                              \
+            {                                                      \
+            }                                                      \
+            else                                                   \
+            {                                                      \
+                logger::critical("Assertion '{}' failed.", #expr); \
+                debugBreak();                                      \
+            }                                                      \
         }
 
 #    define MC_ASSERT_MSG(expr, message)                                       \

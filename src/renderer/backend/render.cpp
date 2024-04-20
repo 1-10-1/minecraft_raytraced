@@ -1,3 +1,7 @@
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+#include "imgui_internal.h"
 #include <format>
 #include <mc/logger.hpp>
 
@@ -42,11 +46,9 @@ namespace renderer::backend
             }
         }
 
-        vkResetFences(m_device, 1, &frame.inFlightFence);
-
-        vkResetCommandBuffer(cmdBuf, 0);
-
         recordCommandBuffer(imageIndex);
+
+        vkResetFences(m_device, 1, &frame.inFlightFence);
 
         std::array waitSemaphores { frame.imageAvailableSemaphore };
         std::array waitStages = std::to_array<VkPipelineStageFlags>({
@@ -117,9 +119,8 @@ namespace renderer::backend
         VkExtent2D imageExtent = m_swapchain.getImageExtent();
 
         VkCommandBufferBeginInfo beginInfo {
-            .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags            = 0,
-            .pInheritanceInfo = nullptr,
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
 
         vkBeginCommandBuffer(cmdBuf, &beginInfo) >> vkResultChecker;
@@ -127,7 +128,7 @@ namespace renderer::backend
         {
             TracyVkZone(tracyCtx, cmdBuf, "GPU Render");
 
-            std::array clearColors = { VkClearValue { .color = { { 0.529f, 0.356f, 0.788f, 1.0f } } },
+            std::array clearColors = { VkClearValue { .color = { { 252.f / 255, 165.f / 255, 144.f / 255, 1.0f } } },
                                        VkClearValue { .depthStencil = { 1.0f, 0 } } };
 
             VkRenderPassBeginInfo renderPassInfo {
@@ -178,11 +179,69 @@ namespace renderer::backend
                 vkCmdDrawIndexed(cmdBuf, m_numIndices, 1, 0, 0, 0);
             }
 
+            renderImgui(cmdBuf);
+
             vkCmdEndRenderPass(cmdBuf);
         }
 
         TracyVkCollect(tracyCtx, cmdBuf);
 
         vkEndCommandBuffer(cmdBuf) >> vkResultChecker;
+    }
+
+    void RendererBackend::renderImgui(VkCommandBuffer cmdBuf)
+    {
+#if PROFILED
+        TracyVkCtx tracyCtx = m_frameResources[m_currentFrame].tracyContext;
+#endif
+        TracyVkNamedZone(tracyCtx, tracy_imguidraw_zone, cmdBuf, "ImGui draw", true);
+
+        ImGuiIO& io = ImGui::GetIO();
+
+        static double frametime                             = 0.0;
+        static Timer::Clock::time_point lastFrametimeUpdate = Timer::Clock::now();
+
+        if (auto now = Timer::Clock::now();
+            std::chrono::duration_cast<std::chrono::duration<float, std::milli>>(now - lastFrametimeUpdate).count() >
+            333.333f)
+        {
+            frametime           = 1000.f / io.Framerate;
+            lastFrametimeUpdate = now;
+        }
+
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGuiWindowFlags window_flags = 0;
+        window_flags |= ImGuiWindowFlags_NoTitleBar;
+        window_flags |= ImGuiWindowFlags_NoScrollbar;
+        window_flags |= ImGuiWindowFlags_NoMove;
+        window_flags |= ImGuiWindowFlags_NoResize;
+        window_flags |= ImGuiWindowFlags_NoCollapse;
+        window_flags |= ImGuiWindowFlags_NoNav;
+        window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+        {
+            ImGui::Begin("Statistics", nullptr, window_flags);
+            ImGui::SetWindowPos({ 0, 0 });
+            ImGui::SetWindowSize({});
+
+            ImGui::TextColored(ImVec4(77.5f / 255, 255.f / 255, 125.f / 255, 1.f), "%.2f mspf", frametime);
+            ImGui::SameLine();
+            ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical, 2.5f);
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(255.f / 255, 163.f / 255, 77.f / 255, 1.f), "%.0f fps", 1000 / frametime);
+            ImGui::SameLine();
+            ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical, 2.5f);
+            ImGui::SameLine();
+            ImGui::TextColored(
+                ImVec4(255.f / 255, 215.f / 255, 100.f / 255, 1.f), "Vsync: %s", m_surface.getVsync() ? "on" : "off");
+
+            ImGui::End();
+        }
+
+        ImGui::Render();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuf);
     }
 }  // namespace renderer::backend

@@ -23,7 +23,9 @@ namespace renderer::backend
 
         void bind(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, size_t currentFrame);
 
-        [[nodiscard]] auto getLayout() const -> VkDescriptorSetLayout const& { return m_layout; }
+        [[nodiscard]] auto getLayout() const -> VkDescriptorSetLayout { return m_layout; }
+
+        [[nodiscard]] auto getPool() const -> VkDescriptorPool { return m_pool; }
 
     private:
         void initLayout();

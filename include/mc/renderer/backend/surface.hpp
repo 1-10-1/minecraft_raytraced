@@ -46,6 +46,10 @@ namespace renderer::backend
 
         [[nodiscard]] auto getFramebufferExtent() const -> VkExtent2D { return m_details.extent; }
 
+        [[nodiscard]] auto getVsync() const -> bool { return m_vsync; }
+
+        void scheduleVsyncChange(bool vsync) { m_vsync = vsync; }
+
         void refresh(VkPhysicalDevice device);
 
     private:
@@ -54,10 +58,6 @@ namespace renderer::backend
         VkSurfaceKHR m_surface { VK_NULL_HANDLE };
         SurfaceDetails m_details {};
 
-#if PROFILED
         bool m_vsync { false };
-#else
-        bool m_vsync { true };
-#endif
     };
 }  // namespace renderer::backend

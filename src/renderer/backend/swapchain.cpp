@@ -40,8 +40,8 @@ namespace renderer::backend
 
         QueueFamilyIndices const& queueFamilyIndices = m_device.getQueueFamilyIndices();
 
-        std::array<std::uint32_t, 2> queueFamilyIndicesArray { queueFamilyIndices.graphicsFamily.value(),
-                                                               queueFamilyIndices.presentFamily.value() };
+        std::array queueFamilyIndicesArray { queueFamilyIndices.graphicsFamily.value(),
+                                             queueFamilyIndices.presentFamily.value() };
 
         bool sameQueueFamily = queueFamilyIndices.graphicsFamily == queueFamilyIndices.presentFamily;
 

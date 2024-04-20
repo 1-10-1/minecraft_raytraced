@@ -9,6 +9,12 @@ namespace window
 {
     Window::Window(EventManager& eventManager) : m_eventManager { eventManager }
     {
+        glfwSetErrorCallback(
+            [](int errCode, char const* errMessage)
+            {
+                logger::error("[GLFW {}] {}", errCode, errMessage);
+            });
+
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

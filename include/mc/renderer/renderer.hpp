@@ -16,6 +16,7 @@ namespace renderer
 
         void onRender(AppRenderEvent const& /* unused */);
         void onUpdate(AppUpdateEvent const& /* unused */);
+        void onKeyPress(KeyPressEvent const& event);
         void onFramebufferResize(WindowFramebufferResizeEvent const& event);
 
     private:

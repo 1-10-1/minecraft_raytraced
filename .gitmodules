@@ -37,3 +37,10 @@
 [submodule "lib/stb/stb"]
 	path = lib/stb/stb
 	url = https://github.com/nothings/stb
+[submodule "external/vkguide"]
+	path = external/vkguide
+	url = https://github.com/vblanco20-1/vulkan-guide
+[submodule "lib/imgui/imgui"]
+	path = lib/imgui/imgui
+	url = https://github.com/ocornut/imgui
+	branch = docking

@@ -18,6 +18,9 @@ namespace
     constexpr std::array requiredExtensions
     {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
 #if PROFILED
         VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
 #endif
@@ -225,6 +228,9 @@ namespace renderer::backend
                 m_sampleCount = count;
             }
         }
+
+        logger::info("Using msaa x{}", std::to_underlying(m_sampleCount));
+
         std::string_view deviceType;
 
         surface.refresh(m_physicalHandle);
@@ -268,20 +274,34 @@ namespace renderer::backend
                                          .pQueuePriorities = &queuePriority });
         }
 
-        VkPhysicalDeviceFeatures deviceFeatures {
-            .sampleRateShading = VK_TRUE,
-            .samplerAnisotropy = VK_TRUE,
+        VkPhysicalDeviceVulkan12Features features12 {
+            .sType               = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+            .descriptorIndexing  = VK_TRUE,
+            .bufferDeviceAddress = VK_TRUE,
+        };
+
+        VkPhysicalDeviceVulkan13Features features13 {
+            .sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+            .pNext            = &features12,
+            .synchronization2 = VK_TRUE,
+            .dynamicRendering = VK_TRUE,
+        };
+
+        VkPhysicalDeviceFeatures2 deviceFeatures {
+            .sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext    = &features13,
+            .features = { .samplerAnisotropy = VK_TRUE },
         };
 
         VkDeviceCreateInfo deviceCreateInfo {
             .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pNext                   = &deviceFeatures,
             .queueCreateInfoCount    = utils::size(queueCreateInfos),
             .pQueueCreateInfos       = queueCreateInfos.data(),
             .enabledLayerCount       = 0,
             .ppEnabledLayerNames     = nullptr,
             .enabledExtensionCount   = utils::size(requiredExtensions),
             .ppEnabledExtensionNames = requiredExtensions.data(),
-            .pEnabledFeatures        = &deviceFeatures,
         };
 
         vkCreateDevice(m_physicalHandle, &deviceCreateInfo, nullptr, &m_logicalHandle) >> vkResultChecker;

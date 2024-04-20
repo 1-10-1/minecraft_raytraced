@@ -3,6 +3,7 @@
 #include <mc/utils.hpp>
 
 #include <ranges>
+#include <vulkan/vulkan_core.h>
 
 namespace rn = std::ranges;
 namespace vi = std::ranges::views;
@@ -120,13 +121,14 @@ namespace renderer::backend
 
             VkDescriptorPoolSize {
                                   .type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                  .descriptorCount = kNumFramesInFlight,
-                                  },
+                                  .descriptorCount = kNumFramesInFlight * 2, /* x2 because imgui needs one more img sampler */
+            },
         };
 
         VkDescriptorPoolCreateInfo poolInfo {
             .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .maxSets       = kNumFramesInFlight,
+            .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+            .maxSets       = kNumFramesInFlight * 2 /* same thing as above */,
             .poolSizeCount = utils::size(poolSizes),
             .pPoolSizes    = poolSizes.data(),
         };

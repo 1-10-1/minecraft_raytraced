@@ -72,6 +72,7 @@ list(APPEND LIBS
     stdc++exp
     assimp::assimp
     stb
+    imgui
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
@@ -79,7 +80,7 @@ target_link_libraries(${PROJECT_NAME} ${LIBS})
 target_compile_definitions(
     ${PROJECT_NAME} PUBLIC FMT_EXCEPTIONS=0
     GLM_FORCE_SIMD_AVX2 GLM_FORCE_AVX2 GLFW_INCLUDE_VULKAN GLM_ENABLE_EXPERIMENTAL
-    NOMINMAX GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE
+    NOMINMAX GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE IMGUI_ENABLE_FREETYPE
     _CRT_SECURE_NO_WARNINGS MAGIC_ENUM_RANGE_MIN=-1 MAGIC_ENUM_RANGE_MAX=1000
     ROOT_SOURCE_PATH="${CMAKE_SOURCE_DIR}"
 )
@@ -101,12 +102,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
 target_compile_options(${PROJECT_NAME} PRIVATE
     -std=c++23 -Wall -Wunused -mavx2 -Werror
     -Wno-format -Wno-switch
-    -Wno-deprecated-declarations -march=native
+    -Wno-deprecated-declarations -march=native -flto
     $<$<CONFIG:Release>:-O3 -ffast-math -finline-functions>
     $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
 )
 
-target_link_options(${PROJECT_NAME} PRIVATE) #-fsanitize=address -g -fno-omit-frame-pointer)
+target_link_options(${PROJECT_NAME} PRIVATE -flto) #-fsanitize=address -g -fno-omit-frame-pointer)
 
 set(SHADER_FILES
     ${CMAKE_SOURCE_DIR}/res/shaders/main.frag

@@ -195,7 +195,7 @@ namespace renderer::backend
           m_image { m_device,
                     m_commandManager,
                     stbiImage.getDimensions(),
-                    VK_FORMAT_R8G8B8A8_SRGB,
+                    VK_FORMAT_R8G8B8A8_UNORM,
                     VK_SAMPLE_COUNT_1_BIT,
                     static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT),
@@ -216,7 +216,7 @@ namespace renderer::backend
 
             transitionImageLayout(commandBuffer,
                                   m_image,
-                                  VK_FORMAT_R8G8B8A8_SRGB,
+                                  VK_FORMAT_R8G8B8A8_UNORM,
                                   VK_IMAGE_LAYOUT_UNDEFINED,
                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                   mipLevels);
@@ -323,24 +323,24 @@ namespace renderer::backend
                                  &barrier);
 
             // clang-format off
-        VkImageBlit blit{
-            .srcSubresource     = {
-                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-                .mipLevel       = i - 1,
-                .baseArrayLayer = 0,
-                .layerCount     = 1,
-            },
-            .srcOffsets         = { { 0, 0, 0 }, { mipWidth, mipHeight, 1 } },
-            .dstSubresource     = {
-                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-                .mipLevel       = i,
-                .baseArrayLayer = 0,
-                .layerCount     = 1
-            },
-            .dstOffsets         = { { 0, 0, 0 }, { mipWidth  > 1 ? mipWidth  / 2 : 1,
-                                                   mipHeight > 1 ? mipHeight / 2 : 1,
-                                                   1 } },
-        };
+            VkImageBlit blit{
+                .srcSubresource     = {
+                    .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .mipLevel       = i - 1,
+                    .baseArrayLayer = 0,
+                    .layerCount     = 1,
+                },
+                .srcOffsets         = { { 0, 0, 0 }, { mipWidth, mipHeight, 1 } },
+                .dstSubresource     = {
+                    .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .mipLevel       = i,
+                    .baseArrayLayer = 0,
+                    .layerCount     = 1
+                },
+                .dstOffsets         = { { 0, 0, 0 }, { mipWidth  > 1 ? mipWidth  / 2 : 1,
+                                                       mipHeight > 1 ? mipHeight / 2 : 1,
+                                                       1 } },
+            };
             // clang-format on
 
             vkCmdBlitImage(commandBuffer,

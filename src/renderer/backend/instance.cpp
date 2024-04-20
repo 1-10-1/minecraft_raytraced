@@ -27,73 +27,9 @@ namespace
     VKAPI_ATTR auto VKAPI_CALL validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                        VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                        VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
-                                                       void* pUserData) -> VkBool32
-    {
-        ZoneScopedN("Validation layer callback");
+                                                       void* pUserData) -> VkBool32;
 
-        std::string_view message = pCallbackData->pMessage;
-
-        if (messageSeverity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ||
-            message.ends_with("not consumed by vertex shader."))  // TODO(aether)
-        {
-            return VK_FALSE;
-        }
-
-        // [[maybe_unused]] RendererBackend* renderer { static_cast<RendererBackend*>(pUserData) };
-
-        std::string type;
-
-        switch (messageType)
-        {
-            case (VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT):
-                type = "General";
-                break;
-            case (VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT):
-                type = "Validation";
-                break;
-            case (VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT):
-                type = "Performance";
-                break;
-            default:
-                type = "Unknown";
-        }
-
-        auto stacktrace = std::stacktrace::current();
-        std::string srcFile;
-        std::string srcFunc;
-        int srcLine {};
-
-        for (auto [i, trace] : vi::enumerate(stacktrace))
-        {
-            // Find the second source file on the stacktrace thats inside the root source path
-            // (the first stacktrace is the one we're in right now (this function))
-            if (trace.source_file().starts_with(ROOT_SOURCE_PATH) && i > 1)
-            {
-                srcFile = trace.source_file();
-                srcFunc = trace.description();
-                srcLine = static_cast<int>(trace.source_line());
-                break;
-            };
-        }
-
-        spdlog::source_loc location(srcFile.data(), srcLine, srcFunc.data());
-
-        switch (messageSeverity)
-        {
-            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-                logger::logAt<logger::level::warn>(location, "({}) {}", type, pCallbackData->pMessage);
-                break;
-            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-                logger::logAt<logger::level::err>(location, "({}) {}", type, pCallbackData->pMessage);
-                break;
-            default:
-                return VK_FALSE;
-        }
-
-        return VK_FALSE;
-    }
-
-    VkDebugUtilsMessengerCreateInfoEXT const m_debugMessengerInfo {
+    VkDebugUtilsMessengerCreateInfoEXT constexpr m_debugMessengerInfo {
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 
         .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
@@ -230,3 +166,77 @@ namespace renderer::backend
     };
 
 }  // namespace renderer::backend
+
+namespace
+{
+    using namespace renderer::backend;
+
+    VKAPI_ATTR auto VKAPI_CALL validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                                       VkDebugUtilsMessageTypeFlagsEXT messageType,
+                                                       VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
+                                                       void* pUserData) -> VkBool32
+    {
+        ZoneScopedN("Validation layer callback");
+
+        std::string_view message = pCallbackData->pMessage;
+
+        if (messageSeverity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ||
+            message.ends_with("not consumed by vertex shader."))  // TODO(aether)
+        {
+            return VK_FALSE;
+        }
+
+        // [[maybe_unused]] RendererBackend* renderer { static_cast<RendererBackend*>(pUserData) };
+
+        std::string type;
+
+        switch (messageType)
+        {
+            case (VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT):
+                type = "General";
+                break;
+            case (VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT):
+                type = "Validation";
+                break;
+            case (VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT):
+                type = "Performance";
+                break;
+            default:
+                type = "Unknown";
+        }
+
+        auto stacktrace = std::stacktrace::current();
+        std::string srcFile;
+        std::string srcFunc;
+        int srcLine {};
+
+        for (auto [i, trace] : vi::enumerate(stacktrace))
+        {
+            // Find the second source file on the stacktrace thats inside the root source path
+            // (the first stacktrace is the one we're in right now (this function))
+            if (trace.source_file().starts_with(ROOT_SOURCE_PATH) && i > 1)
+            {
+                srcFile = trace.source_file();
+                srcFunc = trace.description();
+                srcLine = static_cast<int>(trace.source_line());
+                break;
+            };
+        }
+
+        spdlog::source_loc location(srcFile.data(), srcLine, srcFunc.data());
+
+        switch (messageSeverity)
+        {
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+                logger::logAt<logger::level::warn>(location, "({}) {}", type, pCallbackData->pMessage);
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+                logger::logAt<logger::level::err>(location, "({}) {}", type, pCallbackData->pMessage);
+                break;
+            default:
+                return VK_FALSE;
+        }
+
+        return VK_FALSE;
+    }
+}  // namespace

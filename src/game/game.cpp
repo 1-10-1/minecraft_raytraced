@@ -8,11 +8,13 @@
 namespace game
 {
     Game::Game(EventManager& eventManager, window::Window& window, Camera& camera)
-        : m_window { window }, m_camera { camera }
+        : m_window { window }, m_eventManager { eventManager }, m_camera { camera }
     {
         m_camera.lookAt({ 2.f, 3.f, 2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
 
-        eventManager.subscribe(this, &Game::onUpdate, &Game::onKeyHold, &Game::onCursorMove, &Game::onMouseButton);
+        m_eventManager.subscribe(this, &Game::onUpdate, &Game::onKeyPress, &Game::onKeyHold, &Game::onCursorMove);
+
+        m_window.disableCursor();
     };
 
     void Game::onUpdate(AppUpdateEvent const& event)
@@ -20,15 +22,23 @@ namespace game
         m_lastDelta = event.globalTimer.getDeltaTime().count();
     };
 
-    void Game::onMouseButton(MouseButtonEvent const& event)
+    void Game::onKeyPress(KeyPressEvent const& event)
     {
-        if (event.action == MouseButtonEvent::Action::Pressed)
+        if (event.key == Key::Escape)
         {
-            m_window.disableCursor();
-        }
-        else
-        {
-            m_window.enableCursor();
+            if (m_inputFocused)
+            {
+                m_window.enableCursor();
+                m_eventManager.unsubscribe(this, &Game::onCursorMove);
+                m_inputFocused = false;
+            }
+            else
+            {
+                m_window.disableCursor();
+                m_lastCursorPos = event.getInputManager()->getCurrentCursorPosition();
+                m_eventManager.subscribe(this, &Game::onCursorMove);
+                m_inputFocused = true;
+            }
         }
     }
 
@@ -64,27 +74,12 @@ namespace game
 
     void Game::onCursorMove(CursorMoveEvent const& event)
     {
-        static bool lmbWasDown = false;
-        static glm::ivec2 previousPosition {};
-
-        if (!event.getInputManager()->isDown(MouseButton::Left))
-        {
-            lmbWasDown = false;
-            return;
-        }
-
-        if (!lmbWasDown)
-        {
-            lmbWasDown       = true;
-            previousPosition = event.position;
-        }
-
-        float dx = 0.07f * static_cast<float>(event.position.x - previousPosition.x);
-        float dy = 0.07f * static_cast<float>(previousPosition.y - event.position.y);
+        float dx = 0.07f * static_cast<float>(event.position.x - m_lastCursorPos.x);
+        float dy = 0.07f * static_cast<float>(m_lastCursorPos.y - event.position.y);
 
         m_camera.yaw(dx);
         m_camera.pitch(dy);
 
-        previousPosition = event.position;
+        m_lastCursorPos = event.position;
     }
 }  // namespace game

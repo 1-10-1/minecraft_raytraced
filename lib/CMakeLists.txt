@@ -41,3 +41,6 @@ add_subdirectory(assimp)
 # STB
 add_subdirectory(stb)
 
+# IMGUI
+add_subdirectory(imgui)
+

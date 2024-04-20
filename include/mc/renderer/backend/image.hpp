@@ -104,7 +104,7 @@ namespace renderer::backend
 
         uint32_t m_mipLevels;
 
-        VkExtent2D m_dimensions {};
+        VkExtent2D m_dimensions;
     };
 
     class Texture

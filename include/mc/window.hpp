@@ -70,6 +70,8 @@ namespace window
 
         void disableCursor()
         {
+            // https://github.com/ocornut/imgui/issues/2479#issuecomment-480597661
+            // ^ Check this out if you need to use ImGui's cursor changing features
             m_cursorDisabled = true;
             glfwSetInputMode(m_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
@@ -82,6 +84,8 @@ namespace window
 
         void toggleCursor() { m_cursorDisabled ? enableCursor() : disableCursor(); }
 
+        auto getRefreshRate() const -> uint32_t { return m_refreshRate; }
+
     private:
         bool m_shouldClose {};
 
@@ -93,5 +97,7 @@ namespace window
         glm::uvec2 m_windowDimensions {};
 
         bool m_cursorDisabled { false };
+
+        uint32_t m_refreshRate {};
     };
 }  // namespace window

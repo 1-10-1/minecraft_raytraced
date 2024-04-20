@@ -5,7 +5,7 @@
 class Timer
 {
 public:
-    using Clock        = std::chrono::steady_clock;
+    using Clock        = std::chrono::high_resolution_clock;
     using Seconds      = std::chrono::duration<double, std::ratio<1>>;
     using Milliseconds = std::chrono::duration<double, std::milli>;
 
@@ -35,7 +35,8 @@ public:
     template<typename Duration>
     [[nodiscard]] static auto getCurrentTime()
     {
-        return std::chrono::time_point<std::chrono::steady_clock, Duration>(std::chrono::steady_clock::now().time_since_epoch());
+        return std::chrono::time_point<std::chrono::steady_clock, Duration>(
+            std::chrono::steady_clock::now().time_since_epoch());
     }
 
     void tick();

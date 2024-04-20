@@ -1,12 +1,12 @@
 #pragma once
 
+#include "buffer.hpp"
 #include "command.hpp"
 #include "constants.hpp"
 #include "device.hpp"
 #include "framebuffers.hpp"
 #include "image.hpp"
 #include "instance.hpp"
-#include "mc/renderer/backend/buffer.hpp"
 #include "pipeline.hpp"
 #include "render_pass.hpp"
 #include "surface.hpp"
@@ -58,7 +58,16 @@ namespace renderer::backend
             return { extent.width, extent.height };
         }
 
+        void toggleVsync()
+        {
+            m_surface.scheduleVsyncChange(!m_surface.getVsync());
+            scheduleSwapchainUpdate();
+        }
+
     private:
+        void initImgui(GLFWwindow* window);
+        void renderImgui(VkCommandBuffer cmdBuf);
+
         void updateSwapchain();
         void createSyncObjects();
         void destroySyncObjects();
@@ -68,8 +77,7 @@ namespace renderer::backend
         Surface m_surface;
         Device m_device;
         CommandManager m_commandManager;
-        Image m_colorAttachmentImage;
-        Image m_depthStencilImage;
+        Image m_colorAttachmentImage, m_depthStencilImage;
         Swapchain m_swapchain;
         RenderPass m_renderPass;
         Framebuffers m_framebuffers;
@@ -86,7 +94,7 @@ namespace renderer::backend
 
         uint32_t m_currentFrame { 0 };
 
-        bool m_windowResized = false;
+        bool m_windowResized { false };
 
         size_t m_numIndices;
     };
