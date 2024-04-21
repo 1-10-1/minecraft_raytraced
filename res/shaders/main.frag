@@ -1,4 +1,4 @@
-#version 450 core
+#version 460
 
 layout(binding = 1) uniform sampler2D texSampler;
 

@@ -34,15 +34,17 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/render.cpp
     src/renderer/backend/instance.cpp
-    src/renderer/backend/framebuffers.cpp
+    # src/renderer/backend/framebuffers.cpp
     src/renderer/backend/surface.cpp
     src/renderer/backend/image.cpp
     src/renderer/backend/buffer.cpp
     src/renderer/backend/command.cpp
     src/renderer/backend/pipeline.cpp
+    src/renderer/backend/vma.cpp
+    src/renderer/backend/allocator.cpp
     src/renderer/backend/descriptor.cpp
     src/renderer/backend/swapchain.cpp
-    src/renderer/backend/render_pass.cpp
+    # src/renderer/backend/render_pass.cpp
     src/renderer/backend/device.cpp
     src/renderer/renderer.cpp
 )
@@ -73,6 +75,7 @@ list(APPEND LIBS
     assimp::assimp
     stb
     imgui
+    GPUOpen::VulkanMemoryAllocator
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
@@ -149,8 +152,8 @@ foreach(SHADER_FILE ${SHADER_FILES})
         OUTPUT "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.spv"
         COMMAND glslc ${SHADER_FILE} -O
                 -o "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.spv"
-                -std=450core
-                --target-spv=spv1.5
+                -std=460
+                --target-spv=spv1.6
                 --target-env=vulkan1.3
                 -fshader-stage=${SHADER_TYPE}
         DEPENDS ${SHADER_FILE}

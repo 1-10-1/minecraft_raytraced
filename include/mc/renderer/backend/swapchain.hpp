@@ -25,6 +25,8 @@ namespace renderer::backend
         // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VkSwapchainKHR() const { return m_handle; }
 
+        [[nodiscard]] auto getImages() const -> std::vector<VkImage> const& { return m_images; }
+
         [[nodiscard]] auto getImageViews() const -> std::vector<VkImageView> const& { return m_imageViews; }
 
         [[nodiscard]] auto getImageExtent() const -> VkExtent2D const& { return m_imageExtent; }

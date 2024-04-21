@@ -214,7 +214,7 @@ namespace
         {
             // Find the second source file on the stacktrace thats inside the root source path
             // (the first stacktrace is the one we're in right now (this function))
-            if (trace.source_file().starts_with(ROOT_SOURCE_PATH) && i > 1)
+            if (i > 1 && trace.source_file().starts_with(ROOT_SOURCE_PATH))
             {
                 srcFile = trace.source_file();
                 srcFunc = trace.description();

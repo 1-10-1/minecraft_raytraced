@@ -1,13 +1,12 @@
 #pragma once
 
-#include <mc/exceptions.hpp>
-#include <mc/renderer/backend/buffer.hpp>
-#include <mc/renderer/backend/command.hpp>
-#include <mc/renderer/backend/device.hpp>
+#include "allocator.hpp"
+#include "device.hpp"
 
-#include <string>
+#include <string_view>
 
 #include <glm/ext/vector_uint2.hpp>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
@@ -39,7 +38,7 @@ namespace renderer::backend
     {
     public:
         Image(Device const& device,
-              CommandManager const& commandController,
+              Allocator const& allocator,
               VkExtent2D dimensions,
               VkFormat format,
               VkSampleCountFlagBits sampleCount,
@@ -63,7 +62,12 @@ namespace renderer::backend
 
         [[nodiscard]] auto getMipLevels() const -> uint32_t { return m_mipLevels; }
 
-        void resize(VkExtent2D dimensions)
+        void copyTo(VkCommandBuffer cmdBuf, VkImage dst, VkExtent2D dstSize, VkExtent2D offset);
+
+        static void
+        transition(VkCommandBuffer cmdBuf, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+
+        void resize(Allocator const& allocator, VkExtent2D dimensions)
         {
             m_dimensions = dimensions;
 
@@ -81,21 +85,15 @@ namespace renderer::backend
 
         void createImageView(VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 
-        void transitionImageLayout(ScopedCommandBuffer& commandBuffer,
-                                   VkFormat format,
-                                   VkImageLayout oldLayout,
-                                   VkImageLayout newLayout,
-                                   uint32_t mipLevels);
-
         void create();
         void destroy();
 
         Device const& m_device;
-        CommandManager const& m_commandManager;
+        Allocator const& m_allocator;
 
         VkImage m_handle {};
         VkImageView m_imageView {};
-        VkDeviceMemory m_imageMemory {};
+        VmaAllocation m_allocation {};
 
         VkFormat m_format;
         VkSampleCountFlagBits m_sampleCount;
@@ -107,41 +105,41 @@ namespace renderer::backend
         VkExtent2D m_dimensions;
     };
 
-    class Texture
-    {
-    public:
-        Texture(Device& device, CommandManager& commandManager, StbiImage const& stbiImage);
-
-        Texture(Texture const&)                    = delete;
-        Texture(Texture&&)                         = delete;
-        auto operator=(Texture&&) -> Texture&      = delete;
-        auto operator=(Texture const&) -> Texture& = delete;
-
-        ~Texture();
-
-        [[nodiscard]] auto getPath() const -> std::string const& { return m_path; }
-
-        [[nodiscard]] auto getSampler() const -> VkSampler { return m_sampler; }
-
-        [[nodiscard]] auto getImageView() const -> VkImageView { return m_image.getImageView(); }
-
-    private:
-        Device& m_device;
-        CommandManager& m_commandManager;
-
-        void createSamplers(uint32_t mipLevels);
-
-        void generateMipmaps(ScopedCommandBuffer& commandBuffer,
-                             VkImage image,
-                             VkExtent2D dimensions,
-                             VkFormat imageFormat,
-                             uint32_t mipLevels);
-
-        std::string m_path;
-
-        Image m_image;
-
-        VkSampler m_sampler { VK_NULL_HANDLE };
-    };
-
+    // class Texture
+    // {
+    // public:
+    //     Texture(Device& device, CommandManager& commandManager, StbiImage const& stbiImage);
+    //
+    //     Texture(Texture const&)                    = delete;
+    //     Texture(Texture&&)                         = delete;
+    //     auto operator=(Texture&&) -> Texture&      = delete;
+    //     auto operator=(Texture const&) -> Texture& = delete;
+    //
+    //     ~Texture();
+    //
+    //     [[nodiscard]] auto getPath() const -> std::string const& { return m_path; }
+    //
+    //     [[nodiscard]] auto getSampler() const -> VkSampler { return m_sampler; }
+    //
+    //     [[nodiscard]] auto getImageView() const -> VkImageView { return m_image.getImageView(); }
+    //
+    // private:
+    //     Device& m_device;
+    //     CommandManager& m_commandManager;
+    //
+    //     void createSamplers(uint32_t mipLevels);
+    //
+    //     void generateMipmaps(ScopedCommandBuffer& commandBuffer,
+    //                          VkImage image,
+    //                          VkExtent2D dimensions,
+    //                          VkFormat imageFormat,
+    //                          uint32_t mipLevels);
+    //
+    //     std::string m_path;
+    //
+    //     Image m_image;
+    //
+    //     VkSampler m_sampler { VK_NULL_HANDLE };
+    // };
+    //
 }  // namespace renderer::backend

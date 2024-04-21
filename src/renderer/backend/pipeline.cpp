@@ -10,7 +10,15 @@
 
 namespace renderer::backend
 {
-    Pipeline::Pipeline(Device const& device, RenderPass const& renderPass, DescriptorManager const& descriptor)
+    ComputePipeline::ComputePipeline(Device const& device) : m_device { device } {}
+
+    ComputePipeline::~ComputePipeline() {}
+
+    // *******************************************************************************************************************
+
+    GraphicsPipeline::GraphicsPipeline(Device const& device,
+                                       RenderPass const& renderPass,
+                                       DescriptorManager const& descriptor)
         : m_device { device }
     {
         auto createShaderModule = [&device](std::string_view const& shaderPath)
@@ -166,7 +174,7 @@ namespace renderer::backend
         vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_handle);
     }
 
-    Pipeline::~Pipeline()
+    GraphicsPipeline::~GraphicsPipeline()
     {
         vkDestroyPipeline(m_device, m_handle, nullptr);
         vkDestroyPipelineLayout(m_device, m_layout, nullptr);

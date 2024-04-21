@@ -1,17 +1,17 @@
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_vulkan.h"
-#include "imgui_internal.h"
-#include <format>
-#include <mc/logger.hpp>
-
+#include <mc/renderer/backend/image.hpp>
+#include <mc/renderer/backend/info_structs.hpp>
 #include <mc/renderer/backend/render.hpp>
 #include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+#include "imgui_internal.h"
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_core.h>
 
+// TODO(aether) implement a deletion queue
 namespace renderer::backend
 {
     void RendererBackend::render()
@@ -22,11 +22,10 @@ namespace renderer::backend
 
         ZoneText(zoneName.c_str(), zoneName.size());
 
-        VkCommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
-
         auto frame = m_frameResources[m_currentFrame];
 
         vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+        vkResetFences(m_device, 1, &frame.inFlightFence);
 
         uint32_t imageIndex {};
 
@@ -46,34 +45,25 @@ namespace renderer::backend
             }
         }
 
+        VkCommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
+
+        vkResetCommandBuffer(cmdBuf, 0);
+
         recordCommandBuffer(imageIndex);
 
-        vkResetFences(m_device, 1, &frame.inFlightFence);
+        VkCommandBufferSubmitInfo cmdinfo = infoStructs::command_buffer_submit_info(cmdBuf);
 
-        std::array waitSemaphores { frame.imageAvailableSemaphore };
-        std::array waitStages = std::to_array<VkPipelineStageFlags>({
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        });
+        VkSemaphoreSubmitInfo waitInfo = infoStructs::semaphore_submit_info(
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, frame.imageAvailableSemaphore);
 
-        std::array signalSemaphores = { frame.renderFinishedSemaphore };
+        VkSemaphoreSubmitInfo signalInfo =
+            infoStructs::semaphore_submit_info(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, frame.renderFinishedSemaphore);
 
-        VkSubmitInfo submitInfo {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores    = waitSemaphores.data(),
-            .pWaitDstStageMask  = waitStages.data(),
-
-            .commandBufferCount = 1,
-            .pCommandBuffers    = &cmdBuf,
-
-            .signalSemaphoreCount = 1,
-            .pSignalSemaphores    = signalSemaphores.data(),
-        };
+        VkSubmitInfo2 submit = infoStructs::submit_info(&cmdinfo, &signalInfo, &waitInfo);
 
         {
             ZoneNamedN(tracy_queue_submit_zone, "Queue Submit", true);
-            vkQueueSubmit(m_device.getGraphicsQueue(), 1, &submitInfo, frame.inFlightFence) >> vkResultChecker;
+            vkQueueSubmit2(m_device.getGraphicsQueue(), 1, &submit, frame.inFlightFence) >> vkResultChecker;
         }
 
         std::array swapChains = { static_cast<VkSwapchainKHR>(m_swapchain) };
@@ -81,7 +71,7 @@ namespace renderer::backend
         VkPresentInfoKHR presentInfo {
             .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = 1,
-            .pWaitSemaphores    = signalSemaphores.data(),
+            .pWaitSemaphores    = &frame.renderFinishedSemaphore,
 
             .swapchainCount = 1,
             .pSwapchains    = swapChains.data(),
@@ -106,6 +96,7 @@ namespace renderer::backend
         }
 
         m_currentFrame = (m_currentFrame + 1) % kNumFramesInFlight;
+        ++m_frameCount;
     }
 
     void RendererBackend::recordCommandBuffer(uint32_t imageIndex)
@@ -116,72 +107,79 @@ namespace renderer::backend
 
         VkCommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
 
-        VkExtent2D imageExtent = m_swapchain.getImageExtent();
-
-        VkCommandBufferBeginInfo beginInfo {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        };
+        VkCommandBufferBeginInfo beginInfo =
+            infoStructs::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
         vkBeginCommandBuffer(cmdBuf, &beginInfo) >> vkResultChecker;
 
         {
             TracyVkZone(tracyCtx, cmdBuf, "GPU Render");
 
-            std::array clearColors = { VkClearValue { .color = { { 252.f / 255, 165.f / 255, 144.f / 255, 1.0f } } },
-                                       VkClearValue { .depthStencil = { 1.0f, 0 } } };
+            // std::array clearColors = { VkClearValue { .color = { { 252.f / 255, 165.f / 255, 144.f / 255, 1.0f } } },
+            //                            VkClearValue { .depthStencil = { 1.0f, 0 } } };
 
-            VkRenderPassBeginInfo renderPassInfo {
-                .sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-                .renderPass  = m_renderPass,
-                .framebuffer = m_framebuffers[imageIndex],
-                .renderArea  = {
-                    .offset = { 0, 0 },
-                    .extent = imageExtent,
-                },
-                .clearValueCount = utils::size(clearColors),
-                .pClearValues    = clearColors.data(),
+            // VkRenderPassBeginInfo renderPassInfo {
+            //     .sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            //     .renderPass  = m_renderPass,
+            //     .framebuffer = m_framebuffers[imageIndex],
+            //     .renderArea  = {
+            //         .offset = { 0, 0 },
+            //         .extent = imageExtent,
+            //     },
+            //     .clearValueCount = utils::size(clearColors),
+            //     .pClearValues    = clearColors.data(),
+            // };
+            //
+            // vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+            //
+            // vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+            //
+            // auto vertexBuffers = std::to_array<VkBuffer>({ m_vertexBuffer });
+            // auto offsets       = std::to_array<VkDeviceSize>({ 0 });
+            //
+            // vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers.data(), offsets.data());
+            //
+            // vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            VkImage swapchainImage          = m_swapchain.getImages()[imageIndex];
+            VkExtent2D swapchainImageExtent = m_swapchain.getImageExtent();
+
+            Image::transition(cmdBuf, m_renderImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+            VkClearColorValue clearValue;
+            float flash = abs(sin(static_cast<float>(m_frameCount) / 1200.f));
+            clearValue  = {
+                {0.0f, flash / 2, flash / 2, 1.0f}
             };
 
-            vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
-            auto vertexBuffers = std::to_array<VkBuffer>({ m_vertexBuffer });
-            auto offsets       = std::to_array<VkDeviceSize>({ 0 });
-
-            vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers.data(), offsets.data());
-
-            vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-            VkViewport viewport {
-                .x        = 0.0f,
-                .y        = 0.0f,
-                .width    = static_cast<float>(imageExtent.width),
-                .height   = static_cast<float>(imageExtent.height),
-                .minDepth = 0.0f,
-                .maxDepth = 1.0f,
+            VkImageSubresourceRange clearRange = {
+                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel   = 0,
+                .levelCount     = VK_REMAINING_MIP_LEVELS,
+                .baseArrayLayer = 0,
+                .layerCount     = VK_REMAINING_ARRAY_LAYERS,
             };
 
-            vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+            //clear image
+            vkCmdClearColorImage(cmdBuf, m_renderImage, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
-            VkRect2D scissor {
-                .offset = {0, 0},
-                .extent = imageExtent,
-            };
+            //make the swapchain image into presentable mode
+            Image::transition(cmdBuf, m_renderImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            Image::transition(cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-            vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+            m_renderImage.copyTo(cmdBuf, swapchainImage, swapchainImageExtent, m_renderImage.getDimensions());
 
-            m_descriptorManager.bind(cmdBuf, m_pipeline.getLayout(), m_currentFrame);
+            Image::transition(
+                cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            // m_descriptorManager.bind(cmdBuf, m_pipeline.getLayout(), m_currentFrame);
 
-            {
-                TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
-                vkCmdDrawIndexed(cmdBuf, m_numIndices, 1, 0, 0, 0);
-            }
+            // {
+            //     TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
+            //     vkCmdDrawIndexed(cmdBuf, m_numIndices, 1, 0, 0, 0);
+            // }
 
-            renderImgui(cmdBuf);
+            // renderImgui(cmdBuf);
 
-            vkCmdEndRenderPass(cmdBuf);
+            // vkCmdEndRenderPass(cmdBuf);
         }
 
         TracyVkCollect(tracyCtx, cmdBuf);

@@ -8,17 +8,45 @@
 
 namespace renderer::backend
 {
-    class Pipeline
+    class ComputePipeline
     {
     public:
-        explicit Pipeline(Device const& device, RenderPass const& renderPass, DescriptorManager const& descriptor);
+        explicit ComputePipeline(Device const& device);
 
-        Pipeline(Pipeline const&)                    = delete;
-        Pipeline(Pipeline&&)                         = delete;
-        auto operator=(Pipeline const&) -> Pipeline& = delete;
-        auto operator=(Pipeline&&) -> Pipeline&      = delete;
+        ComputePipeline(ComputePipeline const&)                    = delete;
+        ComputePipeline(ComputePipeline&&)                         = delete;
+        auto operator=(ComputePipeline const&) -> ComputePipeline& = delete;
+        auto operator=(ComputePipeline&&) -> ComputePipeline&      = delete;
 
-        ~Pipeline();
+        ~ComputePipeline();
+
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkPipeline() const { return m_handle; }
+
+        [[nodiscard]] auto getLayout() const -> VkPipelineLayout { return m_layout; }
+
+    private:
+        Device const& m_device;
+
+        VkPipeline m_handle { VK_NULL_HANDLE };
+
+        VkPipelineLayout m_layout {};
+        VkShaderModule computeShader {};
+    };
+
+    class GraphicsPipeline
+    {
+    public:
+        explicit GraphicsPipeline(Device const& device,
+                                  RenderPass const& renderPass,
+                                  DescriptorManager const& descriptor);
+
+        GraphicsPipeline(GraphicsPipeline const&)                    = delete;
+        GraphicsPipeline(GraphicsPipeline&&)                         = delete;
+        auto operator=(GraphicsPipeline const&) -> GraphicsPipeline& = delete;
+        auto operator=(GraphicsPipeline&&) -> GraphicsPipeline&      = delete;
+
+        ~GraphicsPipeline();
 
         // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VkPipeline() const { return m_handle; }

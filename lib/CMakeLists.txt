@@ -44,3 +44,6 @@ add_subdirectory(stb)
 # IMGUI
 add_subdirectory(imgui)
 
+# Vulkan Memory Allocator
+add_subdirectory(vma)
+

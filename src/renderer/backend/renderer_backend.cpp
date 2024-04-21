@@ -5,6 +5,7 @@
 #include <mc/renderer/backend/command.hpp>
 #include <mc/renderer/backend/constants.hpp>
 #include <mc/renderer/backend/image.hpp>
+#include <mc/renderer/backend/info_structs.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 #include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
@@ -32,7 +33,8 @@ namespace
 {
     using namespace renderer::backend;
 
-    void imguiCheckerFn(VkResult result, std::source_location location = std::source_location::current())
+    [[maybe_unused]] void imguiCheckerFn(VkResult result,
+                                         std::source_location location = std::source_location::current())
     {
         if (result != VK_SUCCESS)
         {
@@ -46,74 +48,74 @@ namespace renderer::backend
     RendererBackend::RendererBackend(window::Window& window,
                                      std::vector<Vertex> const& vertices,
                                      std::vector<uint32_t> const& indices)
-    // clang_format off
+        // clang_format off
         : m_surface { window, m_instance },
 
           m_device { m_instance, m_surface },
 
+          m_allocator { m_instance, m_device },
+
           m_commandManager { m_device },
 
-          m_colorAttachmentImage {
-                m_device,
-                m_commandManager,
-                m_surface.getFramebufferExtent(),
-                m_surface.getDetails().format,
-                m_device.getMaxUsableSampleCount(),
-                static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT
-                                                | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
-                VK_IMAGE_ASPECT_COLOR_BIT
-            },
-
-          m_depthStencilImage {
-                m_device,
-                m_commandManager,
-                m_surface.getFramebufferExtent(),
-                kDepthStencilFormat,
-                m_device.getMaxUsableSampleCount(),
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                static_cast<VkImageAspectFlagBits>(VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)
-            },
+          m_renderImage { m_device,
+                          m_allocator,
+                          m_surface.getFramebufferExtent(),
+                          VK_FORMAT_R16G16B16A16_SFLOAT,
+                          m_device.getMaxUsableSampleCount(),
+                          static_cast<VkImageUsageFlagBits>(
+                              VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                              VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
+                          VK_IMAGE_ASPECT_COLOR_BIT },
+          //
+          // m_depthStencilImage { m_device,
+          //                       m_commandManager,
+          //                       m_surface.getFramebufferExtent(),
+          //                       kDepthStencilFormat,
+          //                       m_device.getMaxUsableSampleCount(),
+          //                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+          //                       static_cast<VkImageAspectFlagBits>(VK_IMAGE_ASPECT_DEPTH_BIT |
+          //                                                          VK_IMAGE_ASPECT_STENCIL_BIT) },
 
           m_swapchain { m_device, m_surface },
 
-          m_renderPass { m_device, m_surface },
-
-          m_framebuffers {
-                m_device,
-                m_renderPass,
-                m_swapchain,
-                m_colorAttachmentImage.getImageView(),
-                m_depthStencilImage.getImageView()
-            },
-
-          m_uniformBuffers {{{ m_device, m_commandManager }, { m_device, m_commandManager }}},
-
-          m_texture{ m_device, m_commandManager, StbiImage("res/textures/viking_room (2).png") },
-
-          m_descriptorManager { m_device, m_uniformBuffers, m_texture.getImageView(), m_texture.getSampler() },
-
-          m_pipeline { m_device, m_renderPass, m_descriptorManager },
-
-          m_vertexBuffer {
-                m_device,
-                m_commandManager,
-                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                vertices.data(),
-                utils::size(vertices) * sizeof(Vertex)
-            },
-
-          m_indexBuffer {
-                m_device,
-                m_commandManager,
-                VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                indices.data(),
-                utils::size(indices) * sizeof(uint32_t)
-            },
+          // m_renderPass { m_device, m_surface },
+          //
+          // m_framebuffers {
+          //       m_device,
+          //       m_renderPass,
+          //       m_swapchain,
+          //       m_colorAttachmentImage.getImageView(),
+          //       m_depthStencilImage.getImageView()
+          //   },
+          //
+          // m_uniformBuffers {{{ m_device, m_commandManager }, { m_device, m_commandManager }}},
+          //
+          // m_texture{ m_device, m_commandManager, StbiImage("res/textures/viking_room (2).png") },
+          //
+          // m_descriptorManager { m_device, m_uniformBuffers, m_texture.getImageView(), m_texture.getSampler() },
+          //
+          // m_pipeline { m_device, m_renderPass, m_descriptorManager },
+          //
+          // m_vertexBuffer {
+          //       m_device,
+          //       m_commandManager,
+          //       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+          //       vertices.data(),
+          //       utils::size(vertices) * sizeof(Vertex)
+          //   },
+          //
+          // m_indexBuffer {
+          //       m_device,
+          //       m_commandManager,
+          //       VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+          //       indices.data(),
+          //       utils::size(indices) * sizeof(uint32_t)
+          //   },
 
           m_numIndices { indices.size() }
     // clang_format on
     {
-        initImgui(window.getHandle());
+        // initImgui(window.getHandle());
 
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
@@ -146,9 +148,9 @@ namespace renderer::backend
             vkDeviceWaitIdle(m_device);
         }
 
-        ImGui_ImplVulkan_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
+        // ImGui_ImplVulkan_Shutdown();
+        // ImGui_ImplGlfw_Shutdown();
+        // ImGui::DestroyContext();
 
         destroySyncObjects();
 
@@ -162,6 +164,7 @@ namespace renderer::backend
 
     void RendererBackend::initImgui(GLFWwindow* window)
     {
+#if false  // NOLINT
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
@@ -209,6 +212,7 @@ namespace renderer::backend
 
             ImGui_ImplVulkan_CreateFontsTexture();
         }
+#endif
     }
 
     void RendererBackend::update(glm::mat4 view, glm::mat4 projection)
@@ -220,14 +224,8 @@ namespace renderer::backend
 
     void RendererBackend::createSyncObjects()
     {
-        VkSemaphoreCreateInfo semaphoreInfo {
-            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-        };
-
-        VkFenceCreateInfo fenceInfo {
-            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-        };
+        VkSemaphoreCreateInfo semaphoreInfo = infoStructs::semaphore_create_info();
+        VkFenceCreateInfo fenceInfo         = infoStructs::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
 
         for (FrameResources& frame : m_frameResources)
         {
@@ -258,19 +256,19 @@ namespace renderer::backend
 
         m_surface.refresh(m_device);
 
-        m_framebuffers.destroy();
+        // m_framebuffers.destroy();
         m_swapchain.destroy();
 
-        m_colorAttachmentImage.resize(m_surface.getFramebufferExtent());
-        m_depthStencilImage.resize(m_surface.getFramebufferExtent());
+        // m_colorAttachmentImage.resize(m_surface.getFramebufferExtent());
+        // m_depthStencilImage.resize(m_surface.getFramebufferExtent());
 
         m_swapchain.create(m_surface);
-        m_framebuffers.create(
-            m_renderPass, m_swapchain, m_colorAttachmentImage.getImageView(), m_depthStencilImage.getImageView());
+        // m_framebuffers.create(
+        // m_renderPass, m_swapchain, m_colorAttachmentImage.getImageView(), m_depthStencilImage.getImageView());
     }
 
     void RendererBackend::updateUniforms(glm::mat4 model, glm::mat4 view, glm::mat4 projection)
     {
-        m_uniformBuffers[m_currentFrame].update({ .model = model, .view = view, .proj = projection });
+        // m_uniformBuffers[m_currentFrame].update({ .model = model, .view = view, .proj = projection });
     }
 }  // namespace renderer::backend

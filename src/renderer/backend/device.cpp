@@ -225,7 +225,8 @@ namespace renderer::backend
         {
             if ((count & sampleCounts) != 0)
             {
-                m_sampleCount = count;
+                // m_sampleCount = count;
+                m_sampleCount = VK_SAMPLE_COUNT_1_BIT;
             }
         }
 

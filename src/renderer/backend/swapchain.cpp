@@ -53,7 +53,7 @@ namespace renderer::backend
             .imageColorSpace       = details.surfaceFormat.colorSpace,
             .imageExtent           = details.extent,
             .imageArrayLayers      = 1,
-            .imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .imageUsage            = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
             .imageSharingMode      = sameQueueFamily ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT,
             .queueFamilyIndexCount = sameQueueFamily ? 0u : 2u,
             .pQueueFamilyIndices   = sameQueueFamily ? nullptr : queueFamilyIndicesArray.data(),

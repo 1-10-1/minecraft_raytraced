@@ -44,3 +44,6 @@
 	path = lib/imgui/imgui
 	url = https://github.com/ocornut/imgui
 	branch = docking
+[submodule "lib/vma"]
+	path = lib/vma
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator

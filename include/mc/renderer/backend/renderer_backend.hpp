@@ -1,20 +1,23 @@
 #pragma once
 
-#include "buffer.hpp"
+// #include "buffer.hpp"
 #include "command.hpp"
 #include "constants.hpp"
 #include "device.hpp"
-#include "framebuffers.hpp"
+// #include "framebuffers.hpp"
 #include "image.hpp"
 #include "instance.hpp"
-#include "pipeline.hpp"
-#include "render_pass.hpp"
+// #include "pipeline.hpp"
+// #include "render_pass.hpp"
+#include "allocator.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
 #include "vertex.hpp"
 
+#include "vk_mem_alloc.h"
 #include <GLFW/glfw3.h>
 #include <glm/ext/vector_uint2.hpp>
+#include <glm/mat4x4.hpp>
 #include <tracy/TracyVulkan.hpp>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -76,19 +79,21 @@ namespace renderer::backend
         Instance m_instance;
         Surface m_surface;
         Device m_device;
+        Allocator m_allocator;
+
         CommandManager m_commandManager;
-        Image m_colorAttachmentImage, m_depthStencilImage;
+        Image m_renderImage;  //, m_depthStencilImage;
         Swapchain m_swapchain;
-        RenderPass m_renderPass;
-        Framebuffers m_framebuffers;
+        // RenderPass m_renderPass;
+        // Framebuffers m_framebuffers;
 
-        std::array<UniformBuffer, kNumFramesInFlight> m_uniformBuffers;
-        Texture m_texture;
-        DescriptorManager m_descriptorManager;
+        // std::array<UniformBuffer, kNumFramesInFlight> m_uniformBuffers;
+        // Texture m_texture;
+        // DescriptorManager m_descriptorManager;
 
-        Pipeline m_pipeline;
-        StagedBuffer m_vertexBuffer;
-        StagedBuffer m_indexBuffer;
+        // Pipeline m_pipeline;
+        // StagedBuffer m_vertexBuffer;
+        // StagedBuffer m_indexBuffer;
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 
@@ -97,5 +102,7 @@ namespace renderer::backend
         bool m_windowResized { false };
 
         size_t m_numIndices;
+
+        uint64_t m_frameCount {};
     };
 }  // namespace renderer::backend
