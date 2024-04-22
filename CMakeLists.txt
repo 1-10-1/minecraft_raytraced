@@ -106,15 +106,17 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     -std=c++23 -Wall -Wunused -mavx2 -Werror
     -Wno-format -Wno-switch
     -Wno-deprecated-declarations -march=native -flto
-    $<$<CONFIG:Release>:-O3 -ffast-math -finline-functions>
+    $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
     $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
 )
 
 target_link_options(${PROJECT_NAME} PRIVATE -flto) #-fsanitize=address -g -fno-omit-frame-pointer)
 
 set(SHADER_FILES
-    ${CMAKE_SOURCE_DIR}/res/shaders/main.frag
-    ${CMAKE_SOURCE_DIR}/res/shaders/main.vert
+    ${CMAKE_SOURCE_DIR}/shaders/main.frag
+    ${CMAKE_SOURCE_DIR}/shaders/main.vert
+    ${CMAKE_SOURCE_DIR}/shaders/gradient_color.comp
+    ${CMAKE_SOURCE_DIR}/shaders/sky.comp
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
@@ -157,8 +159,24 @@ foreach(SHADER_FILE ${SHADER_FILES})
                 --target-env=vulkan1.3
                 -fshader-stage=${SHADER_TYPE}
         DEPENDS ${SHADER_FILE}
-        COMMENT "Compiling ${SHADER_TYPE} Shader: ${SHADER_FILE}"
+        COMMENT "Compiling ${SHADER_TYPE} shader: ${SHADER_FILE}"
     )
+
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        # Also output the assembly
+        add_custom_command(
+            OUTPUT "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.asm"
+            COMMAND glslc ${SHADER_FILE} -O -S
+                    -o "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.asm"
+                    -std=460
+                    --target-spv=spv1.6
+                    --target-env=vulkan1.3
+                    -fshader-stage=${SHADER_TYPE}
+            DEPENDS ${SHADER_FILE}
+            COMMENT "Compiling ${SHADER_TYPE} shader assembly: ${SHADER_FILE}"
+        )
+        list(APPEND COMPILED_SHADERS "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.asm")
+    endif()
 
     list(APPEND COMPILED_SHADERS "${SHADER_OUTPUT_DIR}/${FILE_NAME_WITH_EXT}.spv")
 endforeach()

@@ -140,44 +140,48 @@ namespace renderer::backend
             // vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers.data(), offsets.data());
             //
             // vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-            VkImage swapchainImage          = m_swapchain.getImages()[imageIndex];
-            VkExtent2D swapchainImageExtent = m_swapchain.getImageExtent();
+            VkImage swapchainImage = m_swapchain.getImages()[imageIndex];
+            VkExtent2D imageExtent = m_swapchain.getImageExtent();
 
-            Image::transition(cmdBuf, m_renderImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-            VkClearColorValue clearValue;
-            float flash = abs(sin(static_cast<float>(m_frameCount) / 1200.f));
-            clearValue  = {
-                {0.0f, flash / 2, flash / 2, 1.0f}
-            };
+            ComputeEffect& effect = m_computePipeline.getEffects()[m_currentBackgroundEffect];
 
-            VkImageSubresourceRange clearRange = {
-                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel   = 0,
-                .levelCount     = VK_REMAINING_MIP_LEVELS,
-                .baseArrayLayer = 0,
-                .layerCount     = VK_REMAINING_ARRAY_LAYERS,
-            };
+            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, effect.pipeline);
 
-            //clear image
-            vkCmdClearColorImage(cmdBuf, m_renderImage, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+            vkCmdBindDescriptorSets(cmdBuf,
+                                    VK_PIPELINE_BIND_POINT_COMPUTE,
+                                    m_computePipeline.getLayout(),
+                                    0,
+                                    1,
+                                    &m_drawImageDescriptors,
+                                    0,
+                                    nullptr);
 
-            //make the swapchain image into presentable mode
-            Image::transition(cmdBuf, m_renderImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            vkCmdPushConstants(cmdBuf,
+                               m_computePipeline.getLayout(),
+                               VK_SHADER_STAGE_COMPUTE_BIT,
+                               0,
+                               sizeof(ComputePushConstants),
+                               &effect.data);
+
+            vkCmdDispatch(cmdBuf, std::ceil(imageExtent.width / 32.0), std::ceil(imageExtent.height / 32.0), 1);
+
+            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             Image::transition(cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-            m_renderImage.copyTo(cmdBuf, swapchainImage, swapchainImageExtent, m_renderImage.getDimensions());
+            m_drawImage.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
+            renderImgui(cmdBuf, m_swapchain.getImageViews()[imageIndex]);
 
             Image::transition(
                 cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
             // m_descriptorManager.bind(cmdBuf, m_pipeline.getLayout(), m_currentFrame);
 
             // {
             //     TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
             //     vkCmdDrawIndexed(cmdBuf, m_numIndices, 1, 0, 0, 0);
             // }
-
-            // renderImgui(cmdBuf);
 
             // vkCmdEndRenderPass(cmdBuf);
         }
@@ -187,7 +191,7 @@ namespace renderer::backend
         vkEndCommandBuffer(cmdBuf) >> vkResultChecker;
     }
 
-    void RendererBackend::renderImgui(VkCommandBuffer cmdBuf)
+    void RendererBackend::renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage)
     {
 #if PROFILED
         TracyVkCtx tracyCtx = m_frameResources[m_currentFrame].tracyContext;
@@ -220,6 +224,14 @@ namespace renderer::backend
         window_flags |= ImGuiWindowFlags_NoNav;
         window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus;
 
+        VkRenderingAttachmentInfo colorAttachment =
+            infoStructs::attachment_info(targetImage, nullptr, VK_IMAGE_LAYOUT_GENERAL);
+
+        VkRenderingInfo renderInfo =
+            infoStructs::rendering_info(m_swapchain.getImageExtent(), &colorAttachment, nullptr);
+
+        vkCmdBeginRendering(cmdBuf, &renderInfo);
+
         {
             ImGui::Begin("Statistics", nullptr, window_flags);
             ImGui::SetWindowPos({ 0, 0 });
@@ -239,7 +251,28 @@ namespace renderer::backend
             ImGui::End();
         }
 
+        {
+            if (ImGui::Begin("background"))
+            {
+                ComputeEffect& selected = m_computePipeline.getEffects()[m_currentBackgroundEffect];
+
+                ImGui::Text("Selected effect: ", selected.name);
+
+                ImGui::SliderInt(
+                    "Effect Index", &m_currentBackgroundEffect, 0, m_computePipeline.getEffects().size() - 1);
+
+                ImGui::InputFloat4("data1", (float*)&selected.data.data1);
+                ImGui::InputFloat4("data2", (float*)&selected.data.data2);
+                ImGui::InputFloat4("data3", (float*)&selected.data.data3);
+                ImGui::InputFloat4("data4", (float*)&selected.data.data4);
+
+                ImGui::End();
+            }
+        }
+
         ImGui::Render();
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuf);
+
+        vkCmdEndRendering(cmdBuf);
     }
 }  // namespace renderer::backend

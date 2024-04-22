@@ -27,7 +27,7 @@ void Model::loadModel(std::string const& path)
 
     if ((scene == nullptr) || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 || (scene->mRootNode == nullptr))
     {
-        throw Error(AssetError, fmt::format("Assimp error: {}", importer.GetErrorString()));
+        MC_THROW Error(AssetError, fmt::format("Assimp error: {}", importer.GetErrorString()));
     }
 
     directory = path.substr(0, path.find_last_of('/'));

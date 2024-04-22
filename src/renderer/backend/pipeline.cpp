@@ -4,18 +4,112 @@
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
-#include <string_view>
-#include <vector>
 #include <vulkan/vulkan_core.h>
+
+namespace
+{
+    using namespace renderer::backend;
+
+    auto createShaderModule(VkDevice device, std::string_view shaderPath) -> VkShaderModule
+    {
+        std::vector<char> shaderCode = utils::readBytes(shaderPath);
+
+        VkShaderModuleCreateInfo createInfo {
+            .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = shaderCode.size(),
+            .pCode    = reinterpret_cast<uint32_t const*>(shaderCode.data()),
+        };
+
+        VkShaderModule shaderModule {};
+
+        vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) >> vkResultChecker;
+
+        return shaderModule;
+    };
+
+}  // namespace
 
 namespace renderer::backend
 {
     ComputePipeline::ComputePipeline(Device const& device) : m_device { device } {}
 
-    ComputePipeline::~ComputePipeline() {}
+    ComputePipeline::~ComputePipeline()
+    {
+        for (auto& effect : m_effects)
+        {
+            vkDestroyPipeline(m_device, effect.pipeline, nullptr);
+        }
+
+        vkDestroyPipelineLayout(m_device, m_layout, nullptr);
+
+        for (auto [_, shader] : m_shaders)
+        {
+            vkDestroyShaderModule(m_device, shader, nullptr);
+        }
+    }
+
+    void ComputePipeline::build(VkDescriptorSetLayout descriptorSetLayout)
+    {
+        m_shaders["gradient"] = createShaderModule(m_device, "shaders/gradient_color.comp.spv");
+        m_shaders["sky"]      = createShaderModule(m_device, "shaders/sky.comp.spv");
+
+        VkPushConstantRange pushConstants {
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .offset     = 0,
+            .size       = sizeof(ComputePushConstants),
+        };
+
+        VkPipelineLayoutCreateInfo computeLayout {
+            .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .pNext                  = nullptr,
+            .setLayoutCount         = 1,
+            .pSetLayouts            = &descriptorSetLayout,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges    = &pushConstants,
+        };
+
+        vkCreatePipelineLayout(m_device, &computeLayout, nullptr, &m_layout) >> vkResultChecker;
+
+        VkPipelineShaderStageCreateInfo stageinfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pName = "main",
+        };
+
+        VkComputePipelineCreateInfo computePipelineCreateInfo {
+            .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+            .stage  = stageinfo,
+            .layout = m_layout,
+        };
+
+        ComputeEffect gradient {
+            .name   = "gradient",
+            .layout = m_layout,
+            .data   = {.data1 = { 1, 0, 0, 1 }, .data2 = { 0, 0, 1, 1 }},
+        };
+
+        ComputeEffect sky {
+            .name   = "sky",
+            .layout = m_layout,
+            .data   = { .data1 = { 0.1, 0.2, 0.4, 0.97 } },
+        };
+
+        computePipelineCreateInfo.stage.module = m_shaders["gradient"];
+        vkCreateComputePipelines(
+            m_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &gradient.pipeline) >>
+            vkResultChecker;
+
+        computePipelineCreateInfo.stage.module = m_shaders["sky"];
+        vkCreateComputePipelines(m_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &sky.pipeline) >>
+            vkResultChecker;
+
+        m_effects[0] = gradient;
+        m_effects[1] = sky;
+    }
 
     // *******************************************************************************************************************
 
+#if 0
     GraphicsPipeline::GraphicsPipeline(Device const& device,
                                        RenderPass const& renderPass,
                                        DescriptorManager const& descriptor)
@@ -182,4 +276,5 @@ namespace renderer::backend
         vkDestroyShaderModule(m_device, m_fragShaderModule, nullptr);
         vkDestroyShaderModule(m_device, m_vertShaderModule, nullptr);
     }
+#endif
 }  // namespace renderer::backend

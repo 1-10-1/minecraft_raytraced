@@ -232,6 +232,15 @@ namespace renderer::backend
 
         logger::info("Using msaa x{}", std::to_underlying(m_sampleCount));
 
+        logger::debug("Work group size: {}x{}x{} | Work group invocations: {} | Work group count: {}x{}x{}",
+                      bestCandidate.properties.limits.maxComputeWorkGroupSize[0],
+                      bestCandidate.properties.limits.maxComputeWorkGroupSize[1],
+                      bestCandidate.properties.limits.maxComputeWorkGroupSize[2],
+                      bestCandidate.properties.limits.maxComputeWorkGroupInvocations,
+                      bestCandidate.properties.limits.maxComputeWorkGroupCount[0],
+                      bestCandidate.properties.limits.maxComputeWorkGroupCount[1],
+                      bestCandidate.properties.limits.maxComputeWorkGroupCount[2]);
+
         std::string_view deviceType;
 
         surface.refresh(m_physicalHandle);

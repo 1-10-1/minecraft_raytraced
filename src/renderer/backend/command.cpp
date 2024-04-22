@@ -1,5 +1,6 @@
 #include <mc/renderer/backend/command.hpp>
 #include <mc/renderer/backend/constants.hpp>
+#include <mc/renderer/backend/info_structs.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
@@ -31,11 +32,9 @@ namespace renderer::backend
     {
         vkEndCommandBuffer(m_handle);
 
-        VkSubmitInfo submitInfo {
-            .sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers    = &m_handle,
-        };
+        VkCommandBufferSubmitInfo cmdSubInfo = infoStructs::command_buffer_submit_info(m_handle);
+
+        VkSubmitInfo2 submitInfo = infoStructs::submit_info(&cmdSubInfo, nullptr, nullptr);
 
         VkFence fence {};
 
@@ -43,7 +42,7 @@ namespace renderer::backend
 
         vkCreateFence(m_device, &fenceInfo, nullptr, &fence) >> vkResultChecker;
 
-        vkQueueSubmit(m_queue, 1, &submitInfo, fence);
+        vkQueueSubmit2(m_queue, 1, &submitInfo, fence);
         vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX);
 
         vkFreeCommandBuffers(m_device, m_pool, 1, &m_handle);

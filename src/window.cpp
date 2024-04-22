@@ -24,7 +24,7 @@ namespace window
 
         GLFWvidmode const* mode = glfwGetVideoMode(monitor);
 
-        glm::ivec2 windowDimensions { static_cast<float>(mode->width) / 1.5f, static_cast<float>(mode->height) / 1.5f };
+        glm::ivec2 windowDimensions { 1600, 960 };
 
         logger::debug("Monitor info\nScreen size: {}x{}\nChosen window size: {}x{}\nBit "
                       "depths: R/G/B {}/{}/{}\nRefresh rate: {}Hz",
@@ -57,7 +57,6 @@ namespace window
 
         if (glfwRawMouseMotionSupported() != 0)
         {
-            logger::info("Raw mouse motion supported. Enabling it.");
             glfwSetInputMode(m_handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
         }
 

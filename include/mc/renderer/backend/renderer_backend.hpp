@@ -1,15 +1,13 @@
 #pragma once
 
-// #include "buffer.hpp"
+#include "allocator.hpp"
 #include "command.hpp"
 #include "constants.hpp"
+#include "descriptor.hpp"
 #include "device.hpp"
-// #include "framebuffers.hpp"
 #include "image.hpp"
 #include "instance.hpp"
-// #include "pipeline.hpp"
-// #include "render_pass.hpp"
-#include "allocator.hpp"
+#include "pipeline.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
 #include "vertex.hpp"
@@ -69,7 +67,9 @@ namespace renderer::backend
 
     private:
         void initImgui(GLFWwindow* window);
-        void renderImgui(VkCommandBuffer cmdBuf);
+        void renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage);
+
+        void initDescriptors();
 
         void updateSwapchain();
         void createSyncObjects();
@@ -80,22 +80,20 @@ namespace renderer::backend
         Surface m_surface;
         Device m_device;
         Allocator m_allocator;
-
+        DescriptorAllocator m_descriptorAllocator {};
+        ComputePipeline m_computePipeline;
         CommandManager m_commandManager;
-        Image m_renderImage;  //, m_depthStencilImage;
+
+        Image m_drawImage;
+        VkDescriptorSet m_drawImageDescriptors { VK_NULL_HANDLE };
+        VkDescriptorSetLayout m_drawImageDescriptorLayout { VK_NULL_HANDLE };
+        VkDescriptorPool m_imGuiPool { VK_NULL_HANDLE };
+
         Swapchain m_swapchain;
-        // RenderPass m_renderPass;
-        // Framebuffers m_framebuffers;
-
-        // std::array<UniformBuffer, kNumFramesInFlight> m_uniformBuffers;
-        // Texture m_texture;
-        // DescriptorManager m_descriptorManager;
-
-        // Pipeline m_pipeline;
-        // StagedBuffer m_vertexBuffer;
-        // StagedBuffer m_indexBuffer;
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
+
+        int m_currentBackgroundEffect { 0 };
 
         uint32_t m_currentFrame { 0 };
 

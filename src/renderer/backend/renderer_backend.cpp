@@ -55,67 +55,29 @@ namespace renderer::backend
 
           m_allocator { m_instance, m_device },
 
+          m_computePipeline { m_device },
+
           m_commandManager { m_device },
 
-          m_renderImage { m_device,
-                          m_allocator,
-                          m_surface.getFramebufferExtent(),
-                          VK_FORMAT_R16G16B16A16_SFLOAT,
-                          m_device.getMaxUsableSampleCount(),
-                          static_cast<VkImageUsageFlagBits>(
-                              VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                              VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
-                          VK_IMAGE_ASPECT_COLOR_BIT },
-          //
-          // m_depthStencilImage { m_device,
-          //                       m_commandManager,
-          //                       m_surface.getFramebufferExtent(),
-          //                       kDepthStencilFormat,
-          //                       m_device.getMaxUsableSampleCount(),
-          //                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-          //                       static_cast<VkImageAspectFlagBits>(VK_IMAGE_ASPECT_DEPTH_BIT |
-          //                                                          VK_IMAGE_ASPECT_STENCIL_BIT) },
+          m_drawImage { m_device,
+                        m_allocator,
+                        m_surface.getFramebufferExtent(),
+                        VK_FORMAT_R16G16B16A16_SFLOAT,  // Try 32 bit :troll-emoji:
+                        m_device.getMaxUsableSampleCount(),
+                        static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                                          VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
+                                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
+                        VK_IMAGE_ASPECT_COLOR_BIT },
 
           m_swapchain { m_device, m_surface },
-
-          // m_renderPass { m_device, m_surface },
-          //
-          // m_framebuffers {
-          //       m_device,
-          //       m_renderPass,
-          //       m_swapchain,
-          //       m_colorAttachmentImage.getImageView(),
-          //       m_depthStencilImage.getImageView()
-          //   },
-          //
-          // m_uniformBuffers {{{ m_device, m_commandManager }, { m_device, m_commandManager }}},
-          //
-          // m_texture{ m_device, m_commandManager, StbiImage("res/textures/viking_room (2).png") },
-          //
-          // m_descriptorManager { m_device, m_uniformBuffers, m_texture.getImageView(), m_texture.getSampler() },
-          //
-          // m_pipeline { m_device, m_renderPass, m_descriptorManager },
-          //
-          // m_vertexBuffer {
-          //       m_device,
-          //       m_commandManager,
-          //       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-          //       vertices.data(),
-          //       utils::size(vertices) * sizeof(Vertex)
-          //   },
-          //
-          // m_indexBuffer {
-          //       m_device,
-          //       m_commandManager,
-          //       VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-          //       indices.data(),
-          //       utils::size(indices) * sizeof(uint32_t)
-          //   },
 
           m_numIndices { indices.size() }
     // clang_format on
     {
-        // initImgui(window.getHandle());
+        initImgui(window.getHandle());
+
+        initDescriptors();
+        m_computePipeline.build(m_drawImageDescriptorLayout);
 
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
@@ -148,11 +110,15 @@ namespace renderer::backend
             vkDeviceWaitIdle(m_device);
         }
 
-        // ImGui_ImplVulkan_Shutdown();
-        // ImGui_ImplGlfw_Shutdown();
-        // ImGui::DestroyContext();
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
 
         destroySyncObjects();
+
+        m_descriptorAllocator.destroyPool(m_device);
+        vkDestroyDescriptorSetLayout(m_device, m_drawImageDescriptorLayout, nullptr);
+        vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
 
 #if PROFILED
         for (auto& resource : m_frameResources)
@@ -162,9 +128,67 @@ namespace renderer::backend
 #endif
     }
 
+    void RendererBackend::initDescriptors()
+    {
+        std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
+            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}
+        };
+
+        m_descriptorAllocator.initPool(m_device, 10, sizes);
+
+        {
+            m_drawImageDescriptorLayout = DescriptorLayoutBuilder()
+                                              .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+                                              .build(m_device, VK_SHADER_STAGE_COMPUTE_BIT);
+        }
+
+        m_drawImageDescriptors = m_descriptorAllocator.allocate(m_device, m_drawImageDescriptorLayout);
+
+        VkDescriptorImageInfo imgInfo {
+            .imageView   = m_drawImage.getImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+        };
+
+        VkWriteDescriptorSet drawImageWrite = {
+            .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext           = nullptr,
+            .dstSet          = m_drawImageDescriptors,
+            .dstBinding      = 0,
+            .descriptorCount = 1,
+            .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .pImageInfo      = &imgInfo,
+        };
+
+        vkUpdateDescriptorSets(m_device, 1, &drawImageWrite, 0, nullptr);
+    }
+
+    static auto initImGuiDescriptors(VkDevice device) -> VkDescriptorPool
+    {
+        std::array poolSizes {
+            VkDescriptorPoolSize {
+                                  .type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  .descriptorCount = kNumFramesInFlight,
+                                  },
+        };
+
+        VkDescriptorPoolCreateInfo poolInfo {
+            .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+            .maxSets       = kNumFramesInFlight,
+            .poolSizeCount = utils::size(poolSizes),
+            .pPoolSizes    = poolSizes.data(),
+        };
+
+        VkDescriptorPool pool = nullptr;
+        vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool) >> vkResultChecker;
+
+        return pool;
+    }
+
     void RendererBackend::initImgui(GLFWwindow* window)
     {
-#if false  // NOLINT
+        m_imGuiPool = initImGuiDescriptors(m_device);
+
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
@@ -184,17 +208,23 @@ namespace renderer::backend
         ImGui_ImplGlfw_InitForVulkan(window, true);
 
         ImGui_ImplVulkan_InitInfo initInfo {
-            .Instance        = m_instance,
-            .PhysicalDevice  = m_device,
-            .Device          = m_device,
-            .QueueFamily     = m_device.getQueueFamilyIndices().graphicsFamily.value(),
-            .Queue           = m_device.getGraphicsQueue(),
-            .DescriptorPool  = m_descriptorManager.getPool(),
-            .RenderPass      = m_renderPass,
-            .MinImageCount   = kNumFramesInFlight,
-            .ImageCount      = utils::size(m_swapchain.getImageViews()),
-            .MSAASamples     = m_device.getMaxUsableSampleCount(),
-            .Subpass         = 0,
+            .Instance            = m_instance,
+            .PhysicalDevice      = m_device,
+            .Device              = m_device,
+            .QueueFamily         = m_device.getQueueFamilyIndices().graphicsFamily.value(),
+            .Queue               = m_device.getGraphicsQueue(),
+            .DescriptorPool      = m_imGuiPool,
+            .MinImageCount       = kNumFramesInFlight,
+            .ImageCount          = utils::size(m_swapchain.getImageViews()),
+            .MSAASamples         = m_device.getMaxUsableSampleCount(),
+            .UseDynamicRendering = true,
+            .PipelineRenderingCreateInfo =
+                VkPipelineRenderingCreateInfo {
+                                               .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                                               .colorAttachmentCount    = 1,
+                                               .pColorAttachmentFormats = std::array { m_surface.getDetails().format }.data(),
+                                               .depthAttachmentFormat   = VK_FORMAT_D24_UNORM_S8_UINT,
+                                               },
             .CheckVkResultFn = kDebug ? reinterpret_cast<void (*)(VkResult)>(&imguiCheckerFn) : nullptr,
         };
 
@@ -205,14 +235,7 @@ namespace renderer::backend
 
         MC_ASSERT(font != nullptr);
 
-        {
-            ScopedCommandBuffer cmdBuf {
-                m_device, m_commandManager.getGraphicsCmdPool(), m_device.getGraphicsQueue(), true
-            };
-
-            ImGui_ImplVulkan_CreateFontsTexture();
-        }
-#endif
+        ImGui_ImplVulkan_CreateFontsTexture();
     }
 
     void RendererBackend::update(glm::mat4 view, glm::mat4 projection)
