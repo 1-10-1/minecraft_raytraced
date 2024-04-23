@@ -1,14 +1,38 @@
 #pragma once
 
+#include "allocator.hpp"
 #include "command.hpp"
 #include "device.hpp"
 #include "ubo.hpp"
 
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
 {
+    class BasicBuffer
+    {
+    public:
+        BasicBuffer(Allocator& allocator, size_t allocSize, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
+        ~BasicBuffer();
+
+        BasicBuffer(BasicBuffer const&)                    = delete;
+        BasicBuffer(BasicBuffer&&)                         = delete;
+        auto operator=(BasicBuffer const&) -> BasicBuffer& = delete;
+        auto operator=(BasicBuffer&&) -> BasicBuffer&      = delete;
+
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkBuffer() const { return m_buffer; }
+
+    private:
+        Allocator& m_allocator;
+
+        VkBuffer m_buffer { VK_NULL_HANDLE };
+        VmaAllocation m_allocation { nullptr };
+        VmaAllocationInfo m_allocInfo {};
+    };
+
     class StagedBuffer
     {
     public:

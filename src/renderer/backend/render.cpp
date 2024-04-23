@@ -99,6 +99,67 @@ namespace renderer::backend
         ++m_frameCount;
     }
 
+    void RendererBackend::drawSky(VkCommandBuffer cmdBuf, VkExtent2D imageExtent)
+    {
+        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_skyEffect.handles.pipeline);
+
+        vkCmdBindDescriptorSets(cmdBuf,
+                                VK_PIPELINE_BIND_POINT_COMPUTE,
+                                m_skyEffect.handles.layout,
+                                0,
+                                1,
+                                &m_drawImageDescriptors,
+                                0,
+                                nullptr);
+
+        vkCmdPushConstants(cmdBuf,
+                           m_skyEffect.handles.layout,
+                           VK_SHADER_STAGE_COMPUTE_BIT,
+                           0,
+                           sizeof(ComputePushConstants),
+                           &m_skyEffect.data);
+
+        vkCmdDispatch(cmdBuf, std::ceil(imageExtent.width / 32.0), std::ceil(imageExtent.height / 32.0), 1);
+    }
+
+    void RendererBackend::drawGeometry(VkCommandBuffer cmdBuf)
+    {
+        VkExtent2D imageExtent = m_drawImage.getDimensions();
+
+        VkRenderingAttachmentInfo colorAttachment =
+            infoStructs::attachment_info(m_drawImage.getImageView(), nullptr, VK_IMAGE_LAYOUT_GENERAL);
+
+        VkRenderingInfo renderInfo = infoStructs::rendering_info(imageExtent, &colorAttachment, nullptr);
+
+        vkCmdBeginRendering(cmdBuf, &renderInfo);
+
+        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline.pipeline);
+
+        VkViewport viewport = {
+            .x        = 0,
+            .y        = 0,
+            .width    = static_cast<float>(imageExtent.width),
+            .height   = static_cast<float>(imageExtent.height),
+            .minDepth = 0.f,
+            .maxDepth = 1.f,
+        };
+
+        vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+
+        // clang-format off
+        VkRect2D scissor = {
+            .offset = { 0,                          0                            },
+            .extent = { .width = imageExtent.width, .height = imageExtent.height }
+        };
+        // clang-format on
+
+        vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+
+        vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+
+        vkCmdEndRendering(cmdBuf);
+    }
+
     void RendererBackend::recordCommandBuffer(uint32_t imageIndex)
     {
 #if PROFILED
@@ -115,59 +176,19 @@ namespace renderer::backend
         {
             TracyVkZone(tracyCtx, cmdBuf, "GPU Render");
 
-            // std::array clearColors = { VkClearValue { .color = { { 252.f / 255, 165.f / 255, 144.f / 255, 1.0f } } },
-            //                            VkClearValue { .depthStencil = { 1.0f, 0 } } };
-
-            // VkRenderPassBeginInfo renderPassInfo {
-            //     .sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            //     .renderPass  = m_renderPass,
-            //     .framebuffer = m_framebuffers[imageIndex],
-            //     .renderArea  = {
-            //         .offset = { 0, 0 },
-            //         .extent = imageExtent,
-            //     },
-            //     .clearValueCount = utils::size(clearColors),
-            //     .pClearValues    = clearColors.data(),
-            // };
-            //
-            // vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-            //
-            // vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-            //
-            // auto vertexBuffers = std::to_array<VkBuffer>({ m_vertexBuffer });
-            // auto offsets       = std::to_array<VkDeviceSize>({ 0 });
-            //
-            // vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers.data(), offsets.data());
-            //
-            // vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             VkImage swapchainImage = m_swapchain.getImages()[imageIndex];
             VkExtent2D imageExtent = m_swapchain.getImageExtent();
 
             Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-            ComputeEffect& effect = m_computePipeline.getEffects()[m_currentBackgroundEffect];
+            drawSky(cmdBuf, imageExtent);
 
-            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, effect.pipeline);
+            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-            vkCmdBindDescriptorSets(cmdBuf,
-                                    VK_PIPELINE_BIND_POINT_COMPUTE,
-                                    m_computePipeline.getLayout(),
-                                    0,
-                                    1,
-                                    &m_drawImageDescriptors,
-                                    0,
-                                    nullptr);
+            drawGeometry(cmdBuf);
 
-            vkCmdPushConstants(cmdBuf,
-                               m_computePipeline.getLayout(),
-                               VK_SHADER_STAGE_COMPUTE_BIT,
-                               0,
-                               sizeof(ComputePushConstants),
-                               &effect.data);
-
-            vkCmdDispatch(cmdBuf, std::ceil(imageExtent.width / 32.0), std::ceil(imageExtent.height / 32.0), 1);
-
-            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            Image::transition(
+                cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             Image::transition(cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             m_drawImage.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
@@ -249,25 +270,6 @@ namespace renderer::backend
                 ImVec4(255.f / 255, 215.f / 255, 100.f / 255, 1.f), "Vsync: %s", m_surface.getVsync() ? "on" : "off");
 
             ImGui::End();
-        }
-
-        {
-            if (ImGui::Begin("background"))
-            {
-                ComputeEffect& selected = m_computePipeline.getEffects()[m_currentBackgroundEffect];
-
-                ImGui::Text("Selected effect: ", selected.name);
-
-                ImGui::SliderInt(
-                    "Effect Index", &m_currentBackgroundEffect, 0, m_computePipeline.getEffects().size() - 1);
-
-                ImGui::InputFloat4("data1", (float*)&selected.data.data1);
-                ImGui::InputFloat4("data2", (float*)&selected.data.data2);
-                ImGui::InputFloat4("data3", (float*)&selected.data.data3);
-                ImGui::InputFloat4("data4", (float*)&selected.data.data4);
-
-                ImGui::End();
-            }
         }
 
         ImGui::Render();

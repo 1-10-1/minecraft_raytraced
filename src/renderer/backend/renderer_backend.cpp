@@ -55,14 +55,14 @@ namespace renderer::backend
 
           m_allocator { m_instance, m_device },
 
-          m_computePipeline { m_device },
+          m_pipelineManager { m_device },
 
           m_commandManager { m_device },
 
           m_drawImage { m_device,
                         m_allocator,
                         m_surface.getFramebufferExtent(),
-                        VK_FORMAT_R16G16B16A16_SFLOAT,  // Try 32 bit :troll-emoji:
+                        VK_FORMAT_R16G16B16A16_SFLOAT,
                         m_device.getMaxUsableSampleCount(),
                         static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                           VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
@@ -77,7 +77,23 @@ namespace renderer::backend
         initImgui(window.getHandle());
 
         initDescriptors();
-        m_computePipeline.build(m_drawImageDescriptorLayout);
+
+        m_graphicsPipeline = m_pipelineManager.createGraphicsBuilder()
+                                 .addShader("shaders/colored_triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
+                                 .addShader("shaders/colored_triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
+                                 .setColorAttachmentFormat(m_drawImage.getFormat())
+                                 .setDepthAttachmentFormat(VK_FORMAT_D24_UNORM_S8_UINT)
+                                 .build();
+
+        ComputePipelineBuilder computePipelineBuilder = m_pipelineManager.createComputeBuilder()
+                                                            .setPushConstantsSize(sizeof(ComputePushConstants))
+                                                            .setDescriptorSetLayout(m_drawImageDescriptorLayout);
+
+        m_skyEffect = {
+            .name    = "sky",
+            .handles = computePipelineBuilder.setShader("shaders/sky.comp.spv", "main").build(),
+            .data    = { .data1 = { 0.1f, 0.2f, 0.4f, 0.97f } },
+        };
 
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))

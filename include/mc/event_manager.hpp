@@ -110,4 +110,8 @@ private:
         m_eventListeners {};
 
     std::array<std::vector<size_t>, static_cast<size_t>(EventType::EVENT_TYPE_MAX)> m_eventListenerHashes {};
+
+    // TODO Implement this
+    // Problem: we never re-occupy space freed used by dormant listeners, this is bad for memory
+    // std::vector<size_t> m_dormantListenerIndices {};
 };

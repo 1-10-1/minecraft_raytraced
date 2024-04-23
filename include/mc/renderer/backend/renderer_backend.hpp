@@ -22,6 +22,13 @@
 
 namespace renderer::backend
 {
+    struct ComputeEffect
+    {
+        std::string_view name {};
+        PipelineHandles handles {};
+        ComputePushConstants data;
+    };
+
     struct FrameResources
     {
         VkSemaphore imageAvailableSemaphore { VK_NULL_HANDLE };
@@ -69,6 +76,9 @@ namespace renderer::backend
         void initImgui(GLFWwindow* window);
         void renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage);
 
+        void drawSky(VkCommandBuffer cmdBuf, VkExtent2D imageExtent);
+        void drawGeometry(VkCommandBuffer cmdBuf);
+
         void initDescriptors();
 
         void updateSwapchain();
@@ -81,7 +91,7 @@ namespace renderer::backend
         Device m_device;
         Allocator m_allocator;
         DescriptorAllocator m_descriptorAllocator {};
-        ComputePipeline m_computePipeline;
+        PipelineManager m_pipelineManager;
         CommandManager m_commandManager;
 
         Image m_drawImage;
@@ -89,11 +99,13 @@ namespace renderer::backend
         VkDescriptorSetLayout m_drawImageDescriptorLayout { VK_NULL_HANDLE };
         VkDescriptorPool m_imGuiPool { VK_NULL_HANDLE };
 
+        PipelineHandles m_graphicsPipeline;
+
+        ComputeEffect m_skyEffect;
+
         Swapchain m_swapchain;
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
-
-        int m_currentBackgroundEffect { 0 };
 
         uint32_t m_currentFrame { 0 };
 

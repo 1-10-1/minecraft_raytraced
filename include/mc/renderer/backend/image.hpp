@@ -62,6 +62,8 @@ namespace renderer::backend
 
         [[nodiscard]] auto getMipLevels() const -> uint32_t { return m_mipLevels; }
 
+        [[nodiscard]] auto getFormat() const -> VkFormat { return m_format; }
+
         void copyTo(VkCommandBuffer cmdBuf, VkImage dst, VkExtent2D dstSize, VkExtent2D offset);
 
         static void

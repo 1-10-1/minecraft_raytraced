@@ -34,7 +34,6 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/render.cpp
     src/renderer/backend/instance.cpp
-    # src/renderer/backend/framebuffers.cpp
     src/renderer/backend/surface.cpp
     src/renderer/backend/image.cpp
     src/renderer/backend/buffer.cpp
@@ -44,7 +43,6 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/allocator.cpp
     src/renderer/backend/descriptor.cpp
     src/renderer/backend/swapchain.cpp
-    # src/renderer/backend/render_pass.cpp
     src/renderer/backend/device.cpp
     src/renderer/renderer.cpp
 )
@@ -117,6 +115,8 @@ set(SHADER_FILES
     ${CMAKE_SOURCE_DIR}/shaders/main.vert
     ${CMAKE_SOURCE_DIR}/shaders/gradient_color.comp
     ${CMAKE_SOURCE_DIR}/shaders/sky.comp
+    ${CMAKE_SOURCE_DIR}/shaders/colored_triangle.vert
+    ${CMAKE_SOURCE_DIR}/shaders/colored_triangle.frag
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")

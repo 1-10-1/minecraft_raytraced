@@ -1,78 +1,196 @@
 #pragma once
 
 #include "device.hpp"
-#include "vertex.hpp"
 
-#include <string_view>
-#include <unordered_map>
+#include <filesystem>
+#include <optional>
+#include <vector>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
 {
-    struct ComputeEffect
+    struct PipelineHandles
     {
-        char const* name {};
-
-        VkPipeline pipeline {};
-        VkPipelineLayout layout {};
-
-        ComputePushConstants data;
+        VkPipeline pipeline { VK_NULL_HANDLE };
+        VkPipelineLayout layout { VK_NULL_HANDLE };
+        std::vector<VkShaderModule> shaderModules;
     };
 
-    class ComputePipeline
+    class ComputePipelineBuilder;
+    class GraphicsPipelineBuilder;
+
+    // Class responsible for the lifespan of VkPipeline and VkPipelineLayout objects
+    class PipelineManager
     {
     public:
-        explicit ComputePipeline(Device const& device);
+        explicit PipelineManager(Device const& device);
 
-        ComputePipeline(ComputePipeline const&)                    = delete;
-        ComputePipeline(ComputePipeline&&)                         = delete;
-        auto operator=(ComputePipeline const&) -> ComputePipeline& = delete;
-        auto operator=(ComputePipeline&&) -> ComputePipeline&      = delete;
+        PipelineManager(PipelineManager const&)                    = delete;
+        PipelineManager(PipelineManager&&)                         = delete;
+        auto operator=(PipelineManager const&) -> PipelineManager& = delete;
+        auto operator=(PipelineManager&&) -> PipelineManager&      = delete;
 
-        ~ComputePipeline();
+        ~PipelineManager();
 
-        [[nodiscard]] auto getLayout() const -> VkPipelineLayout { return m_layout; }
+        [[nodiscard]] auto createComputeBuilder() -> ComputePipelineBuilder;
+        [[nodiscard]] auto createGraphicsBuilder() -> GraphicsPipelineBuilder;
 
-        void build(VkDescriptorSetLayout descriptorSetLayout);
+        void removePipeline();  // TODO(aether)
 
-        std::array<ComputeEffect, 2>& getEffects() { return m_effects; }
+        void pushHandles(PipelineHandles const& handles) { m_handles.push_back(handles); };
 
     private:
         Device const& m_device;
 
-        std::array<ComputeEffect, 2> m_effects {};
-        VkPipelineLayout m_layout { VK_NULL_HANDLE };
-        std::unordered_map<std::string_view, VkShaderModule> m_shaders {};
+        std::vector<PipelineHandles> m_handles;
     };
 
-#if 0
-    class GraphicsPipeline
+    struct ComputePipelineInfo
+    {
+        std::optional<VkPushConstantRange> pushConstants {};
+        std::optional<VkDescriptorSetLayout> descriptorSetLayout {};
+        std::optional<VkPipelineShaderStageCreateInfo> shaderStage {};
+    };
+
+    class ComputePipelineBuilder
     {
     public:
-        explicit GraphicsPipeline(Device const& device,
-                                  RenderPass const& renderPass,
-                                  DescriptorManager const& descriptor);
+        [[nodiscard]] auto build() -> PipelineHandles;
 
-        GraphicsPipeline(GraphicsPipeline const&)                    = delete;
-        GraphicsPipeline(GraphicsPipeline&&)                         = delete;
-        auto operator=(GraphicsPipeline const&) -> GraphicsPipeline& = delete;
-        auto operator=(GraphicsPipeline&&) -> GraphicsPipeline&      = delete;
-
-        ~GraphicsPipeline();
-
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        [[nodiscard]] operator VkPipeline() const { return m_handle; }
-
-        [[nodiscard]] auto getLayout() const -> VkPipelineLayout { return m_layout; }
+        [[nodiscard]] auto setPushConstantsSize(uint32_t size) -> ComputePipelineBuilder&;
+        [[nodiscard]] auto setDescriptorSetLayout(VkDescriptorSetLayout layout) -> ComputePipelineBuilder&;
+        [[nodiscard]] auto setShader(std::filesystem::path const& path, std::string_view entryPoint)
+            -> ComputePipelineBuilder&;
 
     private:
+        explicit ComputePipelineBuilder(Device const& device, PipelineManager& manager);
+
         Device const& m_device;
+        PipelineManager& m_manager;
 
-        VkPipeline m_handle { VK_NULL_HANDLE };
+        ComputePipelineInfo m_info;
 
-        VkPipelineLayout m_layout {};
-        VkShaderModule m_vertShaderModule {}, m_fragShaderModule {};
-        std::array<VkPipelineShaderStageCreateInfo, 2> m_shaderStages {};
+        PipelineHandles m_handles {};
+
+        friend class PipelineManager;
     };
-#endif
+
+    struct GraphicsPipelineInfo
+    {
+        std::optional<VkPushConstantRange> pushConstants {};
+        std::optional<VkDescriptorSetLayout> descriptorSetLayout {};
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStages {};
+
+        // Defaults
+        // ********
+        // Depth testing
+        bool depthTestEnable       = false;
+        bool depthWriteEnable      = true;
+        bool depthBoundsTest       = false;
+        bool stencilEnable         = false;
+        VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS;
+
+        // IA
+        bool primitiveRestart                 = false;
+        VkPrimitiveTopology primitiveTopology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+        // Rasterizer
+        bool depthClampEnabled    = false;
+        bool rasterizerDiscard    = false;
+        bool depthBiasEnabled     = false;
+        float lineWidth           = 1.f;
+        VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
+        VkCullModeFlags cullMode  = VK_CULL_MODE_BACK_BIT;
+        VkFrontFace frontFace     = VK_FRONT_FACE_CLOCKWISE;
+
+        uint32_t viewportCount { 1 }, scissorCount { 1 };
+        float depthBiasConstantFactor { 0.f }, depthBiasClamp { 0.f }, depthBiasSlopeFactor { 0.f };
+
+        // multisampling
+        bool sampleShadingEnable   = false;
+        bool alphaToCoverageEnable = false;
+        bool alphaToOneEnable      = false;
+
+        VkSampleCountFlagBits rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        float minSampleShading                     = 0.1f;
+        std::optional<VkSampleMask> sampleMask;
+
+        // blending
+        bool blendingEnable = false;
+        VkColorComponentFlags colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+        // Dynamic rendering
+        std::optional<VkFormat> colorAttachmentFormat;
+        std::optional<VkFormat> depthAttachmentFormat;
+    };
+
+    class GraphicsPipelineBuilder
+    {
+    public:
+        [[nodiscard]] auto build() -> PipelineHandles;
+
+        [[nodiscard]] auto setPushConstantsSize(uint32_t size) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setDescriptorSetLayout(VkDescriptorSetLayout layout) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto addShader(std::filesystem::path const& path,
+                                     VkShaderStageFlagBits stage,
+                                     std::string_view entryPoint) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setDepthStencilSettings(bool enable,
+                                                   VkCompareOp compareOp,
+                                                   bool stencilEnable    = false,
+                                                   bool enableBoundsTest = false,
+                                                   bool enableWrite      = true) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setPrimitiveSettings(bool primitiveRestart, VkPrimitiveTopology primitiveTopology)
+            -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto enableRasterizerDiscard(bool enable = true) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto enableDepthClamp(bool enable = true) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setLineWidth(float width) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setPolygonMode(VkPolygonMode mode) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setCullingSettings(VkCullModeFlags cullMode, VkFrontFace frontFace)
+            -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setViewportScissorCount(uint32_t viewportCount, uint32_t scissorCount)
+            -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setSampleShadingSettings(bool enable, float minSampleShading = 0.2f)
+            -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto enableAlphaToOne(bool enable = true) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto enableAlphaToCoverage(bool enable = true) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setSampleMask(VkSampleMask mask) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setSampleCount(VkSampleCountFlagBits count) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto
+        setDepthBiasSettings(bool enable = true, float constantFactor = 0.f, float slopeFactor = 0.f, float clamp = 0.f)
+            -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setColorAttachmentFormat(VkFormat format) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto setDepthAttachmentFormat(VkFormat format) -> GraphicsPipelineBuilder&;
+
+    private:
+        explicit GraphicsPipelineBuilder(Device const& device, PipelineManager& manager);
+
+        Device const& m_device;
+        PipelineManager& m_manager;
+
+        GraphicsPipelineInfo m_info;
+
+        PipelineHandles m_handles {};
+
+        friend class PipelineManager;
+    };
 }  // namespace renderer::backend

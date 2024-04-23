@@ -54,6 +54,32 @@ namespace
 
 namespace renderer::backend
 {
+    BasicBuffer::BasicBuffer(Allocator& allocator,
+                             size_t allocSize,
+                             VkBufferUsageFlags bufferUsage,
+                             VmaMemoryUsage memoryUsage)
+        : m_allocator { allocator }
+    {
+        VkBufferCreateInfo bufferInfo = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size  = allocSize,
+            .usage = bufferUsage,
+        };
+
+        VmaAllocationCreateInfo vmaAllocInfo = {
+            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = memoryUsage,
+        };
+
+        vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &m_buffer, &m_allocation, &m_allocInfo) >>
+            vkResultChecker;
+    }
+
+    BasicBuffer::~BasicBuffer()
+    {
+        vmaDestroyBuffer(m_allocator, m_buffer, m_allocation);
+    }
+
     StagedBuffer::StagedBuffer(Device& device,
                                CommandManager& commandManager,
                                VkBufferUsageFlags usageFlags,
