@@ -57,21 +57,18 @@ auto Model::processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh
 
     for (unsigned int i = 0; i < mesh->mNumVertices; i++)
     {
-        vertices.push_back({
+        vertices.push_back(Vertex {
             .position { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z },
-            .normal = mesh->HasNormals() ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
-                                         : glm::vec3 {},
+            .uv_x = mesh->mTextureCoords[0] != nullptr ? mesh->mTextureCoords[0][i].x : 0,
+            .normal { mesh->HasNormals() ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
+                                         : glm::vec3 {} },
  // A vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
   // use models where a vertex can have multiple texture coordinates so we always take the first set (0).
-            .texCoords = mesh->mTextureCoords[0] != nullptr
-                             ? glm::vec2 { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y }
-                             : glm::vec2 {},
-            .tangent   = mesh->mTextureCoords[0] != nullptr
-                             ? glm::vec3 { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z }
-                             : glm::vec3 {},
-            .bitangent = mesh->mTextureCoords[0] != nullptr
-                             ? glm::vec3 { mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z }
-                             : glm::vec3 {},
+            .uv_y = mesh->mTextureCoords[0] != nullptr ? mesh->mTextureCoords[0][i].x : 0,
+            .color {
+                       mesh->mColors[0] != nullptr
+                    ? glm::vec4 { mesh->mColors[0]->r, mesh->mColors[0]->g, mesh->mColors[0]->b, mesh->mColors[0]->a }
+                    : glm::vec4 {} }
         });
     }
 

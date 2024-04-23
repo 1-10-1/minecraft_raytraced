@@ -155,7 +155,20 @@ namespace renderer::backend
 
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+        GPUDrawPushConstants push_constants {
+            .worldMatrix  = m_mvp,
+            .vertexBuffer = m_meshBuffers.vertexBufferAddress,
+        };
+
+        vkCmdPushConstants(cmdBuf,
+                           m_graphicsPipeline.layout,
+                           VK_SHADER_STAGE_VERTEX_BIT,
+                           0,
+                           sizeof(GPUDrawPushConstants),
+                           &push_constants);
+
+        vkCmdBindIndexBuffer(cmdBuf, m_meshBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmdBuf, m_numIndices, 1, 0, 0, 0);
 
         vkCmdEndRendering(cmdBuf);
     }

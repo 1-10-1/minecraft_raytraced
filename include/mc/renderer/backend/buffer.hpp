@@ -18,12 +18,24 @@ namespace renderer::backend
         ~BasicBuffer();
 
         BasicBuffer(BasicBuffer const&)                    = delete;
-        BasicBuffer(BasicBuffer&&)                         = delete;
         auto operator=(BasicBuffer const&) -> BasicBuffer& = delete;
         auto operator=(BasicBuffer&&) -> BasicBuffer&      = delete;
 
+        BasicBuffer(BasicBuffer&& other) noexcept
+            : m_allocator { other.m_allocator },
+              m_buffer { other.m_buffer },
+              m_allocation { other.m_allocation },
+              m_allocInfo { other.m_allocInfo }
+        {
+            other.m_buffer     = VK_NULL_HANDLE;
+            other.m_allocation = nullptr;
+            other.m_allocInfo  = {};
+        };
+
         // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VkBuffer() const { return m_buffer; }
+
+        [[nodiscard]] auto getMappedData() const -> void* { return m_allocInfo.pMappedData; }
 
     private:
         Allocator& m_allocator;

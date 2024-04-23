@@ -131,7 +131,8 @@ namespace renderer::backend
     public:
         [[nodiscard]] auto build() -> PipelineHandles;
 
-        [[nodiscard]] auto setPushConstantsSize(uint32_t size) -> GraphicsPipelineBuilder&;
+        [[nodiscard]] auto setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage)
+            -> GraphicsPipelineBuilder&;
 
         [[nodiscard]] auto setDescriptorSetLayout(VkDescriptorSetLayout layout) -> GraphicsPipelineBuilder&;
 

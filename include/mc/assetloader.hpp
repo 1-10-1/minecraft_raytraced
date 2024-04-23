@@ -30,9 +30,9 @@ class Mesh
 public:
     Mesh(std::vector<Vertex>&& vertices, std::vector<unsigned int>&& indices, std::vector<TextureData>&& textures);
 
-    [[nodiscard]] auto getVertices() const -> std::vector<Vertex> const& { return m_vertices; }
+    [[nodiscard]] auto getVertices() -> std::vector<Vertex>& { return m_vertices; }
 
-    [[nodiscard]] auto getIndices() const -> std::vector<uint32_t> const& { return m_indices; }
+    [[nodiscard]] auto getIndices() -> std::vector<uint32_t>& { return m_indices; }
 
     [[nodiscard]] auto getTextures() const -> std::vector<TextureData> const& { return m_textures; }
 

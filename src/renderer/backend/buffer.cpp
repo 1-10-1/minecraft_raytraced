@@ -77,6 +77,11 @@ namespace renderer::backend
 
     BasicBuffer::~BasicBuffer()
     {
+        if (m_buffer == nullptr)
+        {
+            return;
+        }
+
         vmaDestroyBuffer(m_allocator, m_buffer, m_allocation);
     }
 

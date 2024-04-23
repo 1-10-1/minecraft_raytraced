@@ -9,7 +9,6 @@
 #include <filesystem>
 
 #include <tracy/Tracy.hpp>
-#include <vulkan/vulkan.hpp>
 
 #ifdef __linux__
 #    include <libgen.h>

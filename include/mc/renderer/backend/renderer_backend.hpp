@@ -1,6 +1,7 @@
 #pragma once
 
 #include "allocator.hpp"
+#include "buffer.hpp"
 #include "command.hpp"
 #include "constants.hpp"
 #include "descriptor.hpp"
@@ -29,6 +30,19 @@ namespace renderer::backend
         ComputePushConstants data;
     };
 
+    struct GPUMeshBuffers
+    {
+        BasicBuffer indexBuffer;
+        BasicBuffer vertexBuffer;
+        VkDeviceAddress vertexBufferAddress;
+    };
+
+    struct GPUDrawPushConstants
+    {
+        glm::mat4 worldMatrix;
+        VkDeviceAddress vertexBuffer;
+    };
+
     struct FrameResources
     {
         VkSemaphore imageAvailableSemaphore { VK_NULL_HANDLE };
@@ -43,9 +57,7 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
-        explicit RendererBackend(window::Window& window,
-                                 std::vector<Vertex> const& vertices,
-                                 std::vector<uint32_t> const& indices);
+        explicit RendererBackend(window::Window& window, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices);
 
         RendererBackend(RendererBackend const&)                    = delete;
         RendererBackend(RendererBackend&&)                         = delete;
@@ -86,6 +98,8 @@ namespace renderer::backend
         void destroySyncObjects();
         void updateUniforms(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
 
+        [[nodiscard]] auto uploadMesh(std::span<Vertex> vertices, std::span<uint32_t> indices) -> GPUMeshBuffers;
+
         Instance m_instance;
         Surface m_surface;
         Device m_device;
@@ -102,6 +116,10 @@ namespace renderer::backend
         PipelineHandles m_graphicsPipeline;
 
         ComputeEffect m_skyEffect;
+
+        GPUMeshBuffers m_meshBuffers;
+
+        glm::mat4 m_mvp;
 
         Swapchain m_swapchain;
 

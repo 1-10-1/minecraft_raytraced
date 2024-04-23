@@ -233,10 +233,11 @@ namespace renderer::backend
         return m_handles;
     };
 
-    auto GraphicsPipelineBuilder::setPushConstantsSize(uint32_t size) -> GraphicsPipelineBuilder&
+    auto GraphicsPipelineBuilder::setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage)
+        -> GraphicsPipelineBuilder&
     {
         m_info.pushConstants = {
-            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .stageFlags = shaderStage,
             .offset     = 0,
             .size       = size,
         };
