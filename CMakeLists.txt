@@ -26,13 +26,14 @@ list(APPEND SOURCE_FILES
     src/utils.cpp
     src/window.cpp
     src/camera.cpp
-    src/assetloader.cpp
 
     src/game/game.cpp
 
+    src/renderer/backend/mesh_loader.cpp
     src/renderer/backend/vk_checker.cpp
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/render.cpp
+    src/renderer/backend/mesh_upload.cpp
     src/renderer/backend/instance.cpp
     src/renderer/backend/surface.cpp
     src/renderer/backend/image.cpp
@@ -70,10 +71,10 @@ list(APPEND LIBS
     magic_enum::magic_enum
     Tracy::TracyClient
     stdc++exp
-    assimp::assimp
     stb
     imgui
     GPUOpen::VulkanMemoryAllocator
+    fastgltf::fastgltf
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
@@ -104,6 +105,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     -std=c++23 -Wall -Wunused -mavx2 -Werror
     -Wno-format -Wno-switch
     -Wno-deprecated-declarations -march=native -flto
+    -Wno-sign-compare
     $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
     $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
 )
@@ -190,4 +192,3 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/res $<TARGET_FILE_DIR:${PROJECT_NAME}>/res
 )
-

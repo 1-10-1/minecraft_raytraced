@@ -7,5 +7,5 @@
 namespace renderer::backend
 {
     constexpr uint32_t kNumFramesInFlight  = 3;
-    constexpr VkFormat kDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+    constexpr VkFormat kDepthStencilFormat = VK_FORMAT_D32_SFLOAT;
 }  // namespace renderer::backend

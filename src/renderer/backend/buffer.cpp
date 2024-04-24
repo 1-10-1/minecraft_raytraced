@@ -58,7 +58,7 @@ namespace renderer::backend
                              size_t allocSize,
                              VkBufferUsageFlags bufferUsage,
                              VmaMemoryUsage memoryUsage)
-        : m_allocator { allocator }
+        : m_allocator { &allocator }
     {
         VkBufferCreateInfo bufferInfo = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -71,7 +71,7 @@ namespace renderer::backend
             .usage = memoryUsage,
         };
 
-        vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &m_buffer, &m_allocation, &m_allocInfo) >>
+        vmaCreateBuffer(m_allocator->get(), &bufferInfo, &vmaAllocInfo, &m_buffer, &m_allocation, &m_allocInfo) >>
             vkResultChecker;
     }
 
@@ -82,7 +82,7 @@ namespace renderer::backend
             return;
         }
 
-        vmaDestroyBuffer(m_allocator, m_buffer, m_allocation);
+        vmaDestroyBuffer(m_allocator->get(), m_buffer, m_allocation);
     }
 
     StagedBuffer::StagedBuffer(Device& device,

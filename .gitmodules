@@ -47,3 +47,6 @@
 [submodule "lib/vma"]
 	path = lib/vma
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "lib/fastgltf"]
+	path = lib/fastgltf
+	url = https://github.com/spnda/fastgltf

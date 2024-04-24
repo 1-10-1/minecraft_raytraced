@@ -45,9 +45,7 @@ namespace
 
 namespace renderer::backend
 {
-    RendererBackend::RendererBackend(window::Window& window,
-                                     std::vector<Vertex>& vertices,
-                                     std::vector<uint32_t>& indices)
+    RendererBackend::RendererBackend(window::Window& window)
         // clang_format off
         : m_surface { window, m_instance },
 
@@ -63,20 +61,27 @@ namespace renderer::backend
                         m_allocator,
                         m_surface.getFramebufferExtent(),
                         VK_FORMAT_R16G16B16A16_SFLOAT,
-                        m_device.getMaxUsableSampleCount(),
+                        VK_SAMPLE_COUNT_1_BIT,
                         static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                           VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
                                                           VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
                         VK_IMAGE_ASPECT_COLOR_BIT },
 
-          m_meshBuffers { uploadMesh(std::span { vertices.data(), vertices.size() },
-                                     std::span { indices.data(), indices.size() }) },
+          m_depthImage { m_device,
+                         m_allocator,
+                         m_drawImage.getDimensions(),
+                         kDepthStencilFormat,
+                         VK_SAMPLE_COUNT_1_BIT,
+                         static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
+                         VK_IMAGE_ASPECT_DEPTH_BIT },
+
+          m_testMeshes {
+              loadGltfMeshes(m_device, m_allocator, m_commandManager, "./res/models/basicmesh.glb").value()
+          },
 
           m_mvp { glm::identity<glm::mat4x4>() },
 
-          m_swapchain { m_device, m_surface },
-
-          m_numIndices { indices.size() }
+          m_swapchain { m_device, m_surface }
     // clang_format on
     {
         initImgui(window.getHandle());
@@ -87,7 +92,8 @@ namespace renderer::backend
                                  .addShader("shaders/colored_triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
                                  .addShader("shaders/colored_triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
                                  .setColorAttachmentFormat(m_drawImage.getFormat())
-                                 .setDepthAttachmentFormat(VK_FORMAT_D24_UNORM_S8_UINT)
+                                 .setDepthAttachmentFormat(kDepthStencilFormat)
+                                 .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
                                  .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT)
                                  .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                                  .build();
@@ -150,66 +156,6 @@ namespace renderer::backend
         }
 #endif
     }
-
-    auto RendererBackend::uploadMesh(std::span<Vertex> vertices, std::span<uint32_t> indices) -> GPUMeshBuffers
-    {
-        size_t const vertexBufferSize = vertices.size() * sizeof(Vertex);
-        size_t const indexBufferSize  = indices.size() * sizeof(uint32_t);
-
-        GPUMeshBuffers newSurface {
-            .indexBuffer = BasicBuffer(m_allocator,
-                                       indexBufferSize,
-                                       VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                       VMA_MEMORY_USAGE_GPU_ONLY),
-
-            .vertexBuffer = BasicBuffer(m_allocator,
-                                        vertexBufferSize,
-                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                        VMA_MEMORY_USAGE_GPU_ONLY)
-        };
-
-        VkBufferDeviceAddressInfo deviceAdressInfo { .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                                                     .buffer = newSurface.vertexBuffer };
-
-        newSurface.vertexBufferAddress = vkGetBufferDeviceAddress(m_device, &deviceAdressInfo);
-
-        {
-            BasicBuffer staging { m_allocator,
-                                  vertexBufferSize + indexBufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VMA_MEMORY_USAGE_CPU_ONLY };
-
-            void* data = staging.getMappedData();
-
-            memcpy(data, vertices.data(), vertexBufferSize);
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            memcpy(static_cast<char*>(data) + vertexBufferSize, indices.data(), indexBufferSize);
-
-            {
-                ScopedCommandBuffer cmdBuf {
-                    m_device, m_commandManager.getTransferCmdPool(), m_device.getTransferQueue(), true
-                };
-
-                VkBufferCopy vertexCopy {
-                    .srcOffset = 0,
-                    .dstOffset = 0,
-                    .size      = vertexBufferSize,
-                };
-
-                VkBufferCopy indexCopy {
-                    .srcOffset = vertexBufferSize,
-                    .dstOffset = 0,
-                    .size      = indexBufferSize,
-                };
-
-                vkCmdCopyBuffer(cmdBuf, staging, newSurface.indexBuffer, 1, &indexCopy);
-                vkCmdCopyBuffer(cmdBuf, staging, newSurface.vertexBuffer, 1, &vertexCopy);
-            };
-        }
-
-        return newSurface;
-    };
 
     void RendererBackend::initDescriptors()
     {

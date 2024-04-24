@@ -150,7 +150,7 @@ namespace renderer::backend
             .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
             .depthTestEnable       = static_cast<VkBool32>(m_info.depthTestEnable),
             .depthWriteEnable      = static_cast<VkBool32>(m_info.depthWriteEnable),
-            .depthCompareOp        = VK_COMPARE_OP_LESS,
+            .depthCompareOp        = m_info.depthCompareOp,
             .depthBoundsTestEnable = static_cast<VkBool32>(m_info.depthBoundsTest),
             .stencilTestEnable     = static_cast<VkBool32>(m_info.stencilEnable),
         };

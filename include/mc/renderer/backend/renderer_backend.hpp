@@ -1,13 +1,13 @@
 #pragma once
 
 #include "allocator.hpp"
-#include "buffer.hpp"
 #include "command.hpp"
 #include "constants.hpp"
 #include "descriptor.hpp"
 #include "device.hpp"
 #include "image.hpp"
 #include "instance.hpp"
+#include "mesh_loader.hpp"
 #include "pipeline.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
@@ -30,13 +30,6 @@ namespace renderer::backend
         ComputePushConstants data;
     };
 
-    struct GPUMeshBuffers
-    {
-        BasicBuffer indexBuffer;
-        BasicBuffer vertexBuffer;
-        VkDeviceAddress vertexBufferAddress;
-    };
-
     struct GPUDrawPushConstants
     {
         glm::mat4 worldMatrix;
@@ -57,7 +50,7 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
-        explicit RendererBackend(window::Window& window, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices);
+        explicit RendererBackend(window::Window& window);
 
         RendererBackend(RendererBackend const&)                    = delete;
         RendererBackend(RendererBackend&&)                         = delete;
@@ -98,8 +91,6 @@ namespace renderer::backend
         void destroySyncObjects();
         void updateUniforms(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
 
-        [[nodiscard]] auto uploadMesh(std::span<Vertex> vertices, std::span<uint32_t> indices) -> GPUMeshBuffers;
-
         Instance m_instance;
         Surface m_surface;
         Device m_device;
@@ -108,7 +99,7 @@ namespace renderer::backend
         PipelineManager m_pipelineManager;
         CommandManager m_commandManager;
 
-        Image m_drawImage;
+        Image m_drawImage, m_depthImage;
         VkDescriptorSet m_drawImageDescriptors { VK_NULL_HANDLE };
         VkDescriptorSetLayout m_drawImageDescriptorLayout { VK_NULL_HANDLE };
         VkDescriptorPool m_imGuiPool { VK_NULL_HANDLE };
@@ -117,7 +108,7 @@ namespace renderer::backend
 
         ComputeEffect m_skyEffect;
 
-        GPUMeshBuffers m_meshBuffers;
+        std::vector<std::shared_ptr<MeshAsset>> m_testMeshes;
 
         glm::mat4 m_mvp;
 
@@ -128,8 +119,6 @@ namespace renderer::backend
         uint32_t m_currentFrame { 0 };
 
         bool m_windowResized { false };
-
-        size_t m_numIndices;
 
         uint64_t m_frameCount {};
     };

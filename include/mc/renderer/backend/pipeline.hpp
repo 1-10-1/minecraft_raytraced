@@ -101,7 +101,7 @@ namespace renderer::backend
         bool depthBiasEnabled     = false;
         float lineWidth           = 1.f;
         VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
-        VkCullModeFlags cullMode  = VK_CULL_MODE_BACK_BIT;
+        VkCullModeFlags cullMode  = VK_CULL_MODE_NONE;
         VkFrontFace frontFace     = VK_FRONT_FACE_CLOCKWISE;
 
         uint32_t viewportCount { 1 }, scissorCount { 1 };

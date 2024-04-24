@@ -129,7 +129,10 @@ namespace renderer::backend
         VkRenderingAttachmentInfo colorAttachment =
             infoStructs::attachment_info(m_drawImage.getImageView(), nullptr, VK_IMAGE_LAYOUT_GENERAL);
 
-        VkRenderingInfo renderInfo = infoStructs::rendering_info(imageExtent, &colorAttachment, nullptr);
+        VkRenderingAttachmentInfo depthAttachment =
+            infoStructs::depth_attachment_info(m_depthImage.getImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+        VkRenderingInfo renderInfo = infoStructs::rendering_info(imageExtent, &colorAttachment, &depthAttachment);
 
         vkCmdBeginRendering(cmdBuf, &renderInfo);
 
@@ -157,7 +160,7 @@ namespace renderer::backend
 
         GPUDrawPushConstants push_constants {
             .worldMatrix  = m_mvp,
-            .vertexBuffer = m_meshBuffers.vertexBufferAddress,
+            .vertexBuffer = m_testMeshes[2]->meshBuffers.vertexBufferAddress,
         };
 
         vkCmdPushConstants(cmdBuf,
@@ -167,8 +170,8 @@ namespace renderer::backend
                            sizeof(GPUDrawPushConstants),
                            &push_constants);
 
-        vkCmdBindIndexBuffer(cmdBuf, m_meshBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmdBuf, m_numIndices, 1, 0, 0, 0);
+        vkCmdBindIndexBuffer(cmdBuf, m_testMeshes[2]->meshBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmdBuf, m_testMeshes[2]->surfaces[0].count, 1, m_testMeshes[2]->surfaces[0].startIndex, 0, 0);
 
         vkCmdEndRendering(cmdBuf);
     }
@@ -187,25 +190,40 @@ namespace renderer::backend
         vkBeginCommandBuffer(cmdBuf, &beginInfo) >> vkResultChecker;
 
         {
-            TracyVkZone(tracyCtx, cmdBuf, "GPU Render");
+            TracyVkZone(tracyCtx, cmdBuf, "Command buffer recording");
 
             VkImage swapchainImage = m_swapchain.getImages()[imageIndex];
             VkExtent2D imageExtent = m_swapchain.getImageExtent();
 
             Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-            drawSky(cmdBuf, imageExtent);
+            {
+                TracyVkZone(tracyCtx, cmdBuf, "Sky render");
+                drawSky(cmdBuf, imageExtent);
+            }
 
             Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            Image::transition(
+                cmdBuf, m_depthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-            drawGeometry(cmdBuf);
+            {
+                TracyVkZone(tracyCtx, cmdBuf, "Geometry render");
+                drawGeometry(cmdBuf);
+            }
 
             Image::transition(
                 cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             Image::transition(cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-            m_drawImage.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
-            renderImgui(cmdBuf, m_swapchain.getImageViews()[imageIndex]);
+            {
+                TracyVkZone(tracyCtx, cmdBuf, "Draw image copy");
+                m_drawImage.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
+            }
+
+            {
+                TracyVkZone(tracyCtx, cmdBuf, "ImGui render");
+                renderImgui(cmdBuf, m_swapchain.getImageViews()[imageIndex]);
+            }
 
             Image::transition(
                 cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -227,11 +245,6 @@ namespace renderer::backend
 
     void RendererBackend::renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage)
     {
-#if PROFILED
-        TracyVkCtx tracyCtx = m_frameResources[m_currentFrame].tracyContext;
-#endif
-        TracyVkNamedZone(tracyCtx, tracy_imguidraw_zone, cmdBuf, "ImGui draw", true);
-
         ImGuiIO& io = ImGui::GetIO();
 
         static double frametime                             = 0.0;
