@@ -32,8 +32,18 @@ namespace renderer::backend
 
     struct GPUDrawPushConstants
     {
-        glm::mat4 worldMatrix;
         VkDeviceAddress vertexBuffer;
+    };
+
+    struct GPUSceneData
+    {
+        glm::mat4 view;
+        glm::mat4 proj;
+        glm::mat4 viewproj;
+        glm::vec4 ambientColor;
+        glm::vec3 sunlightDirection;
+        float sunPower;
+        glm::vec4 sunlightColor;
     };
 
     struct FrameResources
@@ -41,6 +51,8 @@ namespace renderer::backend
         VkSemaphore imageAvailableSemaphore { VK_NULL_HANDLE };
         VkSemaphore renderFinishedSemaphore { VK_NULL_HANDLE };
         VkFence inFlightFence { VK_NULL_HANDLE };
+
+        DescriptorAllocatorGrowable frameDescriptors {};
 
 #if PROFILED
         TracyVkCtx tracyContext {};
@@ -86,33 +98,33 @@ namespace renderer::backend
 
         void initDescriptors();
 
-        void updateSwapchain();
+        void handleSurfaceResize();
         void createSyncObjects();
         void destroySyncObjects();
-        void updateUniforms(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
+        void updateDescriptors(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
 
         Instance m_instance;
         Surface m_surface;
         Device m_device;
+        Swapchain m_swapchain;
         Allocator m_allocator;
         DescriptorAllocator m_descriptorAllocator {};
         PipelineManager m_pipelineManager;
         CommandManager m_commandManager;
 
         Image m_drawImage, m_depthImage;
-        VkDescriptorSet m_drawImageDescriptors { VK_NULL_HANDLE };
-        VkDescriptorSetLayout m_drawImageDescriptorLayout { VK_NULL_HANDLE };
+        VkDescriptorSet m_drawImageDescriptors { VK_NULL_HANDLE }, m_sceneDataDescriptors { VK_NULL_HANDLE };
+        VkDescriptorSetLayout m_drawImageDescriptorLayout { VK_NULL_HANDLE },
+            m_gpuSceneDataDescriptorLayout { VK_NULL_HANDLE };
         VkDescriptorPool m_imGuiPool { VK_NULL_HANDLE };
 
         PipelineHandles m_graphicsPipeline;
 
+        GPUSceneData m_sceneData {};
+        BasicBuffer m_gpuSceneDataBuffer;
         ComputeEffect m_skyEffect;
 
         std::vector<std::shared_ptr<MeshAsset>> m_testMeshes;
-
-        glm::mat4 m_mvp;
-
-        Swapchain m_swapchain;
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 

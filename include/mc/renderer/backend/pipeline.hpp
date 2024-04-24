@@ -118,8 +118,9 @@ namespace renderer::backend
 
         // blending
         bool blendingEnable = false;
-        VkColorComponentFlags colorWriteMask =
+        VkColorComponentFlags blendingColorWriteMask =
             VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_ONE;  // Additive blending by default
 
         // Dynamic rendering
         std::optional<VkFormat> colorAttachmentFormat;
@@ -139,6 +140,11 @@ namespace renderer::backend
         [[nodiscard]] auto addShader(std::filesystem::path const& path,
                                      VkShaderStageFlagBits stage,
                                      std::string_view entryPoint) -> GraphicsPipelineBuilder&;
+
+        [[nodiscard]] auto enableBlending(bool enable = true) -> GraphicsPipelineBuilder&;
+        [[nodiscard]] auto blendingSetAlphaBlend() -> GraphicsPipelineBuilder&;
+        [[nodiscard]] auto blendingSetAdditiveBlend() -> GraphicsPipelineBuilder&;
+        [[nodiscard]] auto setBlendingWriteMask(VkColorComponentFlagBits mask) -> GraphicsPipelineBuilder&;
 
         [[nodiscard]] auto setDepthStencilSettings(bool enable,
                                                    VkCompareOp compareOp,

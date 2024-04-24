@@ -130,8 +130,14 @@ namespace renderer::backend
         };
 
         VkPipelineColorBlendAttachmentState colorBlendAttachment {
-            .blendEnable    = static_cast<VkBool32>(m_info.blendingEnable),
-            .colorWriteMask = m_info.colorWriteMask,
+            .blendEnable         = static_cast<VkBool32>(m_info.blendingEnable),
+            .srcColorBlendFactor = m_info.srcColorBlendFactor,
+            .dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA,
+            .colorBlendOp        = VK_BLEND_OP_ADD,
+            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+            .alphaBlendOp        = VK_BLEND_OP_ADD,
+            .colorWriteMask      = m_info.blendingColorWriteMask,
         };
 
         VkPipelineColorBlendStateCreateInfo colorBlending = {
@@ -269,6 +275,34 @@ namespace renderer::backend
 
         return *this;
     };
+
+    auto GraphicsPipelineBuilder::enableBlending(bool enable) -> GraphicsPipelineBuilder&
+    {
+        m_info.blendingEnable = enable;
+
+        return *this;
+    }
+
+    auto GraphicsPipelineBuilder::blendingSetAlphaBlend() -> GraphicsPipelineBuilder&
+    {
+        m_info.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+
+        return *this;
+    }
+
+    auto GraphicsPipelineBuilder::blendingSetAdditiveBlend() -> GraphicsPipelineBuilder&
+    {
+        m_info.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+
+        return *this;
+    }
+
+    auto GraphicsPipelineBuilder::setBlendingWriteMask(VkColorComponentFlagBits mask) -> GraphicsPipelineBuilder&
+    {
+        m_info.blendingColorWriteMask = mask;
+
+        return *this;
+    }
 
     auto GraphicsPipelineBuilder::setDepthStencilSettings(bool enable,
                                                           VkCompareOp compareOp,

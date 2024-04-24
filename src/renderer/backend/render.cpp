@@ -27,6 +27,14 @@ namespace renderer::backend
         vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
         vkResetFences(m_device, 1, &frame.inFlightFence);
 
+        frame.frameDescriptors.clear_pools(m_device);
+
+        m_sceneDataDescriptors = frame.frameDescriptors.allocate(m_device, m_gpuSceneDataDescriptorLayout);
+
+        DescriptorWriter writer;
+        writer.write_buffer(0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        writer.update_set(m_device, m_sceneDataDescriptors);
+
         uint32_t imageIndex {};
 
         {
@@ -35,7 +43,7 @@ namespace renderer::backend
 
             if (result == VK_ERROR_OUT_OF_DATE_KHR)
             {
-                updateSwapchain();
+                handleSurfaceResize();
                 return;
             }
 
@@ -86,7 +94,7 @@ namespace renderer::backend
 
             if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_windowResized)
             {
-                updateSwapchain();
+                handleSurfaceResize();
                 m_windowResized = false;
             }
             else
@@ -159,9 +167,17 @@ namespace renderer::backend
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
         GPUDrawPushConstants push_constants {
-            .worldMatrix  = m_mvp,
             .vertexBuffer = m_testMeshes[2]->meshBuffers.vertexBufferAddress,
         };
+
+        vkCmdBindDescriptorSets(cmdBuf,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                m_graphicsPipeline.layout,
+                                0,
+                                1,
+                                &m_sceneDataDescriptors,
+                                0,
+                                nullptr);
 
         vkCmdPushConstants(cmdBuf,
                            m_graphicsPipeline.layout,
