@@ -27,14 +27,6 @@ namespace renderer::backend
         vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
         vkResetFences(m_device, 1, &frame.inFlightFence);
 
-        frame.frameDescriptors.clear_pools(m_device);
-
-        m_sceneDataDescriptors = frame.frameDescriptors.allocate(m_device, m_gpuSceneDataDescriptorLayout);
-
-        DescriptorWriter writer;
-        writer.write_buffer(0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        writer.update_set(m_device, m_sceneDataDescriptors);
-
         uint32_t imageIndex {};
 
         {
@@ -116,7 +108,7 @@ namespace renderer::backend
                                 m_skyEffect.handles.layout,
                                 0,
                                 1,
-                                &m_drawImageDescriptors,
+                                &m_computeDescriptors,
                                 0,
                                 nullptr);
 
@@ -175,7 +167,7 @@ namespace renderer::backend
                                 m_graphicsPipeline.layout,
                                 0,
                                 1,
-                                &m_sceneDataDescriptors,
+                                &m_globalDescriptorSet,
                                 0,
                                 nullptr);
 

@@ -1,5 +1,7 @@
 #include <mc/renderer/backend/mesh_upload.hpp>
 
+#include <cstring>
+
 namespace renderer::backend
 {
     auto uploadMesh(Device& device,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "command.hpp"
 #include "mesh_buffers.hpp"
 
 #include <optional>

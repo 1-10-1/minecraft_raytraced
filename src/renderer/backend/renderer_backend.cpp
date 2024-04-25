@@ -23,7 +23,6 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
-#include <ranges>
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
 #include <vulkan/vulkan_core.h>
@@ -79,6 +78,8 @@ namespace renderer::backend
                          static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
                          VK_IMAGE_ASPECT_DEPTH_BIT },
 
+          m_texture { m_device, m_allocator, m_commandManager, { "./res/textures/viking_room (2).png" } },
+
           m_testMeshes { loadGltfMeshes(m_device, m_allocator, m_commandManager, "./res/models/basicmesh.glb").value() }
     // clang_format on
     {
@@ -98,12 +99,13 @@ namespace renderer::backend
                                  .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT)
                                  .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                                  .enableBlending()
-                                 .setDescriptorSetLayout(m_gpuSceneDataDescriptorLayout)
+                                 .setSampleCount(m_device.getMaxUsableSampleCount())
+                                 .setDescriptorSetLayout(m_globalDescriptorLayout)
                                  .build();
 
         ComputePipelineBuilder computePipelineBuilder = m_pipelineManager.createComputeBuilder()
                                                             .setPushConstantsSize(sizeof(ComputePushConstants))
-                                                            .setDescriptorSetLayout(m_drawImageDescriptorLayout);
+                                                            .setDescriptorSetLayout(m_computeDescriptorLayout);
 
         m_skyEffect = {
             .name    = "sky",
@@ -149,14 +151,9 @@ namespace renderer::backend
         destroySyncObjects();
 
         m_descriptorAllocator.destroyPool(m_device);
-        vkDestroyDescriptorSetLayout(m_device, m_drawImageDescriptorLayout, nullptr);
-        vkDestroyDescriptorSetLayout(m_device, m_gpuSceneDataDescriptorLayout, nullptr);
+        vkDestroyDescriptorSetLayout(m_device, m_computeDescriptorLayout, nullptr);
+        vkDestroyDescriptorSetLayout(m_device, m_globalDescriptorLayout, nullptr);
         vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
-
-        for (auto frameResources : m_frameResources)
-        {
-            frameResources.frameDescriptors.destroy_pools(m_device);
-        }
 
 #if PROFILED
         for (auto& resource : m_frameResources)
@@ -175,34 +172,47 @@ namespace renderer::backend
         m_descriptorAllocator.initPool(m_device, 10, sizes);
 
         {
-            m_drawImageDescriptorLayout = DescriptorLayoutBuilder()
-                                              .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-                                              .build(m_device, VK_SHADER_STAGE_COMPUTE_BIT);
+            m_computeDescriptorLayout = DescriptorLayoutBuilder()
+                                            .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+                                            .build(m_device, VK_SHADER_STAGE_COMPUTE_BIT);
 
-            m_gpuSceneDataDescriptorLayout =
-                DescriptorLayoutBuilder()
-                    .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-                    .build(m_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            m_globalDescriptorLayout = DescriptorLayoutBuilder()
+                                           .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                                           .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                                           .build(m_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         }
 
-        m_drawImageDescriptors = m_descriptorAllocator.allocate(m_device, m_drawImageDescriptorLayout);
+        m_computeDescriptors = m_descriptorAllocator.allocate(m_device, m_computeDescriptorLayout);
 
         DescriptorWriter writer;
         writer.write_image(
             0, m_drawImage.getImageView(), VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-        writer.update_set(m_device, m_drawImageDescriptors);
+        writer.update_set(m_device, m_computeDescriptors);
 
-        for (uint32_t i : vi::iota(0u, kNumFramesInFlight))
+        std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = {
+            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,           3},
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         3},
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         3},
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+        };
+
+        m_globalDescriptorSet = m_descriptorAllocator.allocate(m_device, m_globalDescriptorLayout);
+
         {
-            std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> frame_sizes = {
-                {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,           3},
-                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         3},
-                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         3},
-                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-            };
+            DescriptorWriter writer;
+            writer.write_buffer(0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+            writer.update_set(m_device, m_globalDescriptorSet);
+        }
 
-            m_frameResources[i].frameDescriptors.init(m_device, 1000, frame_sizes);
+        {
+            DescriptorWriter writer;
+            writer.write_image(1,
+                               m_texture.getImageView(),
+                               m_texture.getSampler(),
+                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                               VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            writer.update_set(m_device, m_globalDescriptorSet);
         }
     }
 
@@ -334,7 +344,7 @@ namespace renderer::backend
         writer.write_image(
             0, m_drawImage.getImageView(), VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-        writer.update_set(m_device, m_drawImageDescriptors);
+        writer.update_set(m_device, m_computeDescriptors);
     }
 
     void RendererBackend::updateDescriptors(glm::mat4 model, glm::mat4 view, glm::mat4 projection)

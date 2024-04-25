@@ -1,6 +1,7 @@
 #pragma once
 
 #include "allocator.hpp"
+#include "command.hpp"
 #include "device.hpp"
 #include "mesh_buffers.hpp"
 #include "vertex.hpp"

@@ -30,6 +30,38 @@ namespace renderer::backend
         ComputePushConstants data;
     };
 
+    enum class MaterialPass : uint8_t
+    {
+        MainColor,
+        Transparent,
+        Other
+    };
+
+    struct MaterialPipeline
+    {
+        VkPipeline pipeline;
+        VkPipelineLayout layout;
+    };
+
+    struct MaterialInstance
+    {
+        MaterialPipeline* pipeline;
+        VkDescriptorSet materialSet;
+        MaterialPass passType;
+    };
+
+    struct RenderObject
+    {
+        uint32_t indexCount;
+        uint32_t firstIndex;
+        VkBuffer indexBuffer;
+
+        MaterialInstance* material;
+
+        glm::mat4 transform;
+        VkDeviceAddress vertexBufferAddress;
+    };
+
     struct GPUDrawPushConstants
     {
         VkDeviceAddress vertexBuffer;
@@ -51,8 +83,6 @@ namespace renderer::backend
         VkSemaphore imageAvailableSemaphore { VK_NULL_HANDLE };
         VkSemaphore renderFinishedSemaphore { VK_NULL_HANDLE };
         VkFence inFlightFence { VK_NULL_HANDLE };
-
-        DescriptorAllocatorGrowable frameDescriptors {};
 
 #if PROFILED
         TracyVkCtx tracyContext {};
@@ -113,10 +143,10 @@ namespace renderer::backend
         CommandManager m_commandManager;
 
         Image m_drawImage, m_depthImage;
-        VkDescriptorSet m_drawImageDescriptors { VK_NULL_HANDLE }, m_sceneDataDescriptors { VK_NULL_HANDLE };
-        VkDescriptorSetLayout m_drawImageDescriptorLayout { VK_NULL_HANDLE },
-            m_gpuSceneDataDescriptorLayout { VK_NULL_HANDLE };
-        VkDescriptorPool m_imGuiPool { VK_NULL_HANDLE };
+        Texture m_texture;
+        VkDescriptorSet m_computeDescriptors {}, m_globalDescriptorSet {};
+        VkDescriptorSetLayout m_computeDescriptorLayout {}, m_globalDescriptorLayout {};
+        VkDescriptorPool m_imGuiPool {};
 
         PipelineHandles m_graphicsPipeline;
 

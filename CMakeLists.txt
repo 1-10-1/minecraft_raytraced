@@ -104,13 +104,13 @@ target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
 target_compile_options(${PROJECT_NAME} PRIVATE
     -std=c++23 -Wall -Wunused -mavx2 -Werror
     -Wno-format -Wno-switch
-    -Wno-deprecated-declarations -march=native -flto
+    -Wno-deprecated-declarations -march=native -flto=auto
     -Wno-sign-compare
     $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
     $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
 )
 
-target_link_options(${PROJECT_NAME} PRIVATE -flto) #-fsanitize=address -g -fno-omit-frame-pointer)
+target_link_options(${PROJECT_NAME} PRIVATE -flto=auto) #-fsanitize=address -g -fno-omit-frame-pointer)
 
 set(SHADER_FILES
     ${CMAKE_SOURCE_DIR}/shaders/main.frag

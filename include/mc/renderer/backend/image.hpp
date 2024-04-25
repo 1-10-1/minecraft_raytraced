@@ -1,8 +1,10 @@
 #pragma once
 
 #include "allocator.hpp"
+#include "command.hpp"
 #include "device.hpp"
 
+#include <string>
 #include <string_view>
 
 #include <glm/ext/vector_uint2.hpp>
@@ -14,7 +16,8 @@ namespace renderer::backend
     class StbiImage
     {
     public:
-        explicit StbiImage(std::string_view path);
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        StbiImage(std::string_view path);
         ~StbiImage();
 
         StbiImage(StbiImage const&)                    = delete;
@@ -65,6 +68,7 @@ namespace renderer::backend
         [[nodiscard]] auto getFormat() const -> VkFormat { return m_format; }
 
         void copyTo(VkCommandBuffer cmdBuf, VkImage dst, VkExtent2D dstSize, VkExtent2D offset);
+        void resolveTo(VkCommandBuffer cmdBuf, VkImage dst, VkExtent2D dstSize, VkExtent2D offset);
 
         static void
         transition(VkCommandBuffer cmdBuf, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
@@ -107,41 +111,42 @@ namespace renderer::backend
         VkExtent2D m_dimensions;
     };
 
-    // class Texture
-    // {
-    // public:
-    //     Texture(Device& device, CommandManager& commandManager, StbiImage const& stbiImage);
-    //
-    //     Texture(Texture const&)                    = delete;
-    //     Texture(Texture&&)                         = delete;
-    //     auto operator=(Texture&&) -> Texture&      = delete;
-    //     auto operator=(Texture const&) -> Texture& = delete;
-    //
-    //     ~Texture();
-    //
-    //     [[nodiscard]] auto getPath() const -> std::string const& { return m_path; }
-    //
-    //     [[nodiscard]] auto getSampler() const -> VkSampler { return m_sampler; }
-    //
-    //     [[nodiscard]] auto getImageView() const -> VkImageView { return m_image.getImageView(); }
-    //
-    // private:
-    //     Device& m_device;
-    //     CommandManager& m_commandManager;
-    //
-    //     void createSamplers(uint32_t mipLevels);
-    //
-    //     void generateMipmaps(ScopedCommandBuffer& commandBuffer,
-    //                          VkImage image,
-    //                          VkExtent2D dimensions,
-    //                          VkFormat imageFormat,
-    //                          uint32_t mipLevels);
-    //
-    //     std::string m_path;
-    //
-    //     Image m_image;
-    //
-    //     VkSampler m_sampler { VK_NULL_HANDLE };
-    // };
-    //
+    class Texture
+    {
+    public:
+        Texture(Device& device, Allocator& allocator, CommandManager& commandManager, StbiImage const& stbiImage);
+
+        Texture(Texture const&)                    = delete;
+        Texture(Texture&&)                         = delete;
+        auto operator=(Texture&&) -> Texture&      = delete;
+        auto operator=(Texture const&) -> Texture& = delete;
+
+        ~Texture();
+
+        [[nodiscard]] auto getPath() const -> std::string const& { return m_path; }
+
+        [[nodiscard]] auto getSampler() const -> VkSampler { return m_sampler; }
+
+        [[nodiscard]] auto getImageView() const -> VkImageView { return m_image.getImageView(); }
+
+    private:
+        Device& m_device;
+        Allocator& m_allocator;
+        CommandManager& m_commandManager;
+
+        void createSamplers(uint32_t mipLevels);
+
+        void generateMipmaps(ScopedCommandBuffer& commandBuffer,
+                             VkImage image,
+                             VkExtent2D dimensions,
+                             VkFormat imageFormat,
+                             uint32_t mipLevels);
+
+        std::string m_path;
+
+        Image m_image;
+
+        VkSampler m_sampler { VK_NULL_HANDLE };
+    };
+
 }  // namespace renderer::backend
