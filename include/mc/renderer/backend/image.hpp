@@ -3,6 +3,7 @@
 #include "allocator.hpp"
 #include "command.hpp"
 #include "device.hpp"
+#include "mc/asserts.hpp"
 
 #include <string>
 #include <string_view>
@@ -59,7 +60,13 @@ namespace renderer::backend
         // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VkImage() const { return m_handle; }
 
-        [[nodiscard]] auto getImageView() const -> VkImageView { return m_imageView; }
+        [[nodiscard]] auto getImageView() const -> VkImageView
+        {
+            MC_ASSERT_MSG(m_imageView,
+                          "Image view is not present, probably because the image is being used for transfer only.");
+
+            return m_imageView;
+        }
 
         [[nodiscard]] auto getDimensions() const -> VkExtent2D { return m_dimensions; }
 

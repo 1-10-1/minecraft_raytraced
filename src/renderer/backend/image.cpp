@@ -83,6 +83,7 @@ namespace renderer::backend
                     m_mipLevels,
                     m_sampleCount);
 
+        // If the image is solely being used for transfer, dont make a view
         if ((m_usageFlags & (VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) < m_usageFlags)
         {
             createImageView(m_format, m_aspectFlags, 1);

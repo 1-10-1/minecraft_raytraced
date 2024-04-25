@@ -72,13 +72,12 @@ namespace renderer::backend
 
           m_drawImageResolve { m_device,
                                m_allocator,
-                               m_surface.getFramebufferExtent(),
-                               VK_FORMAT_R16G16B16A16_SFLOAT,
+                               m_drawImage.getDimensions(),
+                               m_drawImage.getFormat(),
                                VK_SAMPLE_COUNT_1_BIT,
                                static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT),
-                               VK_IMAGE_ASPECT_COLOR_BIT,
-                               true },
+                               VK_IMAGE_ASPECT_COLOR_BIT },
 
           m_depthImage { m_device,
                          m_allocator,

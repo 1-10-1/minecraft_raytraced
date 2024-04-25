@@ -32,25 +32,56 @@ public:
     template<EventSpec Event>
     void subscribe(void (*listener)(Event const&))
     {
-        m_eventListeners[std::to_underlying(Event::eventType)].push_back(
-            [listener = std::move(listener)](std::any const& event)
-            {
-                listener(std::any_cast<Event const&>(event));
-            });
+        size_t eventType = std::to_underlying(Event::eventType);
+        size_t listenerHash { typeid(listener).hash_code() };
 
-        m_eventListenerHashes[std::to_underlying(Event::eventType)].push_back(typeid(listener).hash_code());
+        std::function<void(std::any const&)> callback = [listener = std::move(listener)](std::any const& event)
+        {
+            listener(std::any_cast<Event const&>(event));
+        };
+
+        if (m_dormantListenerIndices.empty())
+        {
+            m_eventListeners[eventType].push_back(std::move(callback));
+
+            m_eventListenerHashes[eventType].push_back(listenerHash);
+        }
+        else
+        {
+            size_t index = m_dormantListenerIndices.back();
+            m_dormantListenerIndices.pop_back();
+
+            m_eventListeners[eventType][index]      = std::move(callback);
+            m_eventListenerHashes[eventType][index] = listenerHash;
+        }
     }
 
     template<EventSpec Event, typename Class>
     void subscribe(Class* instance, void (Class::*listener)(Event const&))
     {
-        m_eventListeners[std::to_underlying(Event::eventType)].push_back(
-            [listener, instance](std::any const& event)
-            {
-                (instance->*listener)(std::any_cast<Event const&>(event));
-            });
+        size_t eventType = std::to_underlying(Event::eventType);
+        size_t listenerHash { typeid(listener).hash_code() };
 
-        m_eventListenerHashes[std::to_underlying(Event::eventType)].push_back(typeid(listener).hash_code());
+        std::function<void(std::any const&)> callback =
+            [listener = std::move(listener), instance](std::any const& event)
+        {
+            (instance->*listener)(std::any_cast<Event const&>(event));
+        };
+
+        if (m_dormantListenerIndices.empty())
+        {
+            m_eventListeners[eventType].push_back(std::move(callback));
+
+            m_eventListenerHashes[eventType].push_back(listenerHash);
+        }
+        else
+        {
+            size_t index = m_dormantListenerIndices.back();
+            m_dormantListenerIndices.pop_back();
+
+            m_eventListeners[eventType][index]      = std::move(callback);
+            m_eventListenerHashes[eventType][index] = listenerHash;
+        }
     };
 
     template<typename Class, EventSpec... Events>
@@ -81,6 +112,8 @@ public:
                 m_eventListenerHashes[std::to_underlying(Event::eventType)][index] =
                     typeid(dormantSubscriber).hash_code();
 
+                m_dormantListenerIndices.push_back(index);
+
                 return;
             }
         }
@@ -103,6 +136,15 @@ public:
         {
             listener(event_any);
         }
+
+        if constexpr (Event::eventType == EventType::CursorMove)
+        {
+            logger::info("Dispatched event {}, listeners: {} | hashes: {} | dormants: {}",
+                         magic_enum::enum_name(Event::eventType),
+                         m_eventListeners[std::to_underlying(Event::eventType)].size(),
+                         m_eventListenerHashes[std::to_underlying(Event::eventType)].size(),
+                         m_dormantListenerIndices.size());
+        }
     }
 
 private:
@@ -111,7 +153,5 @@ private:
 
     std::array<std::vector<size_t>, static_cast<size_t>(EventType::EVENT_TYPE_MAX)> m_eventListenerHashes {};
 
-    // TODO Implement this
-    // Problem: we never re-occupy space freed used by dormant listeners, this is bad for memory
-    // std::vector<size_t> m_dormantListenerIndices {};
+    std::vector<size_t> m_dormantListenerIndices {};
 };

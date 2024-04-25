@@ -70,6 +70,7 @@ list(APPEND LIBS
     glfw
     magic_enum::magic_enum
     Tracy::TracyClient
+    tinyobjloader
     stdc++exp
     stb
     imgui
