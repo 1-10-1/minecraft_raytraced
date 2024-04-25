@@ -106,6 +106,10 @@ namespace renderer::backend
         VkRenderingAttachmentInfo colorAttachment =
             infoStructs::attachment_info(m_drawImage.getImageView(), nullptr, VK_IMAGE_LAYOUT_GENERAL);
 
+        colorAttachment.resolveImageView   = m_drawImageResolve.getImageView();
+        colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        colorAttachment.resolveMode        = VK_RESOLVE_MODE_AVERAGE_BIT;
+
         VkRenderingAttachmentInfo depthAttachment =
             infoStructs::depth_attachment_info(m_depthImage.getImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
@@ -197,45 +201,30 @@ namespace renderer::backend
 
             {
                 TracyVkZone(tracyCtx, cmdBuf, "Geometry render");
+
                 drawGeometry(cmdBuf);
             }
-
-            Image::transition(
-                cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-            Image::transition(cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             {
                 TracyVkZone(tracyCtx, cmdBuf, "Draw image copy");
 
                 Image::transition(
-                    cmdBuf, m_drawImageResolve, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                    cmdBuf, m_drawImageResolve, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-                m_drawImage.resolveTo(cmdBuf, m_drawImageResolve, imageExtent, {});
-
-                Image::transition(cmdBuf,
-                                  m_drawImageResolve,
-                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                Image::transition(
+                    cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
                 m_drawImageResolve.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
             }
 
             {
                 TracyVkZone(tracyCtx, cmdBuf, "ImGui render");
+
                 renderImgui(cmdBuf, m_swapchain.getImageViews()[imageIndex]);
             }
 
             Image::transition(
                 cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-            // m_descriptorManager.bind(cmdBuf, m_pipeline.getLayout(), m_currentFrame);
-
-            // {
-            //     TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
-            //     vkCmdDrawIndexed(cmdBuf, m_numIndices, 1, 0, 0, 0);
-            // }
-
-            // vkCmdEndRenderPass(cmdBuf);
         }
 
         TracyVkCollect(tracyCtx, cmdBuf);

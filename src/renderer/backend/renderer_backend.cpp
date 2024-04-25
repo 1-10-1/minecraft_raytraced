@@ -75,7 +75,8 @@ namespace renderer::backend
                                m_drawImage.getDimensions(),
                                m_drawImage.getFormat(),
                                VK_SAMPLE_COUNT_1_BIT,
-                               static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                               static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT),
                                VK_IMAGE_ASPECT_COLOR_BIT },
 
