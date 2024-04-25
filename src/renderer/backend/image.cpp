@@ -83,7 +83,10 @@ namespace renderer::backend
                     m_mipLevels,
                     m_sampleCount);
 
-        createImageView(m_format, m_aspectFlags, 1);
+        if ((m_usageFlags & (VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) < m_usageFlags)
+        {
+            createImageView(m_format, m_aspectFlags, 1);
+        }
     }
 
     void Image::destroy()

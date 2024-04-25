@@ -123,7 +123,6 @@ namespace renderer::backend
         void initImgui(GLFWwindow* window);
         void renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage);
 
-        void drawSky(VkCommandBuffer cmdBuf, VkExtent2D imageExtent);
         void drawGeometry(VkCommandBuffer cmdBuf);
 
         void initDescriptors();
@@ -142,10 +141,10 @@ namespace renderer::backend
         PipelineManager m_pipelineManager;
         CommandManager m_commandManager;
 
-        Image m_drawImage, m_depthImage;
+        Image m_drawImage, m_drawImageResolve, m_depthImage;
         Texture m_texture;
-        VkDescriptorSet m_computeDescriptors {}, m_globalDescriptorSet {};
-        VkDescriptorSetLayout m_computeDescriptorLayout {}, m_globalDescriptorLayout {};
+        VkDescriptorSet m_globalDescriptorSet {};
+        VkDescriptorSetLayout m_globalDescriptorLayout {};
         VkDescriptorPool m_imGuiPool {};
 
         PipelineHandles m_graphicsPipeline;

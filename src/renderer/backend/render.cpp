@@ -99,29 +99,6 @@ namespace renderer::backend
         ++m_frameCount;
     }
 
-    void RendererBackend::drawSky(VkCommandBuffer cmdBuf, VkExtent2D imageExtent)
-    {
-        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_skyEffect.handles.pipeline);
-
-        vkCmdBindDescriptorSets(cmdBuf,
-                                VK_PIPELINE_BIND_POINT_COMPUTE,
-                                m_skyEffect.handles.layout,
-                                0,
-                                1,
-                                &m_computeDescriptors,
-                                0,
-                                nullptr);
-
-        vkCmdPushConstants(cmdBuf,
-                           m_skyEffect.handles.layout,
-                           VK_SHADER_STAGE_COMPUTE_BIT,
-                           0,
-                           sizeof(ComputePushConstants),
-                           &m_skyEffect.data);
-
-        vkCmdDispatch(cmdBuf, std::ceil(imageExtent.width / 32.0), std::ceil(imageExtent.height / 32.0), 1);
-    }
-
     void RendererBackend::drawGeometry(VkCommandBuffer cmdBuf)
     {
         VkExtent2D imageExtent = m_drawImage.getDimensions();
@@ -203,16 +180,20 @@ namespace renderer::backend
             VkImage swapchainImage = m_swapchain.getImages()[imageIndex];
             VkExtent2D imageExtent = m_swapchain.getImageExtent();
 
-            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-
-            {
-                TracyVkZone(tracyCtx, cmdBuf, "Sky render");
-                drawSky(cmdBuf, imageExtent);
-            }
-
-            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
             Image::transition(
                 cmdBuf, m_depthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+            VkClearColorValue clearValue {
+                {135.f / 255.f, 206.f / 255.f, 235.f / 255.f, 1.f}
+            };
+
+            VkImageSubresourceRange range = infoStructs::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+
+            vkCmdClearColorImage(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &range);
+
+            Image::transition(
+                cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
             {
                 TracyVkZone(tracyCtx, cmdBuf, "Geometry render");
@@ -225,7 +206,18 @@ namespace renderer::backend
 
             {
                 TracyVkZone(tracyCtx, cmdBuf, "Draw image copy");
-                m_drawImage.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
+
+                Image::transition(
+                    cmdBuf, m_drawImageResolve, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+                m_drawImage.resolveTo(cmdBuf, m_drawImageResolve, imageExtent, {});
+
+                Image::transition(cmdBuf,
+                                  m_drawImageResolve,
+                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+                m_drawImageResolve.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
             }
 
             {

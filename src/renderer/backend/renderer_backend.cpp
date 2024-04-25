@@ -66,9 +66,19 @@ namespace renderer::backend
                         VK_FORMAT_R16G16B16A16_SFLOAT,
                         m_device.getMaxUsableSampleCount(),
                         static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                                          VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
+                                                          VK_IMAGE_USAGE_TRANSFER_DST_BIT |  // maybe remove?
                                                           VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
                         VK_IMAGE_ASPECT_COLOR_BIT },
+
+          m_drawImageResolve { m_device,
+                               m_allocator,
+                               m_surface.getFramebufferExtent(),
+                               VK_FORMAT_R16G16B16A16_SFLOAT,
+                               VK_SAMPLE_COUNT_1_BIT,
+                               static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT),
+                               VK_IMAGE_ASPECT_COLOR_BIT,
+                               true },
 
           m_depthImage { m_device,
                          m_allocator,
@@ -98,20 +108,9 @@ namespace renderer::backend
                                  .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
                                  .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT)
                                  .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                 .enableBlending()
                                  .setSampleCount(m_device.getMaxUsableSampleCount())
                                  .setDescriptorSetLayout(m_globalDescriptorLayout)
                                  .build();
-
-        ComputePipelineBuilder computePipelineBuilder = m_pipelineManager.createComputeBuilder()
-                                                            .setPushConstantsSize(sizeof(ComputePushConstants))
-                                                            .setDescriptorSetLayout(m_computeDescriptorLayout);
-
-        m_skyEffect = {
-            .name    = "sky",
-            .handles = computePipelineBuilder.setShader("shaders/sky.comp.spv", "main").build(),
-            .data    = { .data1 = { 0.1f, 0.2f, 0.4f, 0.97f } },
-        };
 
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
@@ -151,7 +150,6 @@ namespace renderer::backend
         destroySyncObjects();
 
         m_descriptorAllocator.destroyPool(m_device);
-        vkDestroyDescriptorSetLayout(m_device, m_computeDescriptorLayout, nullptr);
         vkDestroyDescriptorSetLayout(m_device, m_globalDescriptorLayout, nullptr);
         vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
 
@@ -166,45 +164,30 @@ namespace renderer::backend
     void RendererBackend::initDescriptors()
     {
         std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,          3},
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         3},
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
         };
 
         m_descriptorAllocator.initPool(m_device, 10, sizes);
 
         {
-            m_computeDescriptorLayout = DescriptorLayoutBuilder()
-                                            .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-                                            .build(m_device, VK_SHADER_STAGE_COMPUTE_BIT);
-
             m_globalDescriptorLayout = DescriptorLayoutBuilder()
                                            .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                                            .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                                            .build(m_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         }
 
-        m_computeDescriptors = m_descriptorAllocator.allocate(m_device, m_computeDescriptorLayout);
-
-        DescriptorWriter writer;
-        writer.write_image(
-            0, m_drawImage.getImageView(), VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-        writer.update_set(m_device, m_computeDescriptors);
-
-        std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,           3},
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         3},
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         3},
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-        };
-
         m_globalDescriptorSet = m_descriptorAllocator.allocate(m_device, m_globalDescriptorLayout);
 
+        // Global scene data descriptor set
         {
             DescriptorWriter writer;
             writer.write_buffer(0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
             writer.update_set(m_device, m_globalDescriptorSet);
         }
 
+        // Textures
         {
             DescriptorWriter writer;
             writer.write_image(1,
@@ -270,14 +253,14 @@ namespace renderer::backend
             .DescriptorPool      = m_imGuiPool,
             .MinImageCount       = kNumFramesInFlight,
             .ImageCount          = utils::size(m_swapchain.getImageViews()),
-            .MSAASamples         = m_device.getMaxUsableSampleCount(),
+            .MSAASamples         = VK_SAMPLE_COUNT_1_BIT,
             .UseDynamicRendering = true,
             .PipelineRenderingCreateInfo =
                 VkPipelineRenderingCreateInfo {
                                                .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                                .colorAttachmentCount    = 1,
                                                .pColorAttachmentFormats = std::array { m_surface.getDetails().format }.data(),
-                                               .depthAttachmentFormat   = VK_FORMAT_D24_UNORM_S8_UINT,
+                                               .depthAttachmentFormat   = VK_FORMAT_D32_SFLOAT,
                                                },
             .CheckVkResultFn = kDebug ? reinterpret_cast<void (*)(VkResult)>(&imguiCheckerFn) : nullptr,
         };
@@ -337,14 +320,8 @@ namespace renderer::backend
         m_swapchain.create(m_surface);
 
         m_drawImage.resize(m_allocator, m_surface.getFramebufferExtent());
+        m_drawImageResolve.resize(m_allocator, m_surface.getFramebufferExtent());
         m_depthImage.resize(m_allocator, m_surface.getFramebufferExtent());
-
-        DescriptorWriter writer;
-
-        writer.write_image(
-            0, m_drawImage.getImageView(), VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
-        writer.update_set(m_device, m_computeDescriptors);
     }
 
     void RendererBackend::updateDescriptors(glm::mat4 model, glm::mat4 view, glm::mat4 projection)
