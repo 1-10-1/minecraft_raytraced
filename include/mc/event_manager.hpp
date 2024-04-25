@@ -136,15 +136,6 @@ public:
         {
             listener(event_any);
         }
-
-        if constexpr (Event::eventType == EventType::CursorMove)
-        {
-            logger::info("Dispatched event {}, listeners: {} | hashes: {} | dormants: {}",
-                         magic_enum::enum_name(Event::eventType),
-                         m_eventListeners[std::to_underlying(Event::eventType)].size(),
-                         m_eventListenerHashes[std::to_underlying(Event::eventType)].size(),
-                         m_dormantListenerIndices.size());
-        }
     }
 
 private:
