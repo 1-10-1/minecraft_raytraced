@@ -90,7 +90,13 @@ namespace renderer::backend
 
           m_texture { m_device, m_allocator, m_commandManager, { "./res/textures/viking_room (2).png" } },
 
+          m_materialConstants { m_allocator,
+                                sizeof(GLTFMetallic_Roughness::MaterialConstants),
+                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                VMA_MEMORY_USAGE_CPU_TO_GPU },
+
           m_testMeshes { loadGltfMeshes(m_device, m_allocator, m_commandManager, "./res/models/basicmesh.glb").value() }
+
     // clang_format on
     {
         initImgui(window.getHandle());
@@ -109,9 +115,42 @@ namespace renderer::backend
                                  .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT)
                                  .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                                  .setSampleCount(m_device.getMaxUsableSampleCount())
-                                 .setDescriptorSetLayout(m_globalDescriptorLayout)
+                                 .setDescriptorSetLayouts({ m_globalDescriptorLayout })
                                  .build();
 
+        m_metalRoughMaterial.build_pipelines(this);
+
+        GLTFMetallic_Roughness::MaterialResources materialResources { .colorImage        = m_texture.getImageView(),
+                                                                      .colorSampler      = m_texture.getSampler(),
+                                                                      .metalRoughImage   = m_texture.getImageView(),
+                                                                      .metalRoughSampler = m_texture.getSampler() };
+
+        //write the buffer
+        auto* sceneUniformData =
+            static_cast<GLTFMetallic_Roughness::MaterialConstants*>(m_materialConstants.getMappedData());
+        sceneUniformData->colorFactors        = glm::vec4 { 1, 1, 1, 1 };
+        sceneUniformData->metal_rough_factors = glm::vec4 { 1, 0.5, 0, 0 };
+        materialResources.dataBuffer          = m_materialConstants;
+        materialResources.dataBufferOffset    = 0;
+
+        m_defaultData = m_metalRoughMaterial.write_material(
+            m_device, MaterialPass::MainColor, materialResources, m_descriptorAllocatorGrowable);
+
+        for (auto& m : m_testMeshes)
+        {
+            std::shared_ptr<MeshNode> newNode = std::make_shared<MeshNode>();
+            newNode->mesh                     = m;
+
+            newNode->localTransform = glm::mat4 { 1.f };
+            newNode->worldTransform = glm::mat4 { 1.f };
+
+            for (auto& s : newNode->mesh->surfaces)
+            {
+                s.material = std::make_shared<GLTFMaterial>(m_defaultData);
+            }
+
+            loadedNodes[m->name] = std::move(newNode);
+        }
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
         {
@@ -136,6 +175,8 @@ namespace renderer::backend
         createSyncObjects();
     }
 
+    void RendererBackend::update_scene() {}
+
     RendererBackend::~RendererBackend()
     {
         if (static_cast<VkDevice>(m_device) != VK_NULL_HANDLE)
@@ -153,6 +194,9 @@ namespace renderer::backend
         vkDestroyDescriptorSetLayout(m_device, m_globalDescriptorLayout, nullptr);
         vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
 
+        m_metalRoughMaterial.clear_resources(m_device);
+        m_descriptorAllocatorGrowable.destroy_pools(m_device);
+
 #if PROFILED
         for (auto& resource : m_frameResources)
         {
@@ -163,18 +207,28 @@ namespace renderer::backend
 
     void RendererBackend::initDescriptors()
     {
-        std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,          3},
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         3},
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-        };
+        {
+            std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
+                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,          3},
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+            };
 
-        m_descriptorAllocator.initPool(m_device, 10, sizes);
+            m_descriptorAllocatorGrowable.init(m_device, 10, sizes);
+        }
+        {
+            std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
+                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,          3},
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         3},
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+            };
+
+            m_descriptorAllocator.initPool(m_device, 10, sizes);
+        }
 
         {
             m_globalDescriptorLayout = DescriptorLayoutBuilder()
                                            .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-                                           .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
                                            .build(m_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         }
 
@@ -184,17 +238,6 @@ namespace renderer::backend
         {
             DescriptorWriter writer;
             writer.write_buffer(0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            writer.update_set(m_device, m_globalDescriptorSet);
-        }
-
-        // Textures
-        {
-            DescriptorWriter writer;
-            writer.write_image(1,
-                               m_texture.getImageView(),
-                               m_texture.getSampler(),
-                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                               VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
             writer.update_set(m_device, m_globalDescriptorSet);
         }
     }
@@ -327,15 +370,37 @@ namespace renderer::backend
     void RendererBackend::updateDescriptors(glm::mat4 model, glm::mat4 view, glm::mat4 projection)
     {
         auto* sceneUniformData = static_cast<GPUSceneData*>(m_gpuSceneDataBuffer.getMappedData());
-        *sceneUniformData      = GPUSceneData {
-                 .view         = view,
-                 .proj         = projection,
-                 .viewproj     = projection * view,
-                 .ambientColor = { 0.5f, 0.5f, 0.5f, 1.f },
-                 .sunlightDirection { 1.f },
-                 .sunPower      = 1.f,
-                 .sunlightColor = { 1.f, 1.f, 1.f, 1.f },
-        };
 
+        *sceneUniformData = GPUSceneData {
+            .view              = view,
+            .proj              = projection,
+            .viewproj          = projection * view,
+            .ambientColor      = glm::vec4(.1f),
+            .sunlightDirection = glm::vec4(0, 1, 0.5, 1.f),
+            .sunPower          = 1.f,
+            .sunlightColor     = glm::vec4(1.f),
+        };
     }  // namespace renderer::backend
+
+    void MeshNode::Draw(glm::mat4 const& topMatrix, DrawContext& ctx)
+    {
+        glm::mat4 nodeMatrix = topMatrix * worldTransform;
+
+        for (auto& s : mesh->surfaces)
+        {
+            RenderObject def {};
+            def.indexCount  = s.count;
+            def.firstIndex  = s.startIndex;
+            def.indexBuffer = mesh->meshBuffers.indexBuffer;
+            def.material    = &s.material->data;
+
+            def.transform           = nodeMatrix;
+            def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddress;
+
+            ctx.OpaqueSurfaces.push_back(def);
+        }
+
+        // recurse down
+        Node::Draw(topMatrix, ctx);
+    }
 }  // namespace renderer::backend

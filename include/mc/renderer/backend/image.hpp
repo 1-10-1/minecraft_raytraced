@@ -136,6 +136,8 @@ namespace renderer::backend
 
         [[nodiscard]] auto getImageView() const -> VkImageView { return m_image.getImageView(); }
 
+        [[nodiscard]] auto getImage() const -> Image const& { return m_image; }
+
     private:
         Device& m_device;
         Allocator& m_allocator;

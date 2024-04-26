@@ -14,7 +14,6 @@ namespace renderer::backend
     {
         VkPipeline pipeline { VK_NULL_HANDLE };
         VkPipelineLayout layout { VK_NULL_HANDLE };
-        std::vector<VkShaderModule> shaderModules;
     };
 
     class ComputePipelineBuilder;
@@ -56,6 +55,13 @@ namespace renderer::backend
     class ComputePipelineBuilder
     {
     public:
+        ComputePipelineBuilder(ComputePipelineBuilder const&)                    = delete;
+        ComputePipelineBuilder(ComputePipelineBuilder&&)                         = delete;
+        auto operator=(ComputePipelineBuilder const&) -> ComputePipelineBuilder& = delete;
+        auto operator=(ComputePipelineBuilder&&) -> ComputePipelineBuilder&      = delete;
+
+        ~ComputePipelineBuilder() { vkDestroyShaderModule(m_device, m_info.shaderStage->module, nullptr); };
+
         [[nodiscard]] auto build() -> PipelineHandles;
 
         [[nodiscard]] auto setPushConstantsSize(uint32_t size) -> ComputePipelineBuilder&;
@@ -79,7 +85,7 @@ namespace renderer::backend
     struct GraphicsPipelineInfo
     {
         std::optional<VkPushConstantRange> pushConstants {};
-        std::optional<VkDescriptorSetLayout> descriptorSetLayout {};
+        std::optional<std::vector<VkDescriptorSetLayout>> descriptorSetLayouts {};
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages {};
 
         // Defaults
@@ -130,12 +136,42 @@ namespace renderer::backend
     class GraphicsPipelineBuilder
     {
     public:
-        [[nodiscard]] auto build() -> PipelineHandles;
+        ~GraphicsPipelineBuilder()
+        {
+            for (auto stage : m_info.shaderStages)
+            {
+                if (stage.module != VK_NULL_HANDLE)
+                {
+                    vkDestroyShaderModule(m_device, stage.module, nullptr);
+                }
+            }
+        };
+
+        [[nodiscard]] GraphicsPipelineBuilder(GraphicsPipelineBuilder const&) = delete;
+
+        GraphicsPipelineBuilder(GraphicsPipelineBuilder&& other) noexcept
+            : m_device { other.m_device },
+              m_manager { other.m_manager },
+              m_info { std::move(other.m_info) },
+              m_handles { other.m_handles }
+        {
+            for (auto& stage : other.m_info.shaderStages)
+            {
+                stage.module = VK_NULL_HANDLE;
+            }
+        }
+
+        auto operator=(GraphicsPipelineBuilder const&) -> GraphicsPipelineBuilder& = delete;
+
+        auto operator=(GraphicsPipelineBuilder&&) = delete;
+
+        auto build(VkPipelineLayout layout = VK_NULL_HANDLE) -> PipelineHandles;
 
         [[nodiscard]] auto setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage)
             -> GraphicsPipelineBuilder&;
 
-        [[nodiscard]] auto setDescriptorSetLayout(VkDescriptorSetLayout layout) -> GraphicsPipelineBuilder&;
+        [[nodiscard]] auto setDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> const& layout)
+            -> GraphicsPipelineBuilder&;
 
         [[nodiscard]] auto addShader(std::filesystem::path const& path,
                                      VkShaderStageFlagBits stage,

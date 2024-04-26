@@ -1,6 +1,7 @@
 #pragma once
 
 #include "command.hpp"
+#include "material.hpp"
 #include "mesh_buffers.hpp"
 
 #include <optional>
@@ -14,10 +15,17 @@
 
 namespace renderer::backend
 {
+    struct GLTFMaterial
+    {
+        MaterialInstance data;
+    };
+
     struct GeoSurface
     {
         uint32_t startIndex;
         uint32_t count;
+
+        std::shared_ptr<GLTFMaterial> material;
     };
 
     struct MeshAsset

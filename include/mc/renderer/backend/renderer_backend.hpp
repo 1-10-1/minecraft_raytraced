@@ -7,6 +7,7 @@
 #include "device.hpp"
 #include "image.hpp"
 #include "instance.hpp"
+#include "material.hpp"
 #include "mesh_loader.hpp"
 #include "pipeline.hpp"
 #include "surface.hpp"
@@ -15,6 +16,7 @@
 
 #include "vk_mem_alloc.h"
 #include <GLFW/glfw3.h>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/vector_uint2.hpp>
 #include <glm/mat4x4.hpp>
 #include <tracy/TracyVulkan.hpp>
@@ -30,26 +32,6 @@ namespace renderer::backend
         ComputePushConstants data;
     };
 
-    enum class MaterialPass : uint8_t
-    {
-        MainColor,
-        Transparent,
-        Other
-    };
-
-    struct MaterialPipeline
-    {
-        VkPipeline pipeline;
-        VkPipelineLayout layout;
-    };
-
-    struct MaterialInstance
-    {
-        MaterialPipeline* pipeline;
-        VkDescriptorSet materialSet;
-        MaterialPass passType;
-    };
-
     struct RenderObject
     {
         uint32_t indexCount;
@@ -62,9 +44,61 @@ namespace renderer::backend
         VkDeviceAddress vertexBufferAddress;
     };
 
+    struct DrawContext
+    {
+        std::vector<RenderObject> OpaqueSurfaces;
+    };
+
+    // base class for a renderable dynamic object
+    class IRenderable
+    {
+        virtual void Draw(glm::mat4 const& topMatrix, DrawContext& ctx) = 0;
+
+    public:
+        virtual ~IRenderable() = default;
+    };
+
+    // implementation of a drawable scene node.
+    // the scene node can hold children and will also keep a transform to propagate
+    // to them
+    struct Node : public IRenderable
+    {
+        // parent pointer must be a weak pointer to avoid circular dependencies
+        std::weak_ptr<Node> parent;
+        std::vector<std::shared_ptr<Node>> children;
+
+        glm::mat4 localTransform;
+        glm::mat4 worldTransform;
+
+        void refreshTransform(glm::mat4 const& parentMatrix)
+        {
+            worldTransform = parentMatrix * localTransform;
+            for (auto& c : children)
+            {
+                c->refreshTransform(worldTransform);
+            }
+        }
+
+        void Draw(glm::mat4 const& topMatrix, DrawContext& ctx) override
+        {
+            for (auto& c : children)
+            {
+                c->Draw(topMatrix, ctx);
+            }
+        }
+    };
+
+    struct MeshNode : public Node
+    {
+        std::shared_ptr<MeshAsset> mesh;
+
+        void Draw(glm::mat4 const& topMatrix, DrawContext& ctx) override;
+    };
+
     struct GPUDrawPushConstants
     {
-        VkDeviceAddress vertexBuffer;
+        glm::mat4 renderMatrix { glm::identity<glm::mat4>() };
+        VkDeviceAddress vertexBuffer {};
     };
 
     struct GPUSceneData
@@ -131,6 +165,7 @@ namespace renderer::backend
         void createSyncObjects();
         void destroySyncObjects();
         void updateDescriptors(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
+        void update_scene();
 
         Instance m_instance;
         Surface m_surface;
@@ -138,6 +173,7 @@ namespace renderer::backend
         Swapchain m_swapchain;
         Allocator m_allocator;
         DescriptorAllocator m_descriptorAllocator {};
+        DescriptorAllocatorGrowable m_descriptorAllocatorGrowable {};
         PipelineManager m_pipelineManager;
         CommandManager m_commandManager;
 
@@ -145,12 +181,19 @@ namespace renderer::backend
         Texture m_texture;
         VkDescriptorSet m_globalDescriptorSet {};
         VkDescriptorSetLayout m_globalDescriptorLayout {};
+
+        DrawContext mainDrawContext;
+        std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+
         VkDescriptorPool m_imGuiPool {};
 
         PipelineHandles m_graphicsPipeline;
 
+        MaterialInstance m_defaultData {};
+        GLTFMetallic_Roughness m_metalRoughMaterial;
+
         GPUSceneData m_sceneData {};
-        BasicBuffer m_gpuSceneDataBuffer;
+        BasicBuffer m_gpuSceneDataBuffer, m_materialConstants;
         ComputeEffect m_skyEffect;
 
         std::vector<std::shared_ptr<MeshAsset>> m_testMeshes;
@@ -162,5 +205,7 @@ namespace renderer::backend
         bool m_windowResized { false };
 
         uint64_t m_frameCount {};
+
+        friend struct GLTFMetallic_Roughness;
     };
 }  // namespace renderer::backend

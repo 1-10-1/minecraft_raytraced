@@ -8,6 +8,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "imgui_internal.h"
+#include <glm/glm.hpp>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_core.h>
 
@@ -117,7 +118,9 @@ namespace renderer::backend
 
         vkCmdBeginRendering(cmdBuf, &renderInfo);
 
-        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline.pipeline);
+        mainDrawContext.OpaqueSurfaces.clear();
+
+        loadedNodes["Suzanne"]->Draw(glm::mat4 { 1.f }, mainDrawContext);
 
         VkViewport viewport = {
             .x        = 0,
@@ -139,28 +142,48 @@ namespace renderer::backend
 
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        GPUDrawPushConstants push_constants {
-            .vertexBuffer = m_testMeshes[2]->meshBuffers.vertexBufferAddress,
-        };
+        for (int x = -3; x < 3; x++)
+        {
+            glm::mat4 scale       = glm::scale(glm::identity<glm::mat4>(), glm::vec3 { 0.2 });
+            glm::mat4 translation = glm::translate(glm::identity<glm::mat4>(), glm::vec3 { x, 1, 0 });
 
-        vkCmdBindDescriptorSets(cmdBuf,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                m_graphicsPipeline.layout,
-                                0,
-                                1,
-                                &m_globalDescriptorSet,
-                                0,
-                                nullptr);
+            loadedNodes["Cube"]->Draw(translation * scale, mainDrawContext);
+        }
 
-        vkCmdPushConstants(cmdBuf,
-                           m_graphicsPipeline.layout,
-                           VK_SHADER_STAGE_VERTEX_BIT,
-                           0,
-                           sizeof(GPUDrawPushConstants),
-                           &push_constants);
+        for (RenderObject const& draw : mainDrawContext.OpaqueSurfaces)
+        {
+            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+            vkCmdBindDescriptorSets(cmdBuf,
+                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    draw.material->pipeline->layout,
+                                    0,
+                                    1,
+                                    &m_globalDescriptorSet,
+                                    0,
+                                    nullptr);
+            vkCmdBindDescriptorSets(cmdBuf,
+                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    draw.material->pipeline->layout,
+                                    1,
+                                    1,
+                                    &draw.material->materialSet,
+                                    0,
+                                    nullptr);
 
-        vkCmdBindIndexBuffer(cmdBuf, m_testMeshes[2]->meshBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmdBuf, m_testMeshes[2]->surfaces[0].count, 1, m_testMeshes[2]->surfaces[0].startIndex, 0, 0);
+            vkCmdBindIndexBuffer(cmdBuf, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+            GPUDrawPushConstants pushConstants;
+            pushConstants.vertexBuffer = draw.vertexBufferAddress;
+            pushConstants.renderMatrix = draw.transform;
+            vkCmdPushConstants(cmdBuf,
+                               draw.material->pipeline->layout,
+                               VK_SHADER_STAGE_VERTEX_BIT,
+                               0,
+                               sizeof(GPUDrawPushConstants),
+                               &pushConstants);
+
+            vkCmdDrawIndexed(cmdBuf, draw.indexCount, 1, draw.firstIndex, 0, 0);
+        }
 
         vkCmdEndRendering(cmdBuf);
     }

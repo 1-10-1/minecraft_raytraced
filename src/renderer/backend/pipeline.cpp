@@ -17,11 +17,11 @@ namespace renderer::backend
         for (auto const& handles : m_handles)
         {
             vkDestroyPipeline(m_device, handles.pipeline, nullptr);
-            vkDestroyPipelineLayout(m_device, handles.layout, nullptr);
 
-            for (VkShaderModule module : handles.shaderModules)
+            // Pipeline could be using another pipeline's layout
+            if (handles.layout != VK_NULL_HANDLE)
             {
-                vkDestroyShaderModule(m_device, module, nullptr);
+                vkDestroyPipelineLayout(m_device, handles.layout, nullptr);
             }
         }
     }
@@ -39,7 +39,6 @@ namespace renderer::backend
     ComputePipelineBuilder::ComputePipelineBuilder(Device const& device, PipelineManager& manager)
         : m_device { device }, m_manager { manager }
     {
-        m_handles.shaderModules.resize(1);
     }
 
     auto ComputePipelineBuilder::build() -> PipelineHandles
@@ -48,6 +47,8 @@ namespace renderer::backend
         MC_ASSERT_MSG(m_info.shaderStage.has_value(),
                       "Compute pipeline needs a shader");
         // clang-format on
+
+        m_handles = {};
 
         VkPipelineLayoutCreateInfo layout {
             .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -102,8 +103,6 @@ namespace renderer::backend
             .pName  = entryPoint.data(),
         };
 
-        m_handles.shaderModules[0] = m_info.shaderStage->module;
-
         return *this;
     };
 
@@ -112,7 +111,7 @@ namespace renderer::backend
     {
     }
 
-    auto GraphicsPipelineBuilder::build() -> PipelineHandles
+    auto GraphicsPipelineBuilder::build(VkPipelineLayout layout) -> PipelineHandles
     {
         // clang-format off
         MC_ASSERT_MSG(m_info.shaderStages.size() >= 2
@@ -120,6 +119,8 @@ namespace renderer::backend
                    && m_info.depthAttachmentFormat.has_value(),
                       "Graphics pipeline builder was not correctly configured");
         // clang-format on
+
+        m_handles = {};
 
         std::array dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 
@@ -197,15 +198,19 @@ namespace renderer::backend
             .alphaToOneEnable      = static_cast<VkBool32>(m_info.alphaToOneEnable),
         };
 
-        VkPipelineLayoutCreateInfo pipelineLayoutInfo {
-            .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = m_info.descriptorSetLayout.has_value() ? 1u : 0,
-            .pSetLayouts    = m_info.descriptorSetLayout.has_value() ? &m_info.descriptorSetLayout.value() : nullptr,
-            .pushConstantRangeCount = m_info.pushConstants.has_value() ? 1u : 0,
-            .pPushConstantRanges    = m_info.pushConstants.has_value() ? &m_info.pushConstants.value() : nullptr,
-        };
+        if (layout == VK_NULL_HANDLE)
+        {
+            VkPipelineLayoutCreateInfo pipelineLayoutInfo {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                .setLayoutCount =
+                    m_info.descriptorSetLayouts.has_value() ? utils::size(*m_info.descriptorSetLayouts) : 0,
+                .pSetLayouts = m_info.descriptorSetLayouts.has_value() ? m_info.descriptorSetLayouts->data() : nullptr,
+                .pushConstantRangeCount = m_info.pushConstants.has_value() ? 1u : 0,
+                .pPushConstantRanges    = m_info.pushConstants.has_value() ? &m_info.pushConstants.value() : nullptr,
+            };
 
-        vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_handles.layout) >> vkResultChecker;
+            vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_handles.layout) >> vkResultChecker;
+        }
 
         VkPipelineRenderingCreateInfo renderInfo {
             .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
@@ -227,7 +232,7 @@ namespace renderer::backend
             .pDepthStencilState  = &depthStencil,
             .pColorBlendState    = &colorBlending,
             .pDynamicState       = &dynamicState,
-            .layout              = m_handles.layout,
+            .layout              = layout != nullptr ? layout : m_handles.layout,
             .basePipelineHandle  = VK_NULL_HANDLE,
             .basePipelineIndex   = -1,
         };
@@ -251,9 +256,10 @@ namespace renderer::backend
         return *this;
     }
 
-    auto GraphicsPipelineBuilder::setDescriptorSetLayout(VkDescriptorSetLayout layout) -> GraphicsPipelineBuilder&
+    auto GraphicsPipelineBuilder::setDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> const& layout)
+        -> GraphicsPipelineBuilder&
     {
-        m_info.descriptorSetLayout = layout;
+        m_info.descriptorSetLayouts = layout;
 
         return *this;
     }
@@ -270,8 +276,6 @@ namespace renderer::backend
             .module = module,
             .pName  = entryPoint.data(),
         });
-
-        m_handles.shaderModules.push_back(module);
 
         return *this;
     };

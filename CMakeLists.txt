@@ -38,6 +38,7 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/surface.cpp
     src/renderer/backend/image.cpp
     src/renderer/backend/buffer.cpp
+    src/renderer/backend/material.cpp
     src/renderer/backend/command.cpp
     src/renderer/backend/pipeline.cpp
     src/renderer/backend/vma.cpp

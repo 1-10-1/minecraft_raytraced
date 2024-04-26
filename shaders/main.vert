@@ -1,21 +1,43 @@
 #version 460
 
-layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec2 inNormal;
-layout(location = 2) in vec2 inTexCoord;
-layout(location = 3) in vec2 inTangent;
-layout(location = 4) in vec2 inBitangent;
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_buffer_reference : require
 
-layout(location = 0) out vec2 fragTexCoord;
+#include "input_structures.glsl"
 
-layout(binding = 0) uniform UBO {
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-} ubo;
+layout (location = 0) out vec3 outNormal;
+layout (location = 1) out vec3 outColor;
+layout (location = 2) out vec2 outUV;
 
-void main() {
-    gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPosition, 1.0);
-    fragTexCoord = inTexCoord;
+struct Vertex {
+	vec3 position;
+	float uv_x;
+	vec3 normal;
+	float uv_y;
+	vec4 color;
+}; 
+
+layout(buffer_reference, std430) readonly buffer VertexBuffer{ 
+	Vertex vertices[];
+};
+
+//push constants block
+layout( push_constant ) uniform constants
+{
+	mat4 render_matrix;
+	VertexBuffer vertexBuffer;
+} PushConstants;
+
+void main() 
+{
+	Vertex v = PushConstants.vertexBuffer.vertices[gl_VertexIndex];
+	
+	vec4 position = vec4(v.position, 1.0f);
+
+	gl_Position =  sceneData.viewproj * PushConstants.render_matrix *position;
+
+	outNormal = (PushConstants.render_matrix * vec4(v.normal, 0.f)).xyz;
+	outColor = v.color.xyz * materialData.colorFactors.xyz;	
+	outUV.x = v.uv_x;
+	outUV.y = v.uv_y;
 }
-
