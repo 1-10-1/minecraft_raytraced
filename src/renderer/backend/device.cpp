@@ -1,3 +1,4 @@
+#include "mc/renderer/backend/constants.hpp"
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/device.hpp>
@@ -225,7 +226,7 @@ namespace renderer::backend
         {
             if ((count & sampleCounts) != 0)
             {
-                m_sampleCount = count;
+                m_sampleCount = count > kMaxSamples ? kMaxSamples : count;
             }
         }
 

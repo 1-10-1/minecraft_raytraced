@@ -153,7 +153,7 @@ namespace renderer::backend
 
         m_metalRoughMaterial.build_pipelines(this);
 
-        std::string structurePath = { "res/models/structure.glb" };
+        std::string structurePath = { "res/models/backpack.glb" };
         auto structureFile        = loadGltf(this, structurePath);
 
         assert(structureFile.has_value());

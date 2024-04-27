@@ -50,3 +50,6 @@
 [submodule "lib/fastgltf"]
 	path = lib/fastgltf
 	url = https://github.com/spnda/fastgltf
+[submodule "external/learnogl"]
+	path = external/learnogl
+	url = https://github.com/JoeyDeVries/LearnOpenGL
