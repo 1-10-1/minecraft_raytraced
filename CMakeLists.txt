@@ -29,7 +29,6 @@ list(APPEND SOURCE_FILES
 
     src/game/game.cpp
 
-    src/renderer/backend/mesh_loader.cpp
     src/renderer/backend/vk_checker.cpp
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/render.cpp
@@ -38,7 +37,6 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/surface.cpp
     src/renderer/backend/image.cpp
     src/renderer/backend/buffer.cpp
-    src/renderer/backend/material.cpp
     src/renderer/backend/command.cpp
     src/renderer/backend/pipeline.cpp
     src/renderer/backend/vma.cpp

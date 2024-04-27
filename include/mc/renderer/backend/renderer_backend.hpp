@@ -7,8 +7,7 @@
 #include "device.hpp"
 #include "image.hpp"
 #include "instance.hpp"
-#include "material.hpp"
-#include "mesh_loader.hpp"
+#include "mc/renderer/backend/buffer.hpp"
 #include "pipeline.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
@@ -56,13 +55,6 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
-        friend struct GLTFMetallic_Roughness;
-        friend auto loadGltf(RendererBackend* engine, std::string_view filePath)
-            -> std::optional<std::shared_ptr<LoadedGLTF>>;
-        friend struct LoadedGLTF;
-        auto load_image(RendererBackend* engine, fastgltf::Asset& asset, fastgltf::Image& image)
-            -> std::optional<Texture>;
-
         explicit RendererBackend(window::Window& window);
 
         RendererBackend(RendererBackend const&)                    = delete;
@@ -119,20 +111,12 @@ namespace renderer::backend
         VkDescriptorSet m_globalDescriptorSet {};
         VkDescriptorSetLayout m_globalDescriptorLayout {};
 
-        DrawContext m_mainDrawContext;
-        std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
-
         VkDescriptorPool m_imGuiPool {};
 
         PipelineHandles m_graphicsPipeline;
 
-        MaterialInstance m_defaultData {};
-        GLTFMetallic_Roughness m_metalRoughMaterial;
-
         GPUSceneData m_sceneData {};
         BasicBuffer m_gpuSceneDataBuffer, m_materialConstants;
-
-        std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 
         struct EngineStats
         {

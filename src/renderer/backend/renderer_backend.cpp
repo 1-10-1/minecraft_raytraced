@@ -6,7 +6,6 @@
 #include <mc/renderer/backend/constants.hpp>
 #include <mc/renderer/backend/image.hpp>
 #include <mc/renderer/backend/info_structs.hpp>
-#include <mc/renderer/backend/mesh_loader.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 #include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
@@ -66,9 +65,6 @@ namespace renderer::backend
 
     static auto white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));  // NOLINT
 
-    auto load_image(RendererBackend* engine, fastgltf::Asset& asset, fastgltf::Image& image)
-        -> std::optional<std::shared_ptr<Texture>>;
-
     RendererBackend::RendererBackend(window::Window& window)
         // clang_format off
         : m_surface { window, m_instance },
@@ -109,27 +105,7 @@ namespace renderer::backend
                          kDepthStencilFormat,
                          m_device.getMaxUsableSampleCount(),
                          static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
-                         VK_IMAGE_ASPECT_DEPTH_BIT },
-
-          m_checkboardTexture { std::make_shared<Texture>(m_device,
-                                                          m_allocator,
-                                                          m_commandManager,
-                                                          VkExtent2D { 16, 16 },
-                                                          generateCheckerboard().data(),
-                                                          generateCheckerboard().size() * sizeof(float)) },
-
-          m_whiteImage { std::make_shared<Texture>(m_device,
-                                                   m_allocator,
-                                                   m_commandManager,
-                                                   VkExtent2D { 1, 1 },
-                                                   static_cast<void*>(&white),
-                                                   sizeof(uint32_t)) },
-
-          m_materialConstants { m_allocator,
-                                sizeof(GLTFMetallic_Roughness::MaterialConstants),
-                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                VMA_MEMORY_USAGE_CPU_TO_GPU }
-
+                         VK_IMAGE_ASPECT_DEPTH_BIT }
     // clang_format on
     {
         initImgui(window.getHandle());
@@ -150,15 +126,6 @@ namespace renderer::backend
                                  .setSampleCount(m_device.getMaxUsableSampleCount())
                                  .setDescriptorSetLayouts({ m_globalDescriptorLayout })
                                  .build();
-
-        m_metalRoughMaterial.build_pipelines(this);
-
-        std::string structurePath = { "res/models/backpack.glb" };
-        auto structureFile        = loadGltf(this, structurePath);
-
-        assert(structureFile.has_value());
-
-        loadedScenes["structure"] = *structureFile;
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
         {
@@ -192,8 +159,6 @@ namespace renderer::backend
             vkDeviceWaitIdle(m_device);
         }
 
-        loadedScenes.clear();
-
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
@@ -204,7 +169,6 @@ namespace renderer::backend
         vkDestroyDescriptorSetLayout(m_device, m_globalDescriptorLayout, nullptr);
         vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
 
-        m_metalRoughMaterial.clear_resources(m_device);
         m_descriptorAllocatorGrowable.destroy_pools(m_device);
 
 #if PROFILED
@@ -336,11 +300,6 @@ namespace renderer::backend
 
         updateDescriptors(glm::identity<glm::mat4>(), view, projection);
 
-        m_mainDrawContext.OpaqueSurfaces.clear();
-        m_mainDrawContext.TransparentSurfaces.clear();
-
-        loadedScenes["structure"]->Draw(glm::mat4 { 1.f }, m_mainDrawContext);
-
         m_stats.scene_update_time = timer.getTotalTime().count();
     }
 
@@ -400,33 +359,4 @@ namespace renderer::backend
             .sunlightColor     = glm::vec4(1.f),
         };
     }  // namespace renderer::backend
-
-    void MeshNode::Draw(glm::mat4 const& topMatrix, DrawContext& ctx)
-    {
-        glm::mat4 nodeMatrix = topMatrix * worldTransform;
-
-        for (auto& s : mesh->surfaces)
-        {
-            RenderObject def {};
-            def.indexCount  = s.count;
-            def.firstIndex  = s.startIndex;
-            def.indexBuffer = mesh->meshBuffers.indexBuffer;
-            def.material    = &s.material->data;
-
-            def.transform           = nodeMatrix;
-            def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddress;
-
-            if (s.material->data.passType == MaterialPass::Transparent)
-            {
-                ctx.TransparentSurfaces.push_back(def);
-            }
-            else
-            {
-                ctx.OpaqueSurfaces.push_back(def);
-            }
-        }
-
-        // recurse down
-        Node::Draw(topMatrix, ctx);
-    }
 }  // namespace renderer::backend
