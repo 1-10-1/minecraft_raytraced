@@ -18,7 +18,7 @@ namespace renderer::backend
     {
     public:
         // NOLINTNEXTLINE(google-explicit-constructor)
-        StbiImage(std::string_view path);
+        StbiImage(std::string_view const& path);
         ~StbiImage();
 
         StbiImage(StbiImage const&)                    = delete;

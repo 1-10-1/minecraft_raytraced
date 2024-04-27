@@ -1,4 +1,5 @@
 #include "mc/renderer/backend/descriptor.hpp"
+#include "mc/renderer/backend/mesh.hpp"
 #include <mc/asserts.hpp>
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
@@ -105,7 +106,9 @@ namespace renderer::backend
                          kDepthStencilFormat,
                          m_device.getMaxUsableSampleCount(),
                          static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
-                         VK_IMAGE_ASPECT_DEPTH_BIT }
+                         VK_IMAGE_ASPECT_DEPTH_BIT },
+
+          m_meshTexture(m_device, m_allocator, m_commandManager, StbiImage("res/textures/viking_room (2).png"))
     // clang_format on
     {
         initImgui(window.getHandle());
@@ -114,6 +117,15 @@ namespace renderer::backend
             m_allocator, sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         initDescriptors();
+
+        {
+            Model model("res/models/viking_room.obj");
+
+            m_meshBuffers = uploadMesh(
+                m_device, m_allocator, m_commandManager, model.meshes[0].getVertices(), model.meshes[0].getIndices());
+
+            m_meshBuffers.indexCount = model.meshes[0].getIndices().size();
+        }
 
         m_graphicsPipeline = m_pipelineManager.createGraphicsBuilder()
                                  .addShader("shaders/colored_triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
@@ -124,7 +136,7 @@ namespace renderer::backend
                                  .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT)
                                  .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                                  .setSampleCount(m_device.getMaxUsableSampleCount())
-                                 .setDescriptorSetLayouts({ m_globalDescriptorLayout })
+                                 .setDescriptorSetLayouts({ m_sceneDataDescriptorLayout, m_textureDescriptorsLayout })
                                  .build();
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
@@ -166,7 +178,8 @@ namespace renderer::backend
         destroySyncObjects();
 
         m_descriptorAllocator.destroyPool(m_device);
-        vkDestroyDescriptorSetLayout(m_device, m_globalDescriptorLayout, nullptr);
+        vkDestroyDescriptorSetLayout(m_device, m_sceneDataDescriptorLayout, nullptr);
+        vkDestroyDescriptorSetLayout(m_device, m_textureDescriptorsLayout, nullptr);
         vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
 
         m_descriptorAllocatorGrowable.destroy_pools(m_device);
@@ -201,18 +214,36 @@ namespace renderer::backend
         }
 
         {
-            m_globalDescriptorLayout = DescriptorLayoutBuilder()
-                                           .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-                                           .build(m_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            m_sceneDataDescriptorLayout =
+                DescriptorLayoutBuilder()
+                    .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                    .build(m_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         }
 
-        m_globalDescriptorSet = m_descriptorAllocator.allocate(m_device, m_globalDescriptorLayout);
-
-        // Global scene data descriptor set
         {
+            m_textureDescriptorsLayout = DescriptorLayoutBuilder()
+                                             .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                                             .build(m_device, VK_SHADER_STAGE_FRAGMENT_BIT);
+        }
+
+        m_sceneDataDescriptors = m_descriptorAllocator.allocate(m_device, m_sceneDataDescriptorLayout);
+        m_textureDescriptors   = m_descriptorAllocator.allocate(m_device, m_textureDescriptorsLayout);
+
+        {
+            // Global scene data descriptor set
             DescriptorWriter writer;
             writer.write_buffer(0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            writer.update_set(m_device, m_globalDescriptorSet);
+            writer.update_set(m_device, m_sceneDataDescriptors);
+        }
+        {
+            // Texture
+            DescriptorWriter writer;
+            writer.write_image(0,
+                               m_meshTexture.getImageView(),
+                               m_meshTexture.getSampler(),
+                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                               VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            writer.update_set(m_device, m_textureDescriptors);
         }
     }
 
@@ -296,11 +327,7 @@ namespace renderer::backend
     {
         ZoneScopedN("Backend update");
 
-        Timer timer;
-
         updateDescriptors(glm::identity<glm::mat4>(), view, projection);
-
-        m_stats.scene_update_time = timer.getTotalTime().count();
     }
 
     void RendererBackend::createSyncObjects()

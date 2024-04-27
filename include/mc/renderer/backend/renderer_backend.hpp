@@ -1,13 +1,14 @@
 #pragma once
 
 #include "allocator.hpp"
+#include "buffer.hpp"
 #include "command.hpp"
 #include "constants.hpp"
 #include "descriptor.hpp"
 #include "device.hpp"
 #include "image.hpp"
 #include "instance.hpp"
-#include "mc/renderer/backend/buffer.hpp"
+#include "mesh.hpp"
 #include "pipeline.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
@@ -23,10 +24,9 @@
 
 namespace renderer::backend
 {
-
     struct GPUDrawPushConstants
     {
-        glm::mat4 renderMatrix { glm::identity<glm::mat4>() };
+        glm::mat4 model { glm::identity<glm::mat4>() };
         VkDeviceAddress vertexBuffer {};
     };
 
@@ -107,8 +107,8 @@ namespace renderer::backend
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;
-        VkDescriptorSet m_globalDescriptorSet {};
-        VkDescriptorSetLayout m_globalDescriptorLayout {};
+        VkDescriptorSet m_sceneDataDescriptors {}, m_textureDescriptors {};
+        VkDescriptorSetLayout m_sceneDataDescriptorLayout {}, m_textureDescriptorsLayout {};
 
         VkDescriptorPool m_imGuiPool {};
 
@@ -117,12 +117,13 @@ namespace renderer::backend
         GPUSceneData m_sceneData {};
         BasicBuffer m_gpuSceneDataBuffer, m_materialConstants;
 
+        GPUMeshData m_meshBuffers {};
+        Texture m_meshTexture;
+
         struct EngineStats
         {
             uint64_t triangle_count;
             uint64_t drawcall_count;
-            double scene_update_time;
-            double mesh_draw_time;
         } m_stats {};
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};

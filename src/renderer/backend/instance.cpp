@@ -225,8 +225,6 @@ namespace
 
         spdlog::source_loc location(srcFile.data(), srcLine, srcFunc.data());
 
-        __builtin_trap();
-
         switch (messageSeverity)
         {
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:

@@ -8,47 +8,6 @@
 
 #include "logger.hpp"
 
-// NOLINTBEGIN
-
-#if DEBUG
-
-class LogErrorAndThrow
-{
-public:
-    LogErrorAndThrow(std::exception const& err, std::source_location loc = std::source_location::current())
-    {
-        logger::logAt<logger::level::err>(loc, "{}", err.what());
-        throw err;
-    }
-};
-
-#    define MC_TRY   try
-#    define MC_CATCH catch
-#    define MC_THROW [[maybe_unused]] LogErrorAndThrow err =
-#else
-
-class LogErrorAndExit
-{
-public:
-    LogErrorAndExit(std::exception const& err)
-    {
-        logger::error("{}", err.what());
-        exit(-1);
-    }
-};
-
-/*
-Prolly not the place for this but make a macro called DEBUG_BLOCK which is used by MC_CATCH
-this macro is more general purpose for debug-only code
-and the same for release but do a bit of thinking cause i haven't
-*/
-#    define MC_TRY        if constexpr (true)
-#    define MC_CATCH(...) if constexpr (false)
-#    define MC_THROW      [[maybe_unused]] LogErrorAndExit err =
-#endif
-
-// NOLINTEND
-
 enum ErrorType
 {
     GenericError,
@@ -81,3 +40,44 @@ public:
 private:
     std::source_location m_location {};
 };
+
+// NOLINTBEGIN
+
+#if DEBUG
+
+class LogErrorAndThrow
+{
+public:
+    LogErrorAndThrow(Error const& err)
+    {
+        logger::logAt<logger::level::err>(err.getLocation(), "{}", err.what());
+        throw err;
+    }
+};
+
+#    define MC_TRY   try
+#    define MC_CATCH catch
+#    define MC_THROW [[maybe_unused]] LogErrorAndThrow err =
+#else
+
+class LogErrorAndExit
+{
+public:
+    LogErrorAndExit(std::exception const& err)
+    {
+        logger::error("{}", err.what());
+        exit(-1);
+    }
+};
+
+/*
+Prolly not the place for this but make a macro called DEBUG_BLOCK which is used by MC_CATCH
+this macro is more general purpose for debug-only code
+and the same for release but do a bit of thinking cause i haven't
+*/
+#    define MC_TRY        if constexpr (true)
+#    define MC_CATCH(...) if constexpr (false)
+#    define MC_THROW      [[maybe_unused]] LogErrorAndExit err =
+#endif
+
+// NOLINTEND

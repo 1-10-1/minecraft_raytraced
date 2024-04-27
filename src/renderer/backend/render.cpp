@@ -12,7 +12,6 @@
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_core.h>
 
-// TODO(aether) implement a deletion queue
 namespace renderer::backend
 {
     void RendererBackend::render()
@@ -138,14 +137,37 @@ namespace renderer::backend
 
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        m_stats.drawcall_count = 0;
-        m_stats.triangle_count = 0;
+        m_stats.drawcall_count = 1;
+        m_stats.triangle_count = m_meshBuffers.indexCount / 3;
 
-        Timer timer;
+        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline.pipeline);
 
-        // render here
+        std::array descriptorSets { m_sceneDataDescriptors, m_textureDescriptors };
 
-        m_stats.mesh_draw_time = timer.getTotalTime().count();
+        vkCmdBindDescriptorSets(cmdBuf,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                m_graphicsPipeline.layout,
+                                0,
+                                descriptorSets.size(),
+                                descriptorSets.data(),
+                                0,
+                                nullptr);
+
+        GPUDrawPushConstants push_constants {
+            .model        = glm::identity<glm::mat4>(),
+            .vertexBuffer = m_meshBuffers.vertexBufferAddress,
+        };
+
+        vkCmdPushConstants(cmdBuf,
+                           m_graphicsPipeline.layout,
+                           VK_SHADER_STAGE_VERTEX_BIT,
+                           0,
+                           sizeof(GPUDrawPushConstants),
+                           &push_constants);
+
+        vkCmdBindIndexBuffer(cmdBuf, m_meshBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdDrawIndexed(cmdBuf, m_meshBuffers.indexCount, 1, 0, 0, 0);
 
         vkCmdEndRendering(cmdBuf);
     }
@@ -269,8 +291,6 @@ namespace renderer::backend
             ImGui::TextColored(
                 ImVec4(255.f / 255, 215.f / 255, 100.f / 255, 1.f), "Vsync: %s", m_surface.getVsync() ? "on" : "off");
 
-            ImGui::Text("Draw time %f ms", m_stats.mesh_draw_time);
-            ImGui::Text("Update time %f ms", m_stats.scene_update_time);
             ImGui::Text("Triangles %i", m_stats.triangle_count);
             ImGui::Text("Draws %i", m_stats.drawcall_count);
 

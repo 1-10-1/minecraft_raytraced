@@ -16,6 +16,8 @@ if(NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug or Release)" FORCE)
 endif()
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+
 add_subdirectory(lib)
 
 list(APPEND SOURCE_FILES
@@ -30,9 +32,11 @@ list(APPEND SOURCE_FILES
     src/game/game.cpp
 
     src/renderer/backend/vk_checker.cpp
+    src/renderer/backend/tinyobjloader.cpp
     src/renderer/backend/renderer_backend.cpp
+    src/renderer/backend/stb.cpp
     src/renderer/backend/render.cpp
-    src/renderer/backend/mesh_upload.cpp
+    src/renderer/backend/mesh.cpp
     src/renderer/backend/instance.cpp
     src/renderer/backend/surface.cpp
     src/renderer/backend/image.cpp
@@ -60,6 +64,7 @@ list(APPEND SOURCE_FILES
 #   -header-filter=${CMAKE_CURRENT_SOURCE_DIR}/include/*;
 # )
 
+find_package(ASSIMP REQUIRED)
 
 list(APPEND LIBS
     fmt
@@ -75,6 +80,7 @@ list(APPEND LIBS
     imgui
     GPUOpen::VulkanMemoryAllocator
     fastgltf::fastgltf
+    assimp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})

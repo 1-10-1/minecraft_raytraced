@@ -6,7 +6,6 @@
 #include <mc/renderer/backend/image.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <vulkan/vulkan_core.h>
 
@@ -28,7 +27,7 @@ namespace
 
 namespace renderer::backend
 {
-    StbiImage::StbiImage(std::string_view path)
+    StbiImage::StbiImage(std::string_view const& path)
     {
         int texWidth { 0 };
         int texHeight { 0 };
