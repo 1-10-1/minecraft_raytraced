@@ -312,6 +312,69 @@ namespace renderer::backend
         createSamplers(mipLevels);
     }
 
+    Texture::Texture(Device& device,
+                     Allocator& allocator,
+                     CommandManager& commandManager,
+                     VkExtent2D dimensions,
+                     void* data,
+                     size_t dataSize)
+        : m_device { device },
+          m_allocator { allocator },
+          m_commandManager { commandManager },
+          m_image { m_device,
+                    allocator,
+                    dimensions,
+                    VK_FORMAT_R8G8B8A8_UNORM,
+                    VK_SAMPLE_COUNT_1_BIT,
+                    static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                                      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT),
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    static_cast<uint32_t>(std::floor(std::log2(std::max(dimensions.width, dimensions.height)))) + 1 }
+    {
+        uint32_t mipLevels = m_image.getMipLevels();
+
+        BasicBuffer uploadBuffer(m_allocator, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        std::memcpy(uploadBuffer.getMappedData(), data, dataSize);
+
+        {
+            ScopedCommandBuffer commandBuffer(
+                m_device, m_commandManager.getGraphicsCmdPool(), m_device.getGraphicsQueue());
+
+            Image::transition(commandBuffer, m_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+            transitionImageLayout(commandBuffer,
+                                  m_image,
+                                  VK_FORMAT_R8G8B8A8_UNORM,
+                                  VK_IMAGE_LAYOUT_UNDEFINED,
+                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                  mipLevels);
+
+            VkBufferImageCopy region {
+                .bufferOffset      = 0,
+                .bufferRowLength   = 0,
+                .bufferImageHeight = 0,
+                .imageSubresource  = {
+                    .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .mipLevel       = 0,
+                    .baseArrayLayer = 0,
+                    .layerCount     = 1,
+                },
+                .imageOffset = { 0, 0, 0 },
+                .imageExtent = { dimensions.width, dimensions.height, 1 },
+            };
+
+            vkCmdCopyBufferToImage(
+                commandBuffer, uploadBuffer, m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+            //transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL here
+            generateMipmaps(
+                commandBuffer, m_image, { dimensions.width, dimensions.height }, VK_FORMAT_R8G8B8A8_SRGB, mipLevels);
+        }
+
+        createSamplers(mipLevels);
+    }
+
     Texture::~Texture()
     {
         vkDestroySampler(m_device, m_sampler, nullptr);

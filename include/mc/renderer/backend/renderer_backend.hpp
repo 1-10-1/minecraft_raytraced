@@ -25,75 +25,6 @@
 
 namespace renderer::backend
 {
-    struct ComputeEffect
-    {
-        std::string_view name {};
-        PipelineHandles handles {};
-        ComputePushConstants data;
-    };
-
-    struct RenderObject
-    {
-        uint32_t indexCount;
-        uint32_t firstIndex;
-        VkBuffer indexBuffer;
-
-        MaterialInstance* material;
-
-        glm::mat4 transform;
-        VkDeviceAddress vertexBufferAddress;
-    };
-
-    struct DrawContext
-    {
-        std::vector<RenderObject> OpaqueSurfaces;
-    };
-
-    // base class for a renderable dynamic object
-    class IRenderable
-    {
-        virtual void Draw(glm::mat4 const& topMatrix, DrawContext& ctx) = 0;
-
-    public:
-        virtual ~IRenderable() = default;
-    };
-
-    // implementation of a drawable scene node.
-    // the scene node can hold children and will also keep a transform to propagate
-    // to them
-    struct Node : public IRenderable
-    {
-        // parent pointer must be a weak pointer to avoid circular dependencies
-        std::weak_ptr<Node> parent;
-        std::vector<std::shared_ptr<Node>> children;
-
-        glm::mat4 localTransform;
-        glm::mat4 worldTransform;
-
-        void refreshTransform(glm::mat4 const& parentMatrix)
-        {
-            worldTransform = parentMatrix * localTransform;
-            for (auto& c : children)
-            {
-                c->refreshTransform(worldTransform);
-            }
-        }
-
-        void Draw(glm::mat4 const& topMatrix, DrawContext& ctx) override
-        {
-            for (auto& c : children)
-            {
-                c->Draw(topMatrix, ctx);
-            }
-        }
-    };
-
-    struct MeshNode : public Node
-    {
-        std::shared_ptr<MeshAsset> mesh;
-
-        void Draw(glm::mat4 const& topMatrix, DrawContext& ctx) override;
-    };
 
     struct GPUDrawPushConstants
     {
@@ -126,6 +57,13 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
+        friend struct GLTFMetallic_Roughness;
+        friend auto loadGltf(RendererBackend* engine, std::string_view filePath)
+            -> std::optional<std::shared_ptr<LoadedGLTF>>;
+        friend struct LoadedGLTF;
+        auto load_image(RendererBackend* engine, fastgltf::Asset& asset, fastgltf::Image& image)
+            -> std::optional<Texture>;
+
         explicit RendererBackend(window::Window& window);
 
         RendererBackend(RendererBackend const&)                    = delete;
@@ -178,7 +116,7 @@ namespace renderer::backend
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;
-        Texture m_texture;
+        Texture m_texture, m_checkboardTexture, m_whiteImage;
         VkDescriptorSet m_globalDescriptorSet {};
         VkDescriptorSetLayout m_globalDescriptorLayout {};
 
@@ -194,7 +132,8 @@ namespace renderer::backend
 
         GPUSceneData m_sceneData {};
         BasicBuffer m_gpuSceneDataBuffer, m_materialConstants;
-        ComputeEffect m_skyEffect;
+
+        std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 
         std::vector<std::shared_ptr<MeshAsset>> m_testMeshes;
 
@@ -205,7 +144,5 @@ namespace renderer::backend
         bool m_windowResized { false };
 
         uint64_t m_frameCount {};
-
-        friend struct GLTFMetallic_Roughness;
     };
 }  // namespace renderer::backend

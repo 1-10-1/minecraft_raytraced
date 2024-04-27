@@ -122,6 +122,12 @@ namespace renderer::backend
     {
     public:
         Texture(Device& device, Allocator& allocator, CommandManager& commandManager, StbiImage const& stbiImage);
+        Texture(Device& device,
+                Allocator& allocator,
+                CommandManager& commandManager,
+                VkExtent2D dimensions,
+                void* data,
+                size_t dataSize);
 
         Texture(Texture const&)                    = delete;
         Texture(Texture&&)                         = delete;

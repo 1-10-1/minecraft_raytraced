@@ -120,7 +120,7 @@ namespace renderer::backend
 
         mainDrawContext.OpaqueSurfaces.clear();
 
-        loadedNodes["Suzanne"]->Draw(glm::mat4 { 1.f }, mainDrawContext);
+        loadedScenes["structure"]->Draw(glm::mat4 { 1.f }, mainDrawContext);
 
         VkViewport viewport = {
             .x        = 0,
@@ -141,14 +141,6 @@ namespace renderer::backend
         // clang-format on
 
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
-
-        for (int x = -3; x < 3; x++)
-        {
-            glm::mat4 scale       = glm::scale(glm::identity<glm::mat4>(), glm::vec3 { 0.2 });
-            glm::mat4 translation = glm::translate(glm::identity<glm::mat4>(), glm::vec3 { x, 1, 0 });
-
-            loadedNodes["Cube"]->Draw(translation * scale, mainDrawContext);
-        }
 
         for (RenderObject const& draw : mainDrawContext.OpaqueSurfaces)
         {

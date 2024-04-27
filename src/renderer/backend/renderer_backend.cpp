@@ -1,4 +1,5 @@
 #include "mc/renderer/backend/descriptor.hpp"
+#include <cstddef>
 #include <glm/ext/matrix_transform.hpp>
 #include <mc/asserts.hpp>
 #include <mc/exceptions.hpp>
@@ -7,6 +8,7 @@
 #include <mc/renderer/backend/constants.hpp>
 #include <mc/renderer/backend/image.hpp>
 #include <mc/renderer/backend/info_structs.hpp>
+#include <mc/renderer/backend/mesh_loader.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 #include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
@@ -46,6 +48,28 @@ namespace
 
 namespace renderer::backend
 {
+    inline auto generateCheckerboard() -> std::array<uint32_t, static_cast<uint64_t>(16) * 16>
+    {
+        uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
+        uint32_t black   = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
+        std::array<uint32_t, static_cast<uint64_t>(16) * 16> pixels {};  //for 16x16 checkerboard texture
+                                                                         //
+        for (int x = 0; x < 16; x++)
+        {
+            for (int y = 0; y < 16; y++)
+            {
+                pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) != 0 ? magenta : black;
+            }
+        }
+
+        return pixels;
+    }
+
+    static auto white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));  // NOLINT
+
+    auto load_image(RendererBackend* engine, fastgltf::Asset& asset, fastgltf::Image& image)
+        -> std::optional<std::shared_ptr<Texture>>;
+
     RendererBackend::RendererBackend(window::Window& window)
         // clang_format off
         : m_surface { window, m_instance },
@@ -90,12 +114,14 @@ namespace renderer::backend
 
           m_texture { m_device, m_allocator, m_commandManager, { "./res/textures/viking_room (2).png" } },
 
+          m_checkboardTexture { m_device, m_allocator, m_commandManager, VkExtent2D {16, 16}, generateCheckerboard().data(), generateCheckerboard().size() * sizeof(float) },
+    
+          m_whiteImage { m_device, m_allocator, m_commandManager, VkExtent2D {1, 1}, static_cast<void*>(&white), sizeof(uint32_t) },
+
           m_materialConstants { m_allocator,
                                 sizeof(GLTFMetallic_Roughness::MaterialConstants),
                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                VMA_MEMORY_USAGE_CPU_TO_GPU },
-
-          m_testMeshes { loadGltfMeshes(m_device, m_allocator, m_commandManager, "./res/models/basicmesh.glb").value() }
+                                VMA_MEMORY_USAGE_CPU_TO_GPU }
 
     // clang_format on
     {
@@ -151,6 +177,13 @@ namespace renderer::backend
 
             loadedNodes[m->name] = std::move(newNode);
         }
+
+        std::string structurePath = { "res/models/structure.glb" };
+        auto structureFile        = loadGltf(this, structurePath);
+
+        assert(structureFile.has_value());
+
+        loadedScenes["structure"] = *structureFile;
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
         {
@@ -183,6 +216,8 @@ namespace renderer::backend
         {
             vkDeviceWaitIdle(m_device);
         }
+
+        loadedScenes.clear();
 
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();

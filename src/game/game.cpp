@@ -11,6 +11,7 @@ namespace game
         : m_window { window }, m_eventManager { eventManager }, m_camera { camera }
     {
         m_camera.lookAt({ 2.f, 3.f, 2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
+        m_camera.setPosition(glm::vec3(30.f, -00.f, -085.f));
 
         m_eventManager.subscribe(this, &Game::onUpdate, &Game::onKeyPress, &Game::onKeyHold, &Game::onCursorMove);
 
