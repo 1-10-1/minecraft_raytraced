@@ -36,9 +36,18 @@ namespace renderer
 
     void Renderer::onKeyPress(KeyPressEvent const& event)
     {
-        if (event.key == Key::V && !event.repeated)
+        if (event.repeated)
         {
-            m_backend.toggleVsync();
+            return;
+        }
+
+        switch (event.key)
+        {
+            case Key::V:
+                {
+                    m_backend.toggleVsync();
+                    break;
+                }
         }
     }
 

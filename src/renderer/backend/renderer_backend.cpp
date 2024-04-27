@@ -113,9 +113,19 @@ namespace renderer::backend
 
           m_texture { m_device, m_allocator, m_commandManager, { "./res/textures/viking_room (2).png" } },
 
-          m_checkboardTexture { m_device, m_allocator, m_commandManager, VkExtent2D {16, 16}, generateCheckerboard().data(), generateCheckerboard().size() * sizeof(float) },
-    
-          m_whiteImage { m_device, m_allocator, m_commandManager, VkExtent2D {1, 1}, static_cast<void*>(&white), sizeof(uint32_t) },
+          m_checkboardTexture { std::make_shared<Texture>(m_device,
+                                                          m_allocator,
+                                                          m_commandManager,
+                                                          VkExtent2D { 16, 16 },
+                                                          generateCheckerboard().data(),
+                                                          generateCheckerboard().size() * sizeof(float)) },
+
+          m_whiteImage { std::make_shared<Texture>(m_device,
+                                                   m_allocator,
+                                                   m_commandManager,
+                                                   VkExtent2D { 1, 1 },
+                                                   static_cast<void*>(&white),
+                                                   sizeof(uint32_t)) },
 
           m_materialConstants { m_allocator,
                                 sizeof(GLTFMetallic_Roughness::MaterialConstants),
@@ -144,38 +154,6 @@ namespace renderer::backend
                                  .build();
 
         m_metalRoughMaterial.build_pipelines(this);
-
-        GLTFMetallic_Roughness::MaterialResources materialResources { .colorImage        = m_texture.getImageView(),
-                                                                      .colorSampler      = m_texture.getSampler(),
-                                                                      .metalRoughImage   = m_texture.getImageView(),
-                                                                      .metalRoughSampler = m_texture.getSampler() };
-
-        //write the buffer
-        auto* sceneUniformData =
-            static_cast<GLTFMetallic_Roughness::MaterialConstants*>(m_materialConstants.getMappedData());
-        sceneUniformData->colorFactors        = glm::vec4 { 1, 1, 1, 1 };
-        sceneUniformData->metal_rough_factors = glm::vec4 { 1, 0.5, 0, 0 };
-        materialResources.dataBuffer          = m_materialConstants;
-        materialResources.dataBufferOffset    = 0;
-
-        m_defaultData = m_metalRoughMaterial.write_material(
-            m_device, MaterialPass::MainColor, materialResources, m_descriptorAllocatorGrowable);
-
-        for (auto& m : m_testMeshes)
-        {
-            std::shared_ptr<MeshNode> newNode = std::make_shared<MeshNode>();
-            newNode->mesh                     = m;
-
-            newNode->localTransform = glm::mat4 { 1.f };
-            newNode->worldTransform = glm::mat4 { 1.f };
-
-            for (auto& s : newNode->mesh->surfaces)
-            {
-                s.material = std::make_shared<GLTFMaterial>(m_defaultData);
-            }
-
-            loadedNodes[m->name] = std::move(newNode);
-        }
 
         std::string structurePath = { "res/models/structure.glb" };
         auto structureFile        = loadGltf(this, structurePath);
@@ -356,7 +334,16 @@ namespace renderer::backend
     {
         ZoneScopedN("Backend update");
 
+        Timer timer;
+
         updateDescriptors(glm::identity<glm::mat4>(), view, projection);
+
+        m_mainDrawContext.OpaqueSurfaces.clear();
+        m_mainDrawContext.TransparentSurfaces.clear();
+
+        loadedScenes["structure"]->Draw(glm::mat4 { 1.f }, m_mainDrawContext);
+
+        m_stats.scene_update_time = timer.getTotalTime().count();
     }
 
     void RendererBackend::createSyncObjects()
@@ -431,7 +418,14 @@ namespace renderer::backend
             def.transform           = nodeMatrix;
             def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddress;
 
-            ctx.OpaqueSurfaces.push_back(def);
+            if (s.material->data.passType == MaterialPass::Transparent)
+            {
+                ctx.TransparentSurfaces.push_back(def);
+            }
+            else
+            {
+                ctx.OpaqueSurfaces.push_back(def);
+            }
         }
 
         // recurse down

@@ -115,11 +115,12 @@ namespace renderer::backend
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;
-        Texture m_texture, m_checkboardTexture, m_whiteImage;
+        Texture m_texture;
+        std::shared_ptr<Texture> m_checkboardTexture, m_whiteImage;
         VkDescriptorSet m_globalDescriptorSet {};
         VkDescriptorSetLayout m_globalDescriptorLayout {};
 
-        DrawContext mainDrawContext;
+        DrawContext m_mainDrawContext;
         std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 
         VkDescriptorPool m_imGuiPool {};
@@ -134,7 +135,13 @@ namespace renderer::backend
 
         std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 
-        std::vector<std::shared_ptr<MeshAsset>> m_testMeshes;
+        struct EngineStats
+        {
+            uint64_t triangle_count;
+            uint64_t drawcall_count;
+            double scene_update_time;
+            double mesh_draw_time;
+        } m_stats {};
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 

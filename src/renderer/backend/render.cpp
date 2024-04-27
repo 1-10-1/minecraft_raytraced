@@ -118,10 +118,6 @@ namespace renderer::backend
 
         vkCmdBeginRendering(cmdBuf, &renderInfo);
 
-        mainDrawContext.OpaqueSurfaces.clear();
-
-        loadedScenes["structure"]->Draw(glm::mat4 { 1.f }, mainDrawContext);
-
         VkViewport viewport = {
             .x        = 0,
             .y        = 0,
@@ -142,9 +138,15 @@ namespace renderer::backend
 
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        for (RenderObject const& draw : mainDrawContext.OpaqueSurfaces)
+        m_stats.drawcall_count = 0;
+        m_stats.triangle_count = 0;
+
+        Timer timer;
+
+        auto draw = [&](RenderObject const& draw)
         {
             vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+
             vkCmdBindDescriptorSets(cmdBuf,
                                     VK_PIPELINE_BIND_POINT_GRAPHICS,
                                     draw.material->pipeline->layout,
@@ -153,6 +155,7 @@ namespace renderer::backend
                                     &m_globalDescriptorSet,
                                     0,
                                     nullptr);
+
             vkCmdBindDescriptorSets(cmdBuf,
                                     VK_PIPELINE_BIND_POINT_GRAPHICS,
                                     draw.material->pipeline->layout,
@@ -175,7 +178,22 @@ namespace renderer::backend
                                &pushConstants);
 
             vkCmdDrawIndexed(cmdBuf, draw.indexCount, 1, draw.firstIndex, 0, 0);
+
+            m_stats.drawcall_count++;
+            m_stats.triangle_count += draw.indexCount / 3;
+        };
+
+        for (auto& r : m_mainDrawContext.TransparentSurfaces)
+        {
+            draw(r);
         }
+
+        for (auto& r : m_mainDrawContext.OpaqueSurfaces)
+        {
+            draw(r);
+        }
+
+        m_stats.mesh_draw_time = timer.getTotalTime().count();
 
         vkCmdEndRendering(cmdBuf);
     }
@@ -299,9 +317,13 @@ namespace renderer::backend
             ImGui::TextColored(
                 ImVec4(255.f / 255, 215.f / 255, 100.f / 255, 1.f), "Vsync: %s", m_surface.getVsync() ? "on" : "off");
 
+            ImGui::Text("Draw time %f ms", m_stats.mesh_draw_time);
+            ImGui::Text("Update time %f ms", m_stats.scene_update_time);
+            ImGui::Text("Triangles %i", m_stats.triangle_count);
+            ImGui::Text("Draws %i", m_stats.drawcall_count);
+
             ImGui::End();
         }
-
         ImGui::Render();
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuf);
 

@@ -6,6 +6,7 @@
 #include <mc/renderer/backend/image.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <vulkan/vulkan_core.h>
 
