@@ -12,7 +12,6 @@
 #include "pipeline.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
-#include "vertex.hpp"
 
 #include "vk_mem_alloc.h"
 #include <GLFW/glfw3.h>

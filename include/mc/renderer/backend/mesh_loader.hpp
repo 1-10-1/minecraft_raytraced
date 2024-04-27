@@ -1,11 +1,8 @@
 #pragma once
 
-#include "command.hpp"
-#include "image.hpp"
 #include "material.hpp"
 #include "mesh_buffers.hpp"
 
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -35,7 +32,7 @@ namespace renderer::backend
     };
 
     // base class for a renderable dynamic object
-    class IRenderable
+    class IRenderable  // NOLINT
     {
         virtual void Draw(glm::mat4 const& topMatrix, DrawContext& ctx) = 0;
 
