@@ -111,8 +111,6 @@ namespace renderer::backend
                          static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
                          VK_IMAGE_ASPECT_DEPTH_BIT },
 
-          m_texture { m_device, m_allocator, m_commandManager, { "./res/textures/viking_room (2).png" } },
-
           m_checkboardTexture { std::make_shared<Texture>(m_device,
                                                           m_allocator,
                                                           m_commandManager,

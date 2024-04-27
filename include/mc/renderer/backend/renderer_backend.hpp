@@ -115,7 +115,6 @@ namespace renderer::backend
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;
-        Texture m_texture;
         std::shared_ptr<Texture> m_checkboardTexture, m_whiteImage;
         VkDescriptorSet m_globalDescriptorSet {};
         VkDescriptorSetLayout m_globalDescriptorLayout {};

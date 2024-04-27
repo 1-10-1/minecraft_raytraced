@@ -143,44 +143,85 @@ namespace renderer::backend
 
         Timer timer;
 
-        auto draw = [&](RenderObject const& draw)
+        std::vector<uint32_t> opaque_draws;
+        opaque_draws.reserve(m_mainDrawContext.OpaqueSurfaces.size());
+
+        for (uint32_t i = 0; i < m_mainDrawContext.OpaqueSurfaces.size(); i++)
         {
-            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+            opaque_draws.push_back(i);
+        }
 
-            vkCmdBindDescriptorSets(cmdBuf,
-                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    draw.material->pipeline->layout,
-                                    0,
-                                    1,
-                                    &m_globalDescriptorSet,
-                                    0,
-                                    nullptr);
+        // sort the opaque surfaces by material and mesh
+        std::sort(opaque_draws.begin(),
+                  opaque_draws.end(),
+                  [&](auto const& iA, auto const& iB)
+                  {
+                      const RenderObject& A = m_mainDrawContext.OpaqueSurfaces[iA];
+                      const RenderObject& B = m_mainDrawContext.OpaqueSurfaces[iB];
+                      if (A.material == B.material)
+                      {
+                          return A.indexBuffer < B.indexBuffer;
+                      }
 
-            vkCmdBindDescriptorSets(cmdBuf,
-                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    draw.material->pipeline->layout,
-                                    1,
-                                    1,
-                                    &draw.material->materialSet,
-                                    0,
-                                    nullptr);
+                      return A.material < B.material;
+                  });
 
-            vkCmdBindIndexBuffer(cmdBuf, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        //defined outside of the draw function, this is the state we will try to skip
+        MaterialPipeline* lastPipeline = nullptr;
+        MaterialInstance* lastMaterial = nullptr;
+        VkBuffer lastIndexBuffer       = VK_NULL_HANDLE;
 
-            GPUDrawPushConstants pushConstants;
-            pushConstants.vertexBuffer = draw.vertexBufferAddress;
-            pushConstants.renderMatrix = draw.transform;
+        auto draw = [&](RenderObject const& r)
+        {
+            if (r.material != lastMaterial)
+            {
+                lastMaterial = r.material;
+                //rebind pipeline and descriptors if the material changed
+                if (r.material->pipeline != lastPipeline)
+                {
+                    lastPipeline = r.material->pipeline;
+                    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->pipeline);
+                    vkCmdBindDescriptorSets(cmdBuf,
+                                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                            r.material->pipeline->layout,
+                                            0,
+                                            1,
+                                            &m_globalDescriptorSet,
+                                            0,
+                                            nullptr);
+                }
+
+                vkCmdBindDescriptorSets(cmdBuf,
+                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                        r.material->pipeline->layout,
+                                        1,
+                                        1,
+                                        &r.material->materialSet,
+                                        0,
+                                        nullptr);
+            }
+            //rebind index buffer if needed
+            if (r.indexBuffer != lastIndexBuffer)
+            {
+                lastIndexBuffer = r.indexBuffer;
+                vkCmdBindIndexBuffer(cmdBuf, r.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            }
+            // calculate final mesh matrix
+            GPUDrawPushConstants push_constants;
+            push_constants.renderMatrix = r.transform;
+            push_constants.vertexBuffer = r.vertexBufferAddress;
+
             vkCmdPushConstants(cmdBuf,
-                               draw.material->pipeline->layout,
+                               r.material->pipeline->layout,
                                VK_SHADER_STAGE_VERTEX_BIT,
                                0,
                                sizeof(GPUDrawPushConstants),
-                               &pushConstants);
+                               &push_constants);
 
-            vkCmdDrawIndexed(cmdBuf, draw.indexCount, 1, draw.firstIndex, 0, 0);
-
+            vkCmdDrawIndexed(cmdBuf, r.indexCount, 1, r.firstIndex, 0, 0);
+            //stats
             m_stats.drawcall_count++;
-            m_stats.triangle_count += draw.indexCount / 3;
+            m_stats.triangle_count += r.indexCount / 3;
         };
 
         for (auto& r : m_mainDrawContext.TransparentSurfaces)
@@ -188,9 +229,9 @@ namespace renderer::backend
             draw(r);
         }
 
-        for (auto& r : m_mainDrawContext.OpaqueSurfaces)
+        for (auto& r : opaque_draws)
         {
-            draw(r);
+            draw(m_mainDrawContext.OpaqueSurfaces[r]);
         }
 
         m_stats.mesh_draw_time = timer.getTotalTime().count();
