@@ -208,7 +208,7 @@ namespace renderer::backend
                                        GraphicsPipelineConfig const& config)
         : m_device { &device }
     {
-        auto checkShaderStagePresent = [&shaders = config.shaders](VkShaderStageFlagBits stage)
+        [[maybe_unused]] auto checkShaderStagePresent = [&shaders = config.shaders](VkShaderStageFlagBits stage)
         {
             return rn::find_if(shaders,
                                [stage](ShaderInfo const& info)
