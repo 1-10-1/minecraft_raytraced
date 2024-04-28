@@ -104,7 +104,6 @@ namespace renderer::backend
         Swapchain m_swapchain;
         Allocator m_allocator;
         DescriptorAllocator m_descriptorAllocator {};
-        DescriptorAllocatorGrowable m_descriptorAllocatorGrowable {};
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;

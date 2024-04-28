@@ -191,8 +191,6 @@ namespace renderer::backend
         vkDestroyDescriptorSetLayout(m_device, m_textureDescriptorsLayout, nullptr);
         vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
 
-        m_descriptorAllocatorGrowable.destroy_pools(m_device);
-
 #if PROFILED
         for (auto& resource : m_frameResources)
         {
@@ -203,15 +201,6 @@ namespace renderer::backend
 
     void RendererBackend::initDescriptors()
     {
-        {
-            std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
-                {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,          3},
-                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-            };
-
-            m_descriptorAllocatorGrowable.init(m_device, 10, sizes);
-        }
         {
             std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
                 {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,          3},
