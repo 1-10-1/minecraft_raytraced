@@ -1,13 +1,8 @@
 #version 460
 
-#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_buffer_reference : require
 
-#include "input_structures.glsl"
-
-layout (location = 0) out vec3 outNormal;
-layout (location = 1) out vec3 outColor;
-layout (location = 2) out vec2 outUV;
+layout (location = 0) out vec2 outUV;
 
 struct Vertex {
 	vec3 position;
@@ -15,29 +10,34 @@ struct Vertex {
 	vec3 normal;
 	float uv_y;
 	vec4 color;
-}; 
+};
 
-layout(buffer_reference, std430) readonly buffer VertexBuffer{ 
+layout(buffer_reference, std430) readonly buffer VertexBuffer {
 	Vertex vertices[];
 };
 
-//push constants block
-layout( push_constant ) uniform constants
+layout(push_constant) uniform PushConstants
 {
-	mat4 render_matrix;
+	mat4 model;
 	VertexBuffer vertexBuffer;
-} PushConstants;
+} constants;
 
-void main() 
+layout(binding = 0) uniform SceneData {
+	mat4 view;
+	mat4 proj;
+	mat4 viewProj;
+	vec4 ambientColor;
+	vec3 sunlightDirection;
+	float sunPower;
+	vec4 sunlightColor;
+} sceneData;
+
+void main()
 {
-	Vertex v = PushConstants.vertexBuffer.vertices[gl_VertexIndex];
-	
-	vec4 position = vec4(v.position, 1.0f);
+	Vertex vertex = constants.vertexBuffer.vertices[gl_VertexIndex];
 
-	gl_Position =  sceneData.viewproj * PushConstants.render_matrix *position;
+	gl_Position = sceneData.viewProj * constants.model * vec4(vertex.position, 1.0f);
 
-	outNormal = (PushConstants.render_matrix * vec4(v.normal, 0.f)).xyz;
-	outColor = v.color.xyz * materialData.colorFactors.xyz;	
-	outUV.x = v.uv_x;
-	outUV.y = v.uv_y;
+	outUV.x = vertex.uv_x;
+	outUV.y = vertex.uv_y;
 }

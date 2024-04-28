@@ -121,10 +121,6 @@ target_link_options(${PROJECT_NAME} PRIVATE -flto=auto) #-fsanitize=address -g -
 set(SHADER_FILES
     ${CMAKE_SOURCE_DIR}/shaders/main.frag
     ${CMAKE_SOURCE_DIR}/shaders/main.vert
-    ${CMAKE_SOURCE_DIR}/shaders/gradient_color.comp
-    ${CMAKE_SOURCE_DIR}/shaders/sky.comp
-    ${CMAKE_SOURCE_DIR}/shaders/colored_triangle.vert
-    ${CMAKE_SOURCE_DIR}/shaders/colored_triangle.frag
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")

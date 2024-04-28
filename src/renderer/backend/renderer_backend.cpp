@@ -134,8 +134,8 @@ namespace renderer::backend
         m_graphicsPipelineLayout = PipelineLayout(m_device, pipelineLayoutConfig);
 
         auto pipelineConfig = GraphicsPipelineConfig()
-                                  .addShader("shaders/colored_triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
-                                  .addShader("shaders/colored_triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
+                                  .addShader("shaders/main.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
+                                  .addShader("shaders/main.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
                                   .setColorAttachmentFormat(m_drawImage.getFormat())
                                   .setDepthAttachmentFormat(kDepthStencilFormat)
                                   .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
