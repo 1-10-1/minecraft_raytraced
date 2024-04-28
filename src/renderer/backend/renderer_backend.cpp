@@ -1,5 +1,6 @@
 #include "mc/renderer/backend/descriptor.hpp"
 #include "mc/renderer/backend/mesh.hpp"
+#include "mc/renderer/backend/pipeline.hpp"
 #include <mc/asserts.hpp>
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
@@ -76,8 +77,6 @@ namespace renderer::backend
 
           m_allocator { m_instance, m_device },
 
-          m_pipelineManager { m_device },
-
           m_commandManager { m_device },
 
           m_drawImage { m_device,
@@ -127,17 +126,27 @@ namespace renderer::backend
             m_meshBuffers.indexCount = model.meshes[0].getIndices().size();
         }
 
-        m_graphicsPipeline = m_pipelineManager.createGraphicsBuilder()
-                                 .addShader("shaders/colored_triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
-                                 .addShader("shaders/colored_triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
-                                 .setColorAttachmentFormat(m_drawImage.getFormat())
-                                 .setDepthAttachmentFormat(kDepthStencilFormat)
-                                 .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-                                 .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT)
-                                 .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                 .setSampleCount(m_device.getMaxUsableSampleCount())
-                                 .setDescriptorSetLayouts({ m_sceneDataDescriptorLayout, m_textureDescriptorsLayout })
-                                 .build();
+        auto pipelineLayoutConfig =
+            PipelineLayoutConfig()
+                .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT)
+                .setDescriptorSetLayouts({ m_sceneDataDescriptorLayout, m_textureDescriptorsLayout });
+
+        m_graphicsPipelineLayout = PipelineLayout(m_device, pipelineLayoutConfig);
+
+        auto pipelineConfig = GraphicsPipelineConfig()
+                                  .addShader("shaders/colored_triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
+                                  .addShader("shaders/colored_triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
+                                  .setColorAttachmentFormat(m_drawImage.getFormat())
+                                  .setDepthAttachmentFormat(kDepthStencilFormat)
+                                  .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
+                                  .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+                                  .setSampleCount(m_device.getMaxUsableSampleCount());
+
+        m_fillPipeline = GraphicsPipeline(m_device, m_graphicsPipelineLayout, pipelineConfig);
+
+        pipelineConfig.setPolygonMode(VK_POLYGON_MODE_LINE);
+
+        m_wireframePipeline = GraphicsPipeline(m_device, m_graphicsPipelineLayout, pipelineConfig);
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
         {

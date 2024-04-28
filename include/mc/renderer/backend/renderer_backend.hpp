@@ -82,6 +82,8 @@ namespace renderer::backend
             scheduleSwapchainUpdate();
         }
 
+        void toggleWireframe() { m_wireframe = !m_wireframe; }
+
     private:
         void initImgui(GLFWwindow* window);
         void renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage);
@@ -103,7 +105,6 @@ namespace renderer::backend
         Allocator m_allocator;
         DescriptorAllocator m_descriptorAllocator {};
         DescriptorAllocatorGrowable m_descriptorAllocatorGrowable {};
-        PipelineManager m_pipelineManager;
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;
@@ -112,7 +113,8 @@ namespace renderer::backend
 
         VkDescriptorPool m_imGuiPool {};
 
-        PipelineHandles m_graphicsPipeline;
+        PipelineLayout m_graphicsPipelineLayout;
+        GraphicsPipeline m_fillPipeline, m_wireframePipeline;
 
         GPUSceneData m_sceneData {};
         BasicBuffer m_gpuSceneDataBuffer, m_materialConstants;
@@ -130,7 +132,7 @@ namespace renderer::backend
 
         uint32_t m_currentFrame { 0 };
 
-        bool m_windowResized { false };
+        bool m_windowResized { false }, m_wireframe { false };
 
         uint64_t m_frameCount {};
     };

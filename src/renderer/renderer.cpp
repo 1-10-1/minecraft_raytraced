@@ -48,6 +48,12 @@ namespace renderer
                     m_backend.toggleVsync();
                     break;
                 }
+            case Key::X:
+                {
+                    m_backend.toggleWireframe();
+
+                    break;
+                }
         }
     }
 

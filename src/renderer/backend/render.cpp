@@ -140,13 +140,13 @@ namespace renderer::backend
         m_stats.drawcall_count = 1;
         m_stats.triangle_count = m_meshBuffers.indexCount / 3;
 
-        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline.pipeline);
+        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_wireframe ? m_wireframePipeline : m_fillPipeline);
 
         std::array descriptorSets { m_sceneDataDescriptors, m_textureDescriptors };
 
         vkCmdBindDescriptorSets(cmdBuf,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                m_graphicsPipeline.layout,
+                                m_graphicsPipelineLayout,
                                 0,
                                 descriptorSets.size(),
                                 descriptorSets.data(),
@@ -159,7 +159,7 @@ namespace renderer::backend
         };
 
         vkCmdPushConstants(cmdBuf,
-                           m_graphicsPipeline.layout,
+                           m_graphicsPipelineLayout,
                            VK_SHADER_STAGE_VERTEX_BIT,
                            0,
                            sizeof(GPUDrawPushConstants),

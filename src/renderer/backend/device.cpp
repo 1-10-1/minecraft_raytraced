@@ -300,7 +300,9 @@ namespace renderer::backend
         VkPhysicalDeviceFeatures2 deviceFeatures {
             .sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
             .pNext    = &features13,
-            .features = {.samplerAnisotropy = VK_TRUE, .shaderStorageImageMultisample = VK_TRUE},
+            .features = { .fillModeNonSolid              = VK_TRUE,
+                          .samplerAnisotropy             = VK_TRUE,
+                          .shaderStorageImageMultisample = VK_TRUE, },
         };
 
         VkDeviceCreateInfo deviceCreateInfo {

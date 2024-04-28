@@ -1,92 +1,93 @@
 #pragma once
 
 #include "device.hpp"
+#include "mc/utils.hpp"
+#include "vk_checker.hpp"
 
 #include <filesystem>
 #include <optional>
 #include <vector>
+
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
 {
-    struct PipelineHandles
+    struct ShaderInfo
     {
-        VkPipeline pipeline { VK_NULL_HANDLE };
-        VkPipelineLayout layout { VK_NULL_HANDLE };
+        std::filesystem::path path;
+        VkShaderStageFlagBits stage;
+        std::string entryPoint;
     };
 
-    class ComputePipelineBuilder;
-    class GraphicsPipelineBuilder;
-
-    // Class responsible for the lifespan of VkPipeline and VkPipelineLayout objects
-    class PipelineManager
+    class PipelineLayoutConfig
     {
     public:
-        explicit PipelineManager(Device const& device);
+        [[nodiscard]] auto setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage)
+            -> PipelineLayoutConfig&;
 
-        PipelineManager(PipelineManager const&)                    = delete;
-        PipelineManager(PipelineManager&&)                         = delete;
-        auto operator=(PipelineManager const&) -> PipelineManager& = delete;
-        auto operator=(PipelineManager&&) -> PipelineManager&      = delete;
-
-        ~PipelineManager();
-
-        [[nodiscard]] auto createComputeBuilder() -> ComputePipelineBuilder;
-        [[nodiscard]] auto createGraphicsBuilder() -> GraphicsPipelineBuilder;
-
-        void removePipeline();  // TODO(aether)
-
-        void pushHandles(PipelineHandles const& handles) { m_handles.push_back(handles); };
+        [[nodiscard]] auto setDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> const& layout)
+            -> PipelineLayoutConfig&;
 
     private:
-        Device const& m_device;
-
-        std::vector<PipelineHandles> m_handles;
-    };
-
-    struct ComputePipelineInfo
-    {
-        std::optional<VkPushConstantRange> pushConstants {};
-        std::optional<VkDescriptorSetLayout> descriptorSetLayout {};
-        std::optional<VkPipelineShaderStageCreateInfo> shaderStage {};
-    };
-
-    class ComputePipelineBuilder
-    {
-    public:
-        ComputePipelineBuilder(ComputePipelineBuilder const&)                    = delete;
-        ComputePipelineBuilder(ComputePipelineBuilder&&)                         = delete;
-        auto operator=(ComputePipelineBuilder const&) -> ComputePipelineBuilder& = delete;
-        auto operator=(ComputePipelineBuilder&&) -> ComputePipelineBuilder&      = delete;
-
-        ~ComputePipelineBuilder() { vkDestroyShaderModule(m_device, m_info.shaderStage->module, nullptr); };
-
-        [[nodiscard]] auto build() -> PipelineHandles;
-
-        [[nodiscard]] auto setPushConstantsSize(uint32_t size) -> ComputePipelineBuilder&;
-        [[nodiscard]] auto setDescriptorSetLayout(VkDescriptorSetLayout layout) -> ComputePipelineBuilder&;
-        [[nodiscard]] auto setShader(std::filesystem::path const& path, std::string_view entryPoint)
-            -> ComputePipelineBuilder&;
-
-    private:
-        explicit ComputePipelineBuilder(Device const& device, PipelineManager& manager);
-
-        Device const& m_device;
-        PipelineManager& m_manager;
-
-        ComputePipelineInfo m_info;
-
-        PipelineHandles m_handles {};
-
-        friend class PipelineManager;
-    };
-
-    struct GraphicsPipelineInfo
-    {
         std::optional<VkPushConstantRange> pushConstants {};
         std::optional<std::vector<VkDescriptorSetLayout>> descriptorSetLayouts {};
-        std::vector<VkPipelineShaderStageCreateInfo> shaderStages {};
+
+        friend class PipelineLayout;
+    };
+
+    class GraphicsPipelineConfig
+    {
+    public:
+        auto addShader(std::filesystem::path const& path, VkShaderStageFlagBits stage, std::string const& entryPoint)
+            -> GraphicsPipelineConfig&;
+
+        auto enableBlending(bool enable = true) -> GraphicsPipelineConfig&;
+        auto blendingSetAlphaBlend() -> GraphicsPipelineConfig&;
+        auto blendingSetAdditiveBlend() -> GraphicsPipelineConfig&;
+        auto setBlendingWriteMask(VkColorComponentFlagBits mask) -> GraphicsPipelineConfig&;
+
+        auto setDepthStencilSettings(bool enable,
+                                     VkCompareOp compareOp,
+                                     bool stencilEnable    = false,
+                                     bool enableBoundsTest = false,
+                                     bool enableWrite      = true) -> GraphicsPipelineConfig&;
+
+        auto setPrimitiveSettings(bool primitiveRestart, VkPrimitiveTopology primitiveTopology)
+            -> GraphicsPipelineConfig&;
+
+        auto enableRasterizerDiscard(bool enable = true) -> GraphicsPipelineConfig&;
+
+        auto enableDepthClamp(bool enable = true) -> GraphicsPipelineConfig&;
+
+        auto setLineWidth(float width) -> GraphicsPipelineConfig&;
+
+        auto setPolygonMode(VkPolygonMode mode) -> GraphicsPipelineConfig&;
+
+        auto setCullingSettings(VkCullModeFlags cullMode, VkFrontFace frontFace) -> GraphicsPipelineConfig&;
+
+        auto setViewportScissorCount(uint32_t viewportCount, uint32_t scissorCount) -> GraphicsPipelineConfig&;
+
+        auto setSampleShadingSettings(bool enable, float minSampleShading = 0.2f) -> GraphicsPipelineConfig&;
+
+        auto enableAlphaToOne(bool enable = true) -> GraphicsPipelineConfig&;
+
+        auto enableAlphaToCoverage(bool enable = true) -> GraphicsPipelineConfig&;
+
+        auto setSampleMask(VkSampleMask mask) -> GraphicsPipelineConfig&;
+
+        auto setSampleCount(VkSampleCountFlagBits count) -> GraphicsPipelineConfig&;
+
+        auto
+        setDepthBiasSettings(bool enable = true, float constantFactor = 0.f, float slopeFactor = 0.f, float clamp = 0.f)
+            -> GraphicsPipelineConfig&;
+
+        auto setColorAttachmentFormat(VkFormat format) -> GraphicsPipelineConfig&;
+
+        auto setDepthAttachmentFormat(VkFormat format) -> GraphicsPipelineConfig&;
+
+    private:
+        std::vector<ShaderInfo> shaders {};
 
         // Defaults
         // ********
@@ -131,109 +132,160 @@ namespace renderer::backend
         // Dynamic rendering
         std::optional<VkFormat> colorAttachmentFormat;
         std::optional<VkFormat> depthAttachmentFormat;
+
+        friend class GraphicsPipeline;
     };
 
-    class GraphicsPipelineBuilder
+    class PipelineLayout
     {
     public:
-        ~GraphicsPipelineBuilder()
-        {
-            for (auto stage : m_info.shaderStages)
-            {
-                if (stage.module != VK_NULL_HANDLE)
-                {
-                    vkDestroyShaderModule(m_device, stage.module, nullptr);
-                }
-            }
-        };
+        PipelineLayout() = default;
 
-        [[nodiscard]] GraphicsPipelineBuilder(GraphicsPipelineBuilder const&) = delete;
-
-        GraphicsPipelineBuilder(GraphicsPipelineBuilder&& other) noexcept
-            : m_device { other.m_device },
-              m_manager { other.m_manager },
-              m_info { std::move(other.m_info) },
-              m_handles { other.m_handles }
+        explicit PipelineLayout(Device const& device, PipelineLayoutConfig const& config) : m_device { &device }
         {
-            for (auto& stage : other.m_info.shaderStages)
+            VkPipelineLayoutCreateInfo pipelineLayoutInfo {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                .setLayoutCount =
+                    config.descriptorSetLayouts.has_value() ? utils::size(*config.descriptorSetLayouts) : 0,
+                .pSetLayouts = config.descriptorSetLayouts.has_value() ? config.descriptorSetLayouts->data() : nullptr,
+                .pushConstantRangeCount = config.pushConstants.has_value() ? 1u : 0,
+                .pPushConstantRanges    = config.pushConstants.has_value() ? &config.pushConstants.value() : nullptr,
+            };
+
+            vkCreatePipelineLayout(*m_device, &pipelineLayoutInfo, nullptr, &m_layout) >> vkResultChecker;
+        }
+
+        ~PipelineLayout()
+        {
+            if (m_layout && m_device)
             {
-                stage.module = VK_NULL_HANDLE;
+                vkDestroyPipelineLayout(*m_device, m_layout, nullptr);
             }
         }
 
-        auto operator=(GraphicsPipelineBuilder const&) -> GraphicsPipelineBuilder& = delete;
+        PipelineLayout(PipelineLayout const&)                    = delete;
+        auto operator=(PipelineLayout const&) -> PipelineLayout& = delete;
 
-        auto operator=(GraphicsPipelineBuilder&&) = delete;
+        PipelineLayout(PipelineLayout&& other) noexcept
+        {
+            std::swap(m_layout, other.m_layout);
+            std::swap(m_device, other.m_device);
+        }
 
-        auto build(VkPipelineLayout layout = VK_NULL_HANDLE) -> PipelineHandles;
+        auto operator=(PipelineLayout&& other) noexcept -> PipelineLayout&
+        {
+            m_layout = VK_NULL_HANDLE;
+            m_device = nullptr;
+            std::swap(m_layout, other.m_layout);
+            std::swap(m_device, other.m_device);
 
-        [[nodiscard]] auto setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage)
-            -> GraphicsPipelineBuilder&;
+            return *this;
+        }
 
-        [[nodiscard]] auto setDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> const& layout)
-            -> GraphicsPipelineBuilder&;
+        [[nodiscard]] auto get() const -> VkPipelineLayout { return m_layout; }
 
-        [[nodiscard]] auto addShader(std::filesystem::path const& path,
-                                     VkShaderStageFlagBits stage,
-                                     std::string_view entryPoint) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto enableBlending(bool enable = true) -> GraphicsPipelineBuilder&;
-        [[nodiscard]] auto blendingSetAlphaBlend() -> GraphicsPipelineBuilder&;
-        [[nodiscard]] auto blendingSetAdditiveBlend() -> GraphicsPipelineBuilder&;
-        [[nodiscard]] auto setBlendingWriteMask(VkColorComponentFlagBits mask) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setDepthStencilSettings(bool enable,
-                                                   VkCompareOp compareOp,
-                                                   bool stencilEnable    = false,
-                                                   bool enableBoundsTest = false,
-                                                   bool enableWrite      = true) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setPrimitiveSettings(bool primitiveRestart, VkPrimitiveTopology primitiveTopology)
-            -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto enableRasterizerDiscard(bool enable = true) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto enableDepthClamp(bool enable = true) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setLineWidth(float width) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setPolygonMode(VkPolygonMode mode) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setCullingSettings(VkCullModeFlags cullMode, VkFrontFace frontFace)
-            -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setViewportScissorCount(uint32_t viewportCount, uint32_t scissorCount)
-            -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setSampleShadingSettings(bool enable, float minSampleShading = 0.2f)
-            -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto enableAlphaToOne(bool enable = true) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto enableAlphaToCoverage(bool enable = true) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setSampleMask(VkSampleMask mask) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setSampleCount(VkSampleCountFlagBits count) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto
-        setDepthBiasSettings(bool enable = true, float constantFactor = 0.f, float slopeFactor = 0.f, float clamp = 0.f)
-            -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setColorAttachmentFormat(VkFormat format) -> GraphicsPipelineBuilder&;
-
-        [[nodiscard]] auto setDepthAttachmentFormat(VkFormat format) -> GraphicsPipelineBuilder&;
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkPipelineLayout() const { return m_layout; }
 
     private:
-        explicit GraphicsPipelineBuilder(Device const& device, PipelineManager& manager);
+        Device const* m_device { nullptr };
 
-        Device const& m_device;
-        PipelineManager& m_manager;
+        VkPipelineLayout m_layout { VK_NULL_HANDLE };
+    };
 
-        GraphicsPipelineInfo m_info;
+    class GraphicsPipeline
+    {
+    public:
+        GraphicsPipeline() = default;
 
-        PipelineHandles m_handles {};
+        GraphicsPipeline(Device const& device, PipelineLayout const& layout, GraphicsPipelineConfig const& config);
 
-        friend class PipelineManager;
+        ~GraphicsPipeline()
+        {
+            if (m_pipeline && m_device)
+            {
+                vkDestroyPipeline(*m_device, m_pipeline, nullptr);
+            }
+        }
+
+        GraphicsPipeline(GraphicsPipeline const& other)              = delete;
+        auto operator=(GraphicsPipeline const&) -> GraphicsPipeline& = delete;
+
+        GraphicsPipeline(GraphicsPipeline&& other) noexcept
+        {
+            std::swap(m_pipeline, other.m_pipeline);
+            std::swap(m_device, other.m_device);
+        }
+
+        auto operator=(GraphicsPipeline&& other) noexcept -> GraphicsPipeline&
+        {
+            m_pipeline = VK_NULL_HANDLE;
+            m_device   = nullptr;
+            std::swap(m_pipeline, other.m_pipeline);
+            std::swap(m_device, other.m_device);
+
+            return *this;
+        }
+
+        [[nodiscard]] auto get() const -> VkPipeline { return m_pipeline; }
+
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkPipeline() const { return m_pipeline; }
+
+    private:
+        Device const* m_device { nullptr };
+
+        VkPipeline m_pipeline { VK_NULL_HANDLE };
+    };
+
+    class ComputePipeline
+    {
+    public:
+        ComputePipeline() = default;
+
+        explicit ComputePipeline(Device const& device,
+                                 PipelineLayout const& layout,
+                                 std::filesystem::path const& path,
+                                 std::string_view entryPoint);
+
+        ComputePipeline(ComputePipeline const&)                    = delete;
+        auto operator=(ComputePipeline const&) -> ComputePipeline& = delete;
+
+        ComputePipeline(ComputePipeline&& other) noexcept
+        {
+            std::swap(m_pipeline, other.m_pipeline);
+            std::swap(m_device, other.m_device);
+        }
+
+        auto operator=(ComputePipeline&& other) noexcept -> ComputePipeline&
+        {
+            m_pipeline = VK_NULL_HANDLE;
+            m_device   = nullptr;
+            std::swap(m_pipeline, other.m_pipeline);
+            std::swap(m_device, other.m_device);
+
+            return *this;
+        }
+
+        ~ComputePipeline()
+        {
+            if (m_pipeline && m_device)
+            {
+                vkDestroyPipeline(*m_device, m_pipeline, nullptr);
+            }
+        };
+
+        [[nodiscard]] auto setShader(std::filesystem::path const& path, std::string_view entryPoint)
+            -> ComputePipeline&;
+
+        [[nodiscard]] auto get() const -> VkPipeline { return m_pipeline; }
+
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        [[nodiscard]] operator VkPipeline() const { return m_pipeline; }
+
+    private:
+        Device const* m_device { nullptr };
+
+        VkPipeline m_pipeline { VK_NULL_HANDLE };
     };
 }  // namespace renderer::backend
