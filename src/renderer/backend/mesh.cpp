@@ -3,6 +3,7 @@
 #include <mc/renderer/backend/command.hpp>
 #include <mc/renderer/backend/mesh.hpp>
 
+#include <span>
 #include <string>
 #include <vector>
 
@@ -126,8 +127,8 @@ auto Model::processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh
             .uv_x = mesh->mTextureCoords[0] != nullptr ? mesh->mTextureCoords[0][i].x : 0,
             .normal { mesh->HasNormals() ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
                                          : glm::vec3 {} },
- // A vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
-  // use models where a vertex can have multiple texture coordinates so we always take the first set (0).
+            // A vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
+            // use models where a vertex can have multiple texture coordinates so we always take the first set (0).
             .uv_y = mesh->mTextureCoords[0] != nullptr ? mesh->mTextureCoords[0][i].y : 0,
             .color {
                        mesh->mColors[0] != nullptr

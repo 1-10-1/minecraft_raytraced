@@ -5,6 +5,7 @@
 #include "device.hpp"
 #include "vertex.hpp"
 
+#include <span>
 #include <string>
 #include <vector>
 

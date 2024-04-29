@@ -86,9 +86,12 @@ namespace logger
 
         if constexpr (kDebug)
         {
-            std::string simplifiedFuncSig = simplifyFunctionSignature(location.funcname);
-            location.funcname             = simplifiedFuncSig.c_str();
-            location.filename = std::string_view(location.filename).substr(std::size(ROOT_SOURCE_PATH)).data();
+            if (std::string_view filename = location.filename; filename != "")
+            {
+                std::string simplifiedFuncSig = simplifyFunctionSignature(location.funcname);
+                location.funcname             = simplifiedFuncSig.c_str();
+                location.filename             = filename.substr(std::size(ROOT_SOURCE_PATH)).data();
+            }
             Logger::get()->log(location, lvl, std::format(fmtstr, std::forward<Args>(args)...));
         }
         else

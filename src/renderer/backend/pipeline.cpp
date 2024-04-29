@@ -7,6 +7,8 @@
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
+#include <ranges>
+
 #include <vulkan/vulkan_core.h>
 
 namespace rn = std::ranges;
@@ -14,11 +16,11 @@ namespace vi = std::ranges::views;
 
 namespace renderer::backend
 {
-    auto PipelineLayoutConfig::setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage)
-        -> PipelineLayoutConfig&
+    auto PipelineLayoutConfig::setPushConstantSettings(uint32_t size,
+                                                       VkShaderStageFlagBits shaderStage) -> PipelineLayoutConfig&
     {
         pushConstants = {
-            .stageFlags = shaderStage,
+            .stageFlags = static_cast<uint32_t>(shaderStage),
             .offset     = 0,
             .size       = size,
         };
@@ -86,8 +88,8 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setPrimitiveSettings(bool primitiveRestart, VkPrimitiveTopology primitiveTopology)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setPrimitiveSettings(bool primitiveRestart,
+                                                      VkPrimitiveTopology primitiveTopology) -> GraphicsPipelineConfig&
     {
         this->primitiveRestart  = primitiveRestart;
         this->primitiveTopology = primitiveTopology;
@@ -123,8 +125,8 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setCullingSettings(VkCullModeFlags cullMode, VkFrontFace frontFace)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setCullingSettings(VkCullModeFlags cullMode,
+                                                    VkFrontFace frontFace) -> GraphicsPipelineConfig&
     {
         this->cullMode  = cullMode;
         this->frontFace = frontFace;
@@ -132,8 +134,8 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setViewportScissorCount(uint32_t viewportCount, uint32_t scissorCount)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setViewportScissorCount(uint32_t viewportCount,
+                                                         uint32_t scissorCount) -> GraphicsPipelineConfig&
     {
         this->viewportCount = viewportCount;
         this->scissorCount  = scissorCount;
@@ -141,8 +143,8 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setSampleShadingSettings(bool enable, float minSampleShading)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setSampleShadingSettings(bool enable,
+                                                          float minSampleShading) -> GraphicsPipelineConfig&
     {
         sampleShadingEnable    = enable;
         this->minSampleShading = minSampleShading;
@@ -178,8 +180,10 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setDepthBiasSettings(bool enable, float constantFactor, float slopeFactor, float clamp)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setDepthBiasSettings(bool enable,
+                                                      float constantFactor,
+                                                      float slopeFactor,
+                                                      float clamp) -> GraphicsPipelineConfig&
     {
         depthBiasEnabled        = enable;
         depthBiasConstantFactor = constantFactor;
@@ -354,10 +358,10 @@ namespace renderer::backend
     {
         VkComputePipelineCreateInfo pipelineCreateInfo {
             .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-            .stage  = {.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage  = { .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                        .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
                        .module = createShaderModule(*m_device, path),
-                       .pName  = entryPoint.data()},
+                       .pName  = entryPoint.data() },
             .layout = layout,
         };
 

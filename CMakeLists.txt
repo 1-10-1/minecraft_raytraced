@@ -74,18 +74,18 @@ list(APPEND LIBS
     glfw
     magic_enum::magic_enum
     Tracy::TracyClient
-<<<<<<< HEAD
-    assimp::assimp
-=======
     tinyobjloader
-    stdc++exp
->>>>>>> ef3ee02882f217b5a43ab0e7b02839e9852691ce
     stb
     imgui
     GPUOpen::VulkanMemoryAllocator
     fastgltf::fastgltf
-    assimp
 )
+
+if (MSVC)
+    list(APPEND LIBS assimp)
+else()
+    list(APPEND LIBS stdc++exp)
+endif()
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 target_link_libraries(${PROJECT_NAME} ${LIBS})
@@ -111,8 +111,6 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
 
-<<<<<<< HEAD
-
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE
         /std:c++latest /arch:AVX2
@@ -121,19 +119,10 @@ else()
     target_compile_options(${PROJECT_NAME} PRIVATE
         -std=c++23 -Wall -Wunused -mavx2 -Werror
         -Wno-format -Wno-switch
-        -Wno-deprecated-declarations -march=native -flto
+        -Wno-deprecated-declarations -march=native -flto=auto
+        -Wno-sign-compare
         $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
-        $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
-=======
-target_compile_options(${PROJECT_NAME} PRIVATE
-    -std=c++23 -Wall -Wunused -mavx2 -Werror
-    -Wno-format -Wno-switch
-    -Wno-deprecated-declarations -march=native -flto=auto
-    -Wno-sign-compare
-    $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
-    $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
->>>>>>> ef3ee02882f217b5a43ab0e7b02839e9852691ce
-)
+        $<$<CONFIG:Debug>:-mtune=native -g>) # -fsanitize=address -g -fno-omit-frame-pointer>)
 endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE -flto=auto) #-fsanitize=address -g -fno-omit-frame-pointer)
