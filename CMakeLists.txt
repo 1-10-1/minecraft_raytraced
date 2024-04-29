@@ -71,7 +71,6 @@ list(APPEND LIBS
     glfw
     magic_enum::magic_enum
     Tracy::TracyClient
-    stdc++exp
     assimp::assimp
     stb
     imgui
@@ -102,13 +101,20 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
 
-target_compile_options(${PROJECT_NAME} PRIVATE
-    -std=c++23 -Wall -Wunused -mavx2 -Werror
-    -Wno-format -Wno-switch
-    -Wno-deprecated-declarations -march=native -flto
-    $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
-    $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
+
+if (MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        /std:c++latest /arch:AVX2
+        $<$<CONFIG:Release>:/O2 /EHs-c- /D_HAS_EXCEPTIONS=0>)
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -std=c++23 -Wall -Wunused -mavx2 -Werror
+        -Wno-format -Wno-switch
+        -Wno-deprecated-declarations -march=native -flto
+        $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
+        $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
 )
+endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE -flto) #-fsanitize=address -g -fno-omit-frame-pointer)
 

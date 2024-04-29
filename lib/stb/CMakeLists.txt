@@ -9,6 +9,6 @@ target_include_directories(stb SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/stb)
 target_compile_definitions(stb PUBLIC STB_IMAGE_IMPLEMENTATION)
 
 target_compile_options(stb PRIVATE
-    -Wno-error
+    /w
 )
 

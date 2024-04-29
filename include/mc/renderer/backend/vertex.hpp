@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include <mc/utils.hpp>
 
 #include <glm/vec2.hpp>

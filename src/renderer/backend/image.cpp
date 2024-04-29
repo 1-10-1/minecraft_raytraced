@@ -5,6 +5,8 @@
 #include <mc/renderer/backend/image.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
+#include <ranges>
+
 #include <stb_image.h>
 #include <vulkan/vulkan_core.h>
 
@@ -139,8 +141,8 @@ namespace renderer::backend
             .newLayout        = newLayout,
             .image            = image,
             .subresourceRange = {
-                .aspectMask     = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
-                                  ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT,
+                .aspectMask     = (VkImageAspectFlags)(std::to_underlying((newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+                                  ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT)),
                 .baseMipLevel   = 0,
                 .levelCount     = VK_REMAINING_MIP_LEVELS,
                 .baseArrayLayer = 0,
@@ -169,7 +171,7 @@ namespace renderer::backend
             .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .imageType     = VK_IMAGE_TYPE_2D,
             .format        = format,
-            .extent        = {m_dimensions.width, m_dimensions.height, 1},
+            .extent        = { m_dimensions.width, m_dimensions.height, 1 },
             .mipLevels     = mipLevels,
             .arrayLayers   = 1,
             .samples       = numSamples,

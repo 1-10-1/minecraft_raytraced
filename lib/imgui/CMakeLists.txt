@@ -13,6 +13,7 @@ add_library(imgui
 
 target_include_directories(imgui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/imgui ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends)
 
-add_executable(imgui_example imgui/examples/example_glfw_vulkan/main.cpp)
-target_link_libraries(imgui_example imgui glfw vulkan)
+# add_executable(imgui_example imgui/examples/example_glfw_vulkan/main.cpp)
+# target_link_libraries(imgui_example imgui glfw vulkan)
+target_link_libraries(imgui glfw Vulkan::Vulkan)
 
