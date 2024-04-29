@@ -1,8 +1,13 @@
 #version 460
 
 #extension GL_EXT_buffer_reference : require
+#extension GL_GOOGLE_include_directive : require
+
+#include "uniforms.glsl"
 
 layout (location = 0) out vec2 outUV;
+layout (location = 1) out vec3 outFragPos;
+layout (location = 2) out vec3 outNormal;
 
 struct Vertex {
 	vec3 position;
@@ -22,16 +27,6 @@ layout(push_constant) uniform PushConstants
 	VertexBuffer vertexBuffer;
 } constants;
 
-layout(binding = 0) uniform SceneData {
-	mat4 view;
-	mat4 proj;
-	mat4 viewProj;
-	vec4 ambientColor;
-	vec3 sunlightDirection;
-	float sunPower;
-	vec4 sunlightColor;
-} sceneData;
-
 void main()
 {
 	Vertex vertex = constants.vertexBuffer.vertices[gl_VertexIndex];
@@ -40,4 +35,7 @@ void main()
 
 	outUV.x = vertex.uv_x;
 	outUV.y = vertex.uv_y;
+
+	outNormal = mat3(transpose(inverse(constants.model))) * vertex.normal;
+	outFragPos = vec3(constants.model * vec4(vertex.position, 1.0f));
 }

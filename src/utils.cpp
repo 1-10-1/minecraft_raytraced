@@ -14,9 +14,7 @@ namespace utils
 
         if (!file.is_open())
         {
-            MC_THROW Error(
-                AssetError,
-                std::format("Failed to read shader file at path {}", reinterpret_cast<char const*>(filepath.c_str())));
+            MC_THROW Error(AssetError, std::format("Failed to read shader file at path {}", filepath.string()));
         }
 
         auto fileSize = file.tellg();

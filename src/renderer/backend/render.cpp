@@ -4,6 +4,7 @@
 #include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
+#include "glm/gtc/type_ptr.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -137,37 +138,59 @@ namespace renderer::backend
 
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        m_stats.drawcall_count = 1;
-        m_stats.triangle_count = m_meshBuffers.indexCount / 3;
+        m_stats.drawcall_count = 0;
+        m_stats.triangle_count = 0;
 
-        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_wireframe ? m_wireframePipeline : m_fillPipeline);
+        for (auto const& [_, item] : m_renderItems)
+        {
+            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, item.pipeline);
 
-        std::array descriptorSets { m_sceneDataDescriptors, m_textureDescriptors };
+            if (item.layout == m_texturedPipelineLayout)
+            {
+                std::array descriptorSets { m_sceneDataDescriptors, m_materialDescriptors };
 
-        vkCmdBindDescriptorSets(cmdBuf,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                m_graphicsPipelineLayout,
-                                0,
-                                descriptorSets.size(),
-                                descriptorSets.data(),
-                                0,
-                                nullptr);
+                vkCmdBindDescriptorSets(cmdBuf,
+                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                        item.layout,
+                                        0,
+                                        descriptorSets.size(),
+                                        descriptorSets.data(),
+                                        0,
+                                        nullptr);
+            }
+            else
+            {  // No textures
+                std::array descriptorSets { m_sceneDataDescriptors };
 
-        GPUDrawPushConstants push_constants {
-            .model        = glm::identity<glm::mat4>(),
-            .vertexBuffer = m_meshBuffers.vertexBufferAddress,
-        };
+                vkCmdBindDescriptorSets(cmdBuf,
+                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                        item.layout,
+                                        0,
+                                        descriptorSets.size(),
+                                        descriptorSets.data(),
+                                        0,
+                                        nullptr);
+            }
 
-        vkCmdPushConstants(cmdBuf,
-                           m_graphicsPipelineLayout,
-                           VK_SHADER_STAGE_VERTEX_BIT,
-                           0,
-                           sizeof(GPUDrawPushConstants),
-                           &push_constants);
+            GPUDrawPushConstants push_constants {
+                .model        = item.model,
+                .vertexBuffer = item.meshData->vertexBufferAddress,
+            };
 
-        vkCmdBindIndexBuffer(cmdBuf, m_meshBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdPushConstants(cmdBuf,
+                               m_texturedPipelineLayout,
+                               VK_SHADER_STAGE_VERTEX_BIT,
+                               0,
+                               sizeof(GPUDrawPushConstants),
+                               &push_constants);
 
-        vkCmdDrawIndexed(cmdBuf, m_meshBuffers.indexCount, 1, 0, 0, 0);
+            vkCmdBindIndexBuffer(cmdBuf, item.meshData->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+            vkCmdDrawIndexed(cmdBuf, item.meshData->indexCount, 1, 0, 0, 0);
+
+            m_stats.drawcall_count++;
+            m_stats.triangle_count += item.meshData->indexCount / 3;
+        }
 
         vkCmdEndRendering(cmdBuf);
     }
@@ -259,7 +282,6 @@ namespace renderer::backend
         ImGui::NewFrame();
 
         ImGuiWindowFlags window_flags = 0;
-        window_flags |= ImGuiWindowFlags_NoTitleBar;
         window_flags |= ImGuiWindowFlags_NoScrollbar;
         window_flags |= ImGuiWindowFlags_NoMove;
         window_flags |= ImGuiWindowFlags_NoResize;
@@ -275,10 +297,13 @@ namespace renderer::backend
 
         vkCmdBeginRendering(cmdBuf, &renderInfo);
 
+        float windowPadding = 10.0f;
+
         {
+            ImGui::SetNextWindowPos(ImVec2(windowPadding, windowPadding), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
+            ImGui::SetNextWindowSize({});
+
             ImGui::Begin("Statistics", nullptr, window_flags);
-            ImGui::SetWindowPos({ 0, 0 });
-            ImGui::SetWindowSize({});
 
             ImGui::TextColored(ImVec4(77.5f / 255, 255.f / 255, 125.f / 255, 1.f), "%.2f mspf", frametime);
             ImGui::SameLine();
@@ -296,6 +321,45 @@ namespace renderer::backend
 
             ImGui::End();
         }
+
+        {
+            ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - windowPadding, windowPadding),
+                                    ImGuiCond_Always,
+                                    ImVec2(1.0f, 0.0f));
+            ImGui::SetNextWindowSize({ 400.f, 0.f });
+
+            ImGui::Begin("Light", nullptr, window_flags);
+
+            ImGui::TextColored({ m_lightColor.r, m_lightColor.g, m_lightColor.b, 1.f },
+                               "{ %.1f, %.1f %.1f }",
+                               m_lightPos.x,
+                               m_lightPos.y,
+                               m_lightPos.z);
+
+            ImGui::ColorPicker3("Color", glm::value_ptr(m_lightColor));
+
+            ImGui::End();
+        }
+
+        {
+            ImGui::SetNextWindowPos(ImVec2(windowPadding, ImGui::GetIO().DisplaySize.y - windowPadding),
+                                    ImGuiCond_Always,
+                                    ImVec2(0.0f, 1.0f));
+            ImGui::SetNextWindowSize({ 0.f, 0.f });
+
+            ImGui::Begin("Material");
+
+            ImGui::ColorPicker3("Diffuse", glm::value_ptr(m_material.diffuse));
+
+            ImGui::ColorPicker3("Ambient", glm::value_ptr(m_material.ambient));
+
+            ImGui::ColorPicker3("Specular", glm::value_ptr(m_material.specular));
+
+            ImGui::SliderFloat("Shininess", &m_material.shininess, 0.f, 100.f);
+
+            ImGui::End();
+        }
+
         ImGui::Render();
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuf);
 

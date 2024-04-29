@@ -127,10 +127,7 @@ endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE -flto=auto) #-fsanitize=address -g -fno-omit-frame-pointer)
 
-set(SHADER_FILES
-    ${CMAKE_SOURCE_DIR}/shaders/main.frag
-    ${CMAKE_SOURCE_DIR}/shaders/main.vert
-)
+file(GLOB SHADER_FILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/shaders/*")
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
 file(MAKE_DIRECTORY ${SHADER_OUTPUT_DIR})
@@ -159,6 +156,8 @@ foreach(SHADER_FILE ${SHADER_FILES})
         set(SHADER_TYPE "fragment")
     elseif(${SHADER_EXT} STREQUAL ".comp")
         set(SHADER_TYPE "compute")
+    elseif(${SHADER_EXT} STREQUAL ".glsl")
+        continue()
     else()
         message(FATAL_ERROR "Unknown shader extension: ${SHADER_EXT}")
     endif()

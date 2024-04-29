@@ -29,7 +29,7 @@ namespace renderer::backend
                     Allocator& allocator,
                     CommandManager const& cmdManager,
                     std::span<Vertex> vertices,
-                    std::span<uint32_t> indices) -> GPUMeshData;
+                    std::span<uint32_t> indices) -> std::shared_ptr<GPUMeshData>;
 }  // namespace renderer::backend
 
 enum class TextureType

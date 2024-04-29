@@ -27,11 +27,11 @@ namespace renderer
         m_backend.render();
     }
 
-    void Renderer::onUpdate(AppUpdateEvent const& /* unused */)
+    void Renderer::onUpdate(AppUpdateEvent const& event)
     {
         ZoneScopedN("Frontend update");
 
-        m_backend.update(m_camera.getView(), m_camera.getProj());
+        m_backend.update(m_camera.getPosition(), m_camera.getView(), m_camera.getProj());
     }
 
     void Renderer::onKeyPress(KeyPressEvent const& event)
@@ -48,10 +48,9 @@ namespace renderer
                     m_backend.toggleVsync();
                     break;
                 }
-            case Key::X:
+            case Key::R:
                 {
-                    m_backend.toggleWireframe();
-
+                    m_backend.toggleLightRevolution();
                     break;
                 }
         }

@@ -19,28 +19,30 @@ namespace renderer::backend
                     Allocator& allocator,
                     CommandManager const& cmdManager,
                     std::span<Vertex> vertices,
-                    std::span<uint32_t> indices) -> GPUMeshData
+                    std::span<uint32_t> indices) -> std::shared_ptr<GPUMeshData>
     {
         size_t const vertexBufferSize = vertices.size() * sizeof(Vertex);
         size_t const indexBufferSize  = indices.size() * sizeof(uint32_t);
 
-        GPUMeshData newSurface { .indexBuffer =
-                                     BasicBuffer(allocator,
-                                                 indexBufferSize,
-                                                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                 VMA_MEMORY_USAGE_GPU_ONLY),
+        std::shared_ptr<GPUMeshData> newSurface { std::make_shared<GPUMeshData>() };
 
-                                 .vertexBuffer =
-                                     BasicBuffer(allocator,
-                                                 vertexBufferSize,
-                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                                     VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                 VMA_MEMORY_USAGE_GPU_ONLY) };
+        newSurface->indexBuffer = BasicBuffer(allocator,
+                                              indexBufferSize,
+                                              VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                              VMA_MEMORY_USAGE_GPU_ONLY);
+
+        newSurface->vertexBuffer = BasicBuffer(allocator,
+                                               vertexBufferSize,
+                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                               VMA_MEMORY_USAGE_GPU_ONLY);
+
+        newSurface->indexCount = indices.size();
 
         VkBufferDeviceAddressInfo deviceAdressInfo { .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                                                     .buffer = newSurface.vertexBuffer };
+                                                     .buffer = newSurface->vertexBuffer };
 
-        newSurface.vertexBufferAddress = vkGetBufferDeviceAddress(device, &deviceAdressInfo);
+        newSurface->vertexBufferAddress = vkGetBufferDeviceAddress(device, &deviceAdressInfo);
 
         {
             BasicBuffer staging { allocator,
@@ -69,8 +71,8 @@ namespace renderer::backend
                     .size      = indexBufferSize,
                 };
 
-                vkCmdCopyBuffer(cmdBuf, staging, newSurface.indexBuffer, 1, &indexCopy);
-                vkCmdCopyBuffer(cmdBuf, staging, newSurface.vertexBuffer, 1, &vertexCopy);
+                vkCmdCopyBuffer(cmdBuf, staging, newSurface->indexBuffer, 1, &indexCopy);
+                vkCmdCopyBuffer(cmdBuf, staging, newSurface->vertexBuffer, 1, &vertexCopy);
             };
         }
 

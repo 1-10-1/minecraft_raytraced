@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <mc/asserts.hpp>
 #include <mc/exceptions.hpp>
 #include <mc/renderer/backend/pipeline.hpp>
@@ -7,6 +6,7 @@
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
+#include <algorithm>
 #include <ranges>
 
 #include <vulkan/vulkan_core.h>

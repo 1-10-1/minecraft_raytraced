@@ -13,7 +13,6 @@ namespace game
         explicit Game(EventManager& eventManager, window::Window& window, Camera& camera);
 
         void onUpdate(AppUpdateEvent const& event);
-        void onKeyPress(KeyPressEvent const& event);
         void onKeyHold(KeyHoldEvent const& event);
         void onCursorMove(CursorMoveEvent const& event);
         void onMouseButton(MouseButtonEvent const& event);
@@ -24,7 +23,7 @@ namespace game
         Camera& m_camera;
 
         double m_lastDelta {};
-        bool m_inputFocused { true };
+        bool m_inputFocused { false };
         glm::ivec2 m_lastCursorPos {};
     };
 }  // namespace game

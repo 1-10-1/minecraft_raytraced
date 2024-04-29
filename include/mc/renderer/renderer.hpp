@@ -15,7 +15,7 @@ namespace renderer
         explicit Renderer(EventManager& eventManager, window::Window& window, Camera& camera);
 
         void onRender(AppRenderEvent const& /* unused */);
-        void onUpdate(AppUpdateEvent const& /* unused */);
+        void onUpdate(AppUpdateEvent const& event);
         void onKeyPress(KeyPressEvent const& event);
         void onFramebufferResize(WindowFramebufferResizeEvent const& event);
 

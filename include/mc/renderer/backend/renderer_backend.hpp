@@ -30,15 +30,35 @@ namespace renderer::backend
         VkDeviceAddress vertexBuffer {};
     };
 
-    struct GPUSceneData
+    struct alignas(16) GPUSceneData
     {
         glm::mat4 view;
         glm::mat4 proj;
         glm::mat4 viewproj;
         glm::vec4 ambientColor;
-        glm::vec3 sunlightDirection;
-        float sunPower;
-        glm::vec4 sunlightColor;
+        glm::vec3 lightPosition;
+        float pad1;
+        glm::vec3 lightColor;
+        float pad2;
+        glm::vec3 cameraPos;
+    };
+
+    struct alignas(16) Material
+    {
+        glm::vec3 ambient;
+        float pad1;
+        glm::vec3 diffuse;
+        float pad2;
+        glm::vec3 specular;
+        float shininess;
+    };
+
+    struct RenderItem
+    {
+        glm::mat4 model;
+        std::shared_ptr<GPUMeshData> meshData;
+        VkPipelineLayout layout;
+        VkPipeline pipeline;
     };
 
     struct FrameResources
@@ -65,7 +85,7 @@ namespace renderer::backend
         ~RendererBackend();
 
         void render();
-        void update(glm::mat4 view, glm::mat4 projection);
+        void update(glm::vec3 cameraPos, glm::mat4 view, glm::mat4 projection);
         void recordCommandBuffer(uint32_t imageIndex);
 
         void scheduleSwapchainUpdate();
@@ -82,7 +102,7 @@ namespace renderer::backend
             scheduleSwapchainUpdate();
         }
 
-        void toggleWireframe() { m_wireframe = !m_wireframe; }
+        void toggleLightRevolution() { m_timer.isPaused() ? m_timer.unpause() : m_timer.pause(); }
 
     private:
         void initImgui(GLFWwindow* window);
@@ -95,8 +115,7 @@ namespace renderer::backend
         void handleSurfaceResize();
         void createSyncObjects();
         void destroySyncObjects();
-        void updateDescriptors(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
-        void update_scene();
+        void updateDescriptors(glm::vec3 cameraPos, glm::mat4 model, glm::mat4 view, glm::mat4 projection);
 
         Instance m_instance;
         Surface m_surface;
@@ -107,19 +126,28 @@ namespace renderer::backend
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;
-        VkDescriptorSet m_sceneDataDescriptors {}, m_textureDescriptors {};
-        VkDescriptorSetLayout m_sceneDataDescriptorLayout {}, m_textureDescriptorsLayout {};
+        VkDescriptorSet m_sceneDataDescriptors {}, m_materialDescriptors {};
+        VkDescriptorSetLayout m_sceneDataDescriptorLayout {}, m_materialDescriptorLayout {};
 
         VkDescriptorPool m_imGuiPool {};
 
-        PipelineLayout m_graphicsPipelineLayout;
-        GraphicsPipeline m_fillPipeline, m_wireframePipeline;
+        PipelineLayout m_texturedPipelineLayout, m_texturelessPipelineLayout;
+        GraphicsPipeline m_texturedPipeline, m_texturelessPipeline;
 
         GPUSceneData m_sceneData {};
-        BasicBuffer m_gpuSceneDataBuffer, m_materialConstants;
+        BasicBuffer m_gpuSceneDataBuffer, m_materialDataBuffer;
 
-        GPUMeshData m_meshBuffers {};
+        std::unordered_map<std::string, RenderItem> m_renderItems;
+
+        std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
+
         Texture m_meshTexture;
+        Material m_material {};
+
+        Timer m_timer;
+
+        glm::vec3 m_lightPos {};
+        glm::vec3 m_lightColor {};
 
         struct EngineStats
         {
@@ -127,11 +155,9 @@ namespace renderer::backend
             uint64_t drawcall_count;
         } m_stats {};
 
-        std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
-
         uint32_t m_currentFrame { 0 };
 
-        bool m_windowResized { false }, m_wireframe { false };
+        bool m_windowResized { false };
 
         uint64_t m_frameCount {};
     };

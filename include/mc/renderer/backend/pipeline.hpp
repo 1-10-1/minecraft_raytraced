@@ -23,11 +23,9 @@ namespace renderer::backend
     class PipelineLayoutConfig
     {
     public:
-        [[nodiscard]] auto setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage)
-            -> PipelineLayoutConfig&;
+        auto setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage) -> PipelineLayoutConfig&;
 
-        [[nodiscard]] auto setDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> const& layout)
-            -> PipelineLayoutConfig&;
+        auto setDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> const& layout) -> PipelineLayoutConfig&;
 
     private:
         std::optional<VkPushConstantRange> pushConstants {};

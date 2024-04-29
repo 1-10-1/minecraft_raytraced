@@ -12,9 +12,7 @@ namespace game
     {
         m_camera.lookAt(glm::vec3 { 2.f, 3.f, 2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
 
-        m_eventManager.subscribe(this, &Game::onUpdate, &Game::onKeyPress, &Game::onKeyHold, &Game::onCursorMove);
-
-        m_window.disableCursor();
+        m_eventManager.subscribe(this, &Game::onUpdate, &Game::onMouseButton, &Game::onKeyHold);
     };
 
     void Game::onUpdate(AppUpdateEvent const& event)
@@ -22,28 +20,13 @@ namespace game
         m_lastDelta = event.globalTimer.getDeltaTime().count();
     };
 
-    void Game::onKeyPress(KeyPressEvent const& event)
-    {
-        if (event.key == Key::Escape)
-        {
-            if (m_inputFocused)
-            {
-                m_window.enableCursor();
-                m_eventManager.unsubscribe(this, &Game::onCursorMove);
-                m_inputFocused = false;
-            }
-            else
-            {
-                m_window.disableCursor();
-                m_lastCursorPos = event.getInputManager()->getCurrentCursorPosition();
-                m_eventManager.subscribe(this, &Game::onCursorMove);
-                m_inputFocused = true;
-            }
-        }
-    }
-
     void Game::onKeyHold(KeyHoldEvent const& event)
     {
+        if (event.getInputManager()->isDown(Key::LeftControl))
+        {
+            return;
+        }
+
         double cameraSpeed = 0.005;
 
         auto positive = static_cast<float>(+cameraSpeed * m_lastDelta);
@@ -81,5 +64,30 @@ namespace game
         m_camera.pitch(dy);
 
         m_lastCursorPos = event.position;
+    }
+
+    void Game::onMouseButton(MouseButtonEvent const& event)
+    {
+        if (!(event.action == MouseButtonEvent::Action::Pressed))
+        {
+            return;
+        }
+
+        if (event.button == MouseButton::MouseButton5)
+        {
+            if (m_inputFocused)
+            {
+                m_window.enableCursor();
+                m_eventManager.unsubscribe(this, &Game::onCursorMove);
+                m_inputFocused = false;
+            }
+            else
+            {
+                m_window.disableCursor();
+                m_lastCursorPos = event.getInputManager()->getCurrentCursorPosition();
+                m_eventManager.subscribe(this, &Game::onCursorMove);
+                m_inputFocused = true;
+            }
+        }
     }
 }  // namespace game

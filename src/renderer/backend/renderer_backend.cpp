@@ -48,25 +48,6 @@ namespace
 
 namespace renderer::backend
 {
-    inline auto generateCheckerboard() -> std::array<uint32_t, static_cast<uint64_t>(16) * 16>
-    {
-        uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
-        uint32_t black   = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
-        std::array<uint32_t, static_cast<uint64_t>(16) * 16> pixels {};  //for 16x16 checkerboard texture
-                                                                         //
-        for (int x = 0; x < 16; x++)
-        {
-            for (int y = 0; y < 16; y++)
-            {
-                pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) != 0 ? magenta : black;
-            }
-        }
-
-        return pixels;
-    }
-
-    static auto white = glm::packUnorm4x8(glm::vec4(1, 1, 1, 1));  // NOLINT
-
     RendererBackend::RendererBackend(window::Window& window)
         // clang_format off
         : m_surface { window, m_instance },
@@ -107,7 +88,7 @@ namespace renderer::backend
                          static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
                          VK_IMAGE_ASPECT_DEPTH_BIT },
 
-          m_meshTexture(m_device, m_allocator, m_commandManager, StbiImage("res/textures/viking_room (2).png"))
+          m_meshTexture(m_device, m_allocator, m_commandManager, StbiImage("res/textures/container2.png"))
     // clang_format on
     {
         initImgui(window.getHandle());
@@ -115,38 +96,88 @@ namespace renderer::backend
         m_gpuSceneDataBuffer = BasicBuffer(
             m_allocator, sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
+        m_materialDataBuffer =
+            BasicBuffer(m_allocator, sizeof(Material), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
         initDescriptors();
-
-        {
-            Model model("res/models/viking_room.obj");
-
-            m_meshBuffers = uploadMesh(
-                m_device, m_allocator, m_commandManager, model.meshes[0].getVertices(), model.meshes[0].getIndices());
-
-            m_meshBuffers.indexCount = model.meshes[0].getIndices().size();
-        }
 
         auto pipelineLayoutConfig =
             PipelineLayoutConfig()
-                .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT)
-                .setDescriptorSetLayouts({ m_sceneDataDescriptorLayout, m_textureDescriptorsLayout });
+                .setDescriptorSetLayouts({ m_sceneDataDescriptorLayout })
+                .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT);
 
-        m_graphicsPipelineLayout = PipelineLayout(m_device, pipelineLayoutConfig);
+        m_texturelessPipelineLayout = PipelineLayout(m_device, pipelineLayoutConfig);
 
-        auto pipelineConfig = GraphicsPipelineConfig()
-                                  .addShader("shaders/main.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
-                                  .addShader("shaders/main.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
-                                  .setColorAttachmentFormat(m_drawImage.getFormat())
-                                  .setDepthAttachmentFormat(kDepthStencilFormat)
-                                  .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-                                  .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                  .setSampleCount(m_device.getMaxUsableSampleCount());
+        pipelineLayoutConfig.setDescriptorSetLayouts({ m_sceneDataDescriptorLayout, m_materialDescriptorLayout });
 
-        m_fillPipeline = GraphicsPipeline(m_device, m_graphicsPipelineLayout, pipelineConfig);
+        m_texturedPipelineLayout = PipelineLayout(m_device, pipelineLayoutConfig);
 
-        pipelineConfig.setPolygonMode(VK_POLYGON_MODE_LINE);
+        {
+            auto pipelineConfig = GraphicsPipelineConfig()
+                                      .addShader("shaders/main.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
+                                      .addShader("shaders/main.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
+                                      .setColorAttachmentFormat(m_drawImage.getFormat())
+                                      .setDepthAttachmentFormat(kDepthStencilFormat)
+                                      .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
+                                      .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+                                      .setSampleCount(m_device.getMaxUsableSampleCount());
 
-        m_wireframePipeline = GraphicsPipeline(m_device, m_graphicsPipelineLayout, pipelineConfig);
+            m_texturedPipeline = GraphicsPipeline(m_device, m_texturedPipelineLayout, pipelineConfig);
+        }
+
+        {
+            auto pipelineConfig = GraphicsPipelineConfig()
+                                      .addShader("shaders/textureless.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
+                                      .addShader("shaders/main.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
+                                      .setColorAttachmentFormat(m_drawImage.getFormat())
+                                      .setDepthAttachmentFormat(kDepthStencilFormat)
+                                      .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
+                                      .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+                                      .setSampleCount(m_device.getMaxUsableSampleCount());
+
+            m_texturelessPipeline = GraphicsPipeline(m_device, m_texturelessPipelineLayout, pipelineConfig);
+        }
+
+        {
+            Model sphereModel("res/models/uvsphere.obj");
+            Model cubeModel("res/models/cube.obj");
+
+            auto sphereMesh = uploadMesh(m_device,
+                                         m_allocator,
+                                         m_commandManager,
+                                         sphereModel.meshes[0].getVertices(),
+                                         sphereModel.meshes[0].getIndices());
+
+            auto cubeMesh = uploadMesh(m_device,
+                                       m_allocator,
+                                       m_commandManager,
+                                       cubeModel.meshes[0].getVertices(),
+                                       cubeModel.meshes[0].getIndices());
+
+            m_renderItems["model"] = {
+                .model    = glm::scale(glm::identity<glm::mat4>(), { 0.4f, 0.4f, 0.4f }),
+                .meshData = cubeMesh,
+                .layout   = m_texturedPipelineLayout,
+                .pipeline = m_texturedPipeline,
+            };
+
+            m_lightPos   = { 7.5f, 5.f, -2.5f };
+            m_lightColor = { 255.0 / 255.0, 150.0 / 255.0, 80.0 / 255.0 };
+
+            m_renderItems["light"] = {
+                .meshData = sphereMesh,
+                .layout   = m_texturelessPipelineLayout,
+                .pipeline = m_texturelessPipeline,
+            };
+        }
+
+        m_material = {
+            .ambient { 1.f,  0.5f, 0.31f },
+            .diffuse { 1.f,  0.f,  0.31f },
+            .specular { 0.5f, 0.5f, 0.5f  },
+            .shininess = 32.f,
+        };
+
 #if PROFILED
         for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
         {
@@ -171,8 +202,6 @@ namespace renderer::backend
         createSyncObjects();
     }
 
-    void RendererBackend::update_scene() {}
-
     RendererBackend::~RendererBackend()
     {
         if (static_cast<VkDevice>(m_device) != VK_NULL_HANDLE)
@@ -188,7 +217,7 @@ namespace renderer::backend
 
         m_descriptorAllocator.destroyPool(m_device);
         vkDestroyDescriptorSetLayout(m_device, m_sceneDataDescriptorLayout, nullptr);
-        vkDestroyDescriptorSetLayout(m_device, m_textureDescriptorsLayout, nullptr);
+        vkDestroyDescriptorSetLayout(m_device, m_materialDescriptorLayout, nullptr);
         vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
 
 #if PROFILED
@@ -203,9 +232,9 @@ namespace renderer::backend
     {
         {
             std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
-                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,          3},
-                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         3},
-                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         4 },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         4 },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
             };
 
             m_descriptorAllocator.initPool(m_device, 10, sizes);
@@ -219,13 +248,14 @@ namespace renderer::backend
         }
 
         {
-            m_textureDescriptorsLayout = DescriptorLayoutBuilder()
+            m_materialDescriptorLayout = DescriptorLayoutBuilder()
                                              .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                                             .addBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                                              .build(m_device, VK_SHADER_STAGE_FRAGMENT_BIT);
         }
 
         m_sceneDataDescriptors = m_descriptorAllocator.allocate(m_device, m_sceneDataDescriptorLayout);
-        m_textureDescriptors   = m_descriptorAllocator.allocate(m_device, m_textureDescriptorsLayout);
+        m_materialDescriptors  = m_descriptorAllocator.allocate(m_device, m_materialDescriptorLayout);
 
         {
             // Global scene data descriptor set
@@ -234,14 +264,15 @@ namespace renderer::backend
             writer.update_set(m_device, m_sceneDataDescriptors);
         }
         {
-            // Texture
+            // Texture and material
             DescriptorWriter writer;
             writer.write_image(0,
                                m_meshTexture.getImageView(),
                                m_meshTexture.getSampler(),
                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            writer.update_set(m_device, m_textureDescriptors);
+            writer.write_buffer(1, m_materialDataBuffer, sizeof(Material), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+            writer.update_set(m_device, m_materialDescriptors);
         }
     }
 
@@ -290,6 +321,9 @@ namespace renderer::backend
 
         ImGui_ImplGlfw_InitForVulkan(window, true);
 
+        ImGui::SetColorEditOptions(ImGuiColorEditFlags_Float | ImGuiColorEditFlags_DisplayRGB |
+                                   ImGuiColorEditFlags_PickerHueBar);
+
         ImGui_ImplVulkan_InitInfo initInfo {
             .Instance            = m_instance,
             .PhysicalDevice      = m_device,
@@ -321,11 +355,27 @@ namespace renderer::backend
         ImGui_ImplVulkan_CreateFontsTexture();
     }
 
-    void RendererBackend::update(glm::mat4 view, glm::mat4 projection)
+    void RendererBackend::update(glm::vec3 cameraPos, glm::mat4 view, glm::mat4 projection)
     {
         ZoneScopedN("Backend update");
 
-        updateDescriptors(glm::identity<glm::mat4>(), view, projection);
+        m_timer.tick();
+
+        float radius = 4.5f;
+
+        m_lightPos = {
+            radius *
+                glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+            radius *
+                glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+            radius *
+                glm::fastSin(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+        };
+
+        m_renderItems["light"].model = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
+                                       glm::translate(glm::identity<glm::mat4>(), m_lightPos);
+
+        updateDescriptors(cameraPos, glm::identity<glm::mat4>(), view, projection);
     }
 
     void RendererBackend::createSyncObjects()
@@ -370,18 +420,20 @@ namespace renderer::backend
         m_depthImage.resize(m_allocator, m_surface.getFramebufferExtent());
     }
 
-    void RendererBackend::updateDescriptors(glm::mat4 model, glm::mat4 view, glm::mat4 projection)
+    void RendererBackend::updateDescriptors(glm::vec3 cameraPos, glm::mat4 model, glm::mat4 view, glm::mat4 projection)
     {
         auto* sceneUniformData = static_cast<GPUSceneData*>(m_gpuSceneDataBuffer.getMappedData());
 
-        *sceneUniformData = GPUSceneData {
-            .view              = view,
-            .proj              = projection,
-            .viewproj          = projection * view,
-            .ambientColor      = glm::vec4(.1f),
-            .sunlightDirection = glm::vec4(0, 1, 0.5, 1.f),
-            .sunPower          = 1.f,
-            .sunlightColor     = glm::vec4(1.f),
-        };
+        *sceneUniformData = GPUSceneData { .view          = view,
+                                           .proj          = projection,
+                                           .viewproj      = projection * view,
+                                           .ambientColor  = glm::vec4(.1f),
+                                           .lightPosition = m_lightPos,
+                                           .lightColor    = m_lightColor,
+                                           .cameraPos     = cameraPos };
+
+        auto* materialUniformData = static_cast<Material*>(m_materialDataBuffer.getMappedData());
+        *materialUniformData      = m_material;
+
     }  // namespace renderer::backend
 }  // namespace renderer::backend

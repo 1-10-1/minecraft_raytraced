@@ -38,12 +38,8 @@ void Timer::tick()
     }
 
     m_latestTimePoint = Clock::now();
-
-    // Time difference between this frame and the previous.
-    m_deltaTime = m_latestTimePoint - m_prevTimePoint;
-
-    // prepare for next frame.
-    m_prevTimePoint = m_latestTimePoint;
+    m_deltaTime       = m_latestTimePoint - m_prevTimePoint;
+    m_prevTimePoint   = m_latestTimePoint;
 }
 
 void Timer::reset()

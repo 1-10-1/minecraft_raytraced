@@ -183,8 +183,8 @@ namespace renderer::backend
             .newLayout        = newLayout,
             .image            = image,
             .subresourceRange = {
-                .aspectMask     = (VkImageAspectFlags)(std::to_underlying((newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
-                                  ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT)),
+                .aspectMask     = static_cast<uint32_t>((newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+                                  ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT),
                 .baseMipLevel   = 0,
                 .levelCount     = VK_REMAINING_MIP_LEVELS,
                 .baseArrayLayer = 0,
@@ -388,8 +388,8 @@ namespace renderer::backend
 
         static VkSamplerCreateInfo samplerInfo {
             .sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            .magFilter               = VK_FILTER_LINEAR,
-            .minFilter               = VK_FILTER_LINEAR,
+            .magFilter               = VK_FILTER_NEAREST,
+            .minFilter               = VK_FILTER_NEAREST,
             .mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR,
             .addressModeU            = VK_SAMPLER_ADDRESS_MODE_REPEAT,
             .addressModeV            = VK_SAMPLER_ADDRESS_MODE_REPEAT,

@@ -9,7 +9,14 @@ public:
     using Seconds      = std::chrono::duration<double, std::ratio<1>>;
     using Milliseconds = std::chrono::duration<double, std::milli>;
 
-    Timer() { reset(); };
+    Timer()
+        : m_baseTimePoint { Clock::now() },
+          m_pauseTimePoint { m_baseTimePoint },
+          m_prevTimePoint { m_baseTimePoint },
+          m_latestTimePoint { m_baseTimePoint }
+    {
+        reset();
+    };
 
     Timer(Timer const&)                    = delete;
     auto operator=(Timer const&) -> Timer& = delete;
@@ -18,6 +25,8 @@ public:
     auto operator=(Timer&&) -> Timer& = delete;
 
     ~Timer() = default;
+
+    [[nodiscard]] auto isPaused() const -> bool { return m_isPaused; }
 
     template<typename duration = Milliseconds>
     [[nodiscard]] auto getTotalTime() const -> duration
@@ -44,8 +53,7 @@ public:
     void unpause();
 
 private:
-    std::chrono::time_point<Clock> m_baseTimePoint { Clock::now() }, m_pauseTimePoint { m_baseTimePoint },
-        m_prevTimePoint { m_baseTimePoint }, m_latestTimePoint { m_baseTimePoint };
+    std::chrono::time_point<Clock> m_baseTimePoint, m_pauseTimePoint, m_prevTimePoint, m_latestTimePoint;
 
     bool m_isPaused { false };
     Milliseconds m_deltaTime { 0.0 }, m_pauseTime { 0.0 };
