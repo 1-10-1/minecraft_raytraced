@@ -10,7 +10,7 @@ namespace game
     Game::Game(EventManager& eventManager, window::Window& window, Camera& camera)
         : m_window { window }, m_eventManager { eventManager }, m_camera { camera }
     {
-        m_camera.lookAt({ 2.f, 3.f, 2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
+        m_camera.lookAt(glm::vec3 { 2.f, 3.f, 2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
 
         m_eventManager.subscribe(this, &Game::onUpdate, &Game::onKeyPress, &Game::onKeyHold, &Game::onCursorMove);
 

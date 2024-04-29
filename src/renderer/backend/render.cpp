@@ -8,10 +8,10 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "imgui_internal.h"
+#include <glm/glm.hpp>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_core.h>
 
-// TODO(aether) implement a deletion queue
 namespace renderer::backend
 {
     void RendererBackend::render()
@@ -35,7 +35,7 @@ namespace renderer::backend
 
             if (result == VK_ERROR_OUT_OF_DATE_KHR)
             {
-                updateSwapchain();
+                handleSurfaceResize();
                 return;
             }
 
@@ -86,7 +86,7 @@ namespace renderer::backend
 
             if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_windowResized)
             {
-                updateSwapchain();
+                handleSurfaceResize();
                 m_windowResized = false;
             }
             else
@@ -97,6 +97,79 @@ namespace renderer::backend
 
         m_currentFrame = (m_currentFrame + 1) % kNumFramesInFlight;
         ++m_frameCount;
+    }
+
+    void RendererBackend::drawGeometry(VkCommandBuffer cmdBuf)
+    {
+        VkExtent2D imageExtent = m_drawImage.getDimensions();
+
+        VkRenderingAttachmentInfo colorAttachment =
+            infoStructs::attachment_info(m_drawImage.getImageView(), nullptr, VK_IMAGE_LAYOUT_GENERAL);
+
+        colorAttachment.resolveImageView   = m_drawImageResolve.getImageView();
+        colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        colorAttachment.resolveMode        = VK_RESOLVE_MODE_AVERAGE_BIT;
+
+        VkRenderingAttachmentInfo depthAttachment =
+            infoStructs::depth_attachment_info(m_depthImage.getImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+        VkRenderingInfo renderInfo = infoStructs::rendering_info(imageExtent, &colorAttachment, &depthAttachment);
+
+        vkCmdBeginRendering(cmdBuf, &renderInfo);
+
+        VkViewport viewport = {
+            .x        = 0,
+            .y        = 0,
+            .width    = static_cast<float>(imageExtent.width),
+            .height   = static_cast<float>(imageExtent.height),
+            .minDepth = 0.f,
+            .maxDepth = 1.f,
+        };
+
+        vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+
+        // clang-format off
+        VkRect2D scissor = {
+            .offset = { 0,                          0                            },
+            .extent = { .width = imageExtent.width, .height = imageExtent.height }
+        };
+        // clang-format on
+
+        vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+
+        m_stats.drawcall_count = 1;
+        m_stats.triangle_count = m_meshBuffers.indexCount / 3;
+
+        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_wireframe ? m_wireframePipeline : m_fillPipeline);
+
+        std::array descriptorSets { m_sceneDataDescriptors, m_textureDescriptors };
+
+        vkCmdBindDescriptorSets(cmdBuf,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                m_graphicsPipelineLayout,
+                                0,
+                                descriptorSets.size(),
+                                descriptorSets.data(),
+                                0,
+                                nullptr);
+
+        GPUDrawPushConstants push_constants {
+            .model        = glm::identity<glm::mat4>(),
+            .vertexBuffer = m_meshBuffers.vertexBufferAddress,
+        };
+
+        vkCmdPushConstants(cmdBuf,
+                           m_graphicsPipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT,
+                           0,
+                           sizeof(GPUDrawPushConstants),
+                           &push_constants);
+
+        vkCmdBindIndexBuffer(cmdBuf, m_meshBuffers.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdDrawIndexed(cmdBuf, m_meshBuffers.indexCount, 1, 0, 0, 0);
+
+        vkCmdEndRendering(cmdBuf);
     }
 
     void RendererBackend::recordCommandBuffer(uint32_t imageIndex)
@@ -113,77 +186,52 @@ namespace renderer::backend
         vkBeginCommandBuffer(cmdBuf, &beginInfo) >> vkResultChecker;
 
         {
-            TracyVkZone(tracyCtx, cmdBuf, "GPU Render");
+            TracyVkZone(tracyCtx, cmdBuf, "Command buffer recording");
 
-            // std::array clearColors = { VkClearValue { .color = { { 252.f / 255, 165.f / 255, 144.f / 255, 1.0f } } },
-            //                            VkClearValue { .depthStencil = { 1.0f, 0 } } };
-
-            // VkRenderPassBeginInfo renderPassInfo {
-            //     .sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            //     .renderPass  = m_renderPass,
-            //     .framebuffer = m_framebuffers[imageIndex],
-            //     .renderArea  = {
-            //         .offset = { 0, 0 },
-            //         .extent = imageExtent,
-            //     },
-            //     .clearValueCount = utils::size(clearColors),
-            //     .pClearValues    = clearColors.data(),
-            // };
-            //
-            // vkCmdBeginRenderPass(cmdBuf, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-            //
-            // vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-            //
-            // auto vertexBuffers = std::to_array<VkBuffer>({ m_vertexBuffer });
-            // auto offsets       = std::to_array<VkDeviceSize>({ 0 });
-            //
-            // vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers.data(), offsets.data());
-            //
-            // vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             VkImage swapchainImage = m_swapchain.getImages()[imageIndex];
             VkExtent2D imageExtent = m_swapchain.getImageExtent();
 
-            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            Image::transition(
+                cmdBuf, m_depthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-            ComputeEffect& effect = m_computePipeline.getEffects()[m_currentBackgroundEffect];
+            VkClearColorValue clearValue {
+                {33.f / 255.f, 33.f / 255.f, 33.f / 255.f, 1.f}
+            };
 
-            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, effect.pipeline);
+            VkImageSubresourceRange range = infoStructs::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
-            vkCmdBindDescriptorSets(cmdBuf,
-                                    VK_PIPELINE_BIND_POINT_COMPUTE,
-                                    m_computePipeline.getLayout(),
-                                    0,
-                                    1,
-                                    &m_drawImageDescriptors,
-                                    0,
-                                    nullptr);
+            vkCmdClearColorImage(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &range);
 
-            vkCmdPushConstants(cmdBuf,
-                               m_computePipeline.getLayout(),
-                               VK_SHADER_STAGE_COMPUTE_BIT,
-                               0,
-                               sizeof(ComputePushConstants),
-                               &effect.data);
+            Image::transition(
+                cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-            vkCmdDispatch(cmdBuf, std::ceil(imageExtent.width / 32.0), std::ceil(imageExtent.height / 32.0), 1);
+            {
+                TracyVkZone(tracyCtx, cmdBuf, "Geometry render");
 
-            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-            Image::transition(cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                drawGeometry(cmdBuf);
+            }
 
-            m_drawImage.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
-            renderImgui(cmdBuf, m_swapchain.getImageViews()[imageIndex]);
+            {
+                TracyVkZone(tracyCtx, cmdBuf, "Draw image copy");
+
+                Image::transition(
+                    cmdBuf, m_drawImageResolve, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+                Image::transition(
+                    cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+                m_drawImageResolve.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
+            }
+
+            {
+                TracyVkZone(tracyCtx, cmdBuf, "ImGui render");
+
+                renderImgui(cmdBuf, m_swapchain.getImageViews()[imageIndex]);
+            }
 
             Image::transition(
                 cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-            // m_descriptorManager.bind(cmdBuf, m_pipeline.getLayout(), m_currentFrame);
-
-            // {
-            //     TracyVkNamedZone(tracyCtx, tracy_vkdraw_zone, cmdBuf, "Draw call", true);
-            //     vkCmdDrawIndexed(cmdBuf, m_numIndices, 1, 0, 0, 0);
-            // }
-
-            // vkCmdEndRenderPass(cmdBuf);
         }
 
         TracyVkCollect(tracyCtx, cmdBuf);
@@ -193,11 +241,6 @@ namespace renderer::backend
 
     void RendererBackend::renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage)
     {
-#if PROFILED
-        TracyVkCtx tracyCtx = m_frameResources[m_currentFrame].tracyContext;
-#endif
-        TracyVkNamedZone(tracyCtx, tracy_imguidraw_zone, cmdBuf, "ImGui draw", true);
-
         ImGuiIO& io = ImGui::GetIO();
 
         static double frametime                             = 0.0;
@@ -248,28 +291,11 @@ namespace renderer::backend
             ImGui::TextColored(
                 ImVec4(255.f / 255, 215.f / 255, 100.f / 255, 1.f), "Vsync: %s", m_surface.getVsync() ? "on" : "off");
 
+            ImGui::Text("Triangles %i", m_stats.triangle_count);
+            ImGui::Text("Draws %i", m_stats.drawcall_count);
+
             ImGui::End();
         }
-
-        {
-            if (ImGui::Begin("background"))
-            {
-                ComputeEffect& selected = m_computePipeline.getEffects()[m_currentBackgroundEffect];
-
-                ImGui::Text("Selected effect: ", selected.name);
-
-                ImGui::SliderInt(
-                    "Effect Index", &m_currentBackgroundEffect, 0, m_computePipeline.getEffects().size() - 1);
-
-                ImGui::InputFloat4("data1", (float*)&selected.data.data1);
-                ImGui::InputFloat4("data2", (float*)&selected.data.data2);
-                ImGui::InputFloat4("data3", (float*)&selected.data.data3);
-                ImGui::InputFloat4("data4", (float*)&selected.data.data4);
-
-                ImGui::End();
-            }
-        }
-
         ImGui::Render();
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuf);
 

@@ -16,56 +16,12 @@ namespace renderer::backend
         glm::vec4 data1 {}, data2 {}, data3 {}, data4 {};
     };
 
-    class Vertex
+    struct Vertex
     {
-    public:
         glm::vec3 position;
+        float uv_x;
         glm::vec3 normal;
-        glm::vec2 texCoords;
-        glm::vec3 tangent;
-        glm::vec3 bitangent;
-
-        static auto getBindingDescription() -> VkVertexInputBindingDescription
-        {
-            return { .binding = 0, .stride = sizeof(Vertex), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX };
-        }
-
-        static auto getAttributeDescriptions()
-        {
-            // clang-format off
-            return std::to_array<VkVertexInputAttributeDescription>({
-                {
-                    .location = 0,
-                    .binding  = 0,
-                    .format   = VK_FORMAT_R32G32B32_SFLOAT,
-                    .offset   = utils::member_offset(&Vertex::position),
-                },
-                {
-                    .location = 1,
-                    .binding  = 0,
-                    .format   = VK_FORMAT_R32G32B32_SFLOAT,
-                    .offset   = utils::member_offset(&Vertex::normal),
-                },
-                {
-                    .location = 2,
-                    .binding  = 0,
-                    .format   = VK_FORMAT_R32G32_SFLOAT,
-                    .offset   = utils::member_offset(&Vertex::texCoords),
-                },
-                {
-                    .location = 3,
-                    .binding  = 0,
-                    .format   = VK_FORMAT_R32G32B32_SFLOAT,
-                    .offset   = utils::member_offset(&Vertex::tangent),
-                },
-                {
-                    .location = 4,
-                    .binding  = 0,
-                    .format   = VK_FORMAT_R32G32B32_SFLOAT,
-                    .offset   = utils::member_offset(&Vertex::bitangent),
-                }
-            });
-            // clang-format on
-        }
+        float uv_y;
+        glm::vec4 color;
     };
 }  // namespace renderer::backend

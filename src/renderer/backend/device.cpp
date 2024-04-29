@@ -1,3 +1,4 @@
+#include "mc/renderer/backend/constants.hpp"
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/device.hpp>
@@ -225,21 +226,11 @@ namespace renderer::backend
         {
             if ((count & sampleCounts) != 0)
             {
-                // m_sampleCount = count;
-                m_sampleCount = VK_SAMPLE_COUNT_1_BIT;
+                m_sampleCount = count > kMaxSamples ? kMaxSamples : count;
             }
         }
 
-        logger::info("Using msaa x{}", std::to_underlying(m_sampleCount));
-
-        logger::debug("Work group size: {}x{}x{} | Work group invocations: {} | Work group count: {}x{}x{}",
-                      bestCandidate.properties.limits.maxComputeWorkGroupSize[0],
-                      bestCandidate.properties.limits.maxComputeWorkGroupSize[1],
-                      bestCandidate.properties.limits.maxComputeWorkGroupSize[2],
-                      bestCandidate.properties.limits.maxComputeWorkGroupInvocations,
-                      bestCandidate.properties.limits.maxComputeWorkGroupCount[0],
-                      bestCandidate.properties.limits.maxComputeWorkGroupCount[1],
-                      bestCandidate.properties.limits.maxComputeWorkGroupCount[2]);
+        logger::info("Sample count set to {}", std::to_underlying(m_sampleCount));
 
         std::string_view deviceType;
 
@@ -300,7 +291,9 @@ namespace renderer::backend
         VkPhysicalDeviceFeatures2 deviceFeatures {
             .sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
             .pNext    = &features13,
-            .features = { .samplerAnisotropy = VK_TRUE },
+            .features = { .fillModeNonSolid              = VK_TRUE,
+                          .samplerAnisotropy             = VK_TRUE,
+                          .shaderStorageImageMultisample = VK_TRUE, },
         };
 
         VkDeviceCreateInfo deviceCreateInfo {

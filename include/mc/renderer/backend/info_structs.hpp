@@ -18,6 +18,16 @@ namespace renderer::backend::infoStructs
         };
     }
 
+    constexpr auto depth_attachment_info(VkImageView view, VkImageLayout layout) -> VkRenderingAttachmentInfo
+    {
+        return { .sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                 .imageView   = view,
+                 .imageLayout = layout,
+                 .loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                 .storeOp     = VK_ATTACHMENT_STORE_OP_STORE,
+                 .clearValue { .depthStencil { .depth = 0.f } } };
+    }
+
     constexpr auto rendering_info(VkExtent2D renderExtent,
                                   VkRenderingAttachmentInfo* colorAttachment,
                                   VkRenderingAttachmentInfo* depthAttachment) -> VkRenderingInfo

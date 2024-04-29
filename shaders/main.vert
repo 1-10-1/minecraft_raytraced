@@ -1,21 +1,43 @@
 #version 460
 
-layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec2 inNormal;
-layout(location = 2) in vec2 inTexCoord;
-layout(location = 3) in vec2 inTangent;
-layout(location = 4) in vec2 inBitangent;
+#extension GL_EXT_buffer_reference : require
 
-layout(location = 0) out vec2 fragTexCoord;
+layout (location = 0) out vec2 outUV;
 
-layout(binding = 0) uniform UBO {
-    mat4 model;
-    mat4 view;
-    mat4 projection;
-} ubo;
+struct Vertex {
+	vec3 position;
+	float uv_x;
+	vec3 normal;
+	float uv_y;
+	vec4 color;
+};
 
-void main() {
-    gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPosition, 1.0);
-    fragTexCoord = inTexCoord;
+layout(buffer_reference, std430) readonly buffer VertexBuffer {
+	Vertex vertices[];
+};
+
+layout(push_constant) uniform PushConstants
+{
+	mat4 model;
+	VertexBuffer vertexBuffer;
+} constants;
+
+layout(binding = 0) uniform SceneData {
+	mat4 view;
+	mat4 proj;
+	mat4 viewProj;
+	vec4 ambientColor;
+	vec3 sunlightDirection;
+	float sunPower;
+	vec4 sunlightColor;
+} sceneData;
+
+void main()
+{
+	Vertex vertex = constants.vertexBuffer.vertices[gl_VertexIndex];
+
+	gl_Position = sceneData.viewProj * constants.model * vec4(vertex.position, 1.0f);
+
+	outUV.x = vertex.uv_x;
+	outUV.y = vertex.uv_y;
 }
-

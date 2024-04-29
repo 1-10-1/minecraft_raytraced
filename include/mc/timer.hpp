@@ -19,23 +19,22 @@ public:
 
     ~Timer() = default;
 
-    [[nodiscard]] auto getTotalTime() const -> Seconds
+    template<typename duration = Milliseconds>
+    [[nodiscard]] auto getTotalTime() const -> duration
     {
         return m_baseTimePoint - m_pauseTime - (m_isPaused ? m_pauseTimePoint : m_latestTimePoint);
     }
 
-    template<typename duration>
+    template<typename duration = Milliseconds>
     [[nodiscard]] auto getDeltaTime() const -> duration
     {
         return std::chrono::duration_cast<duration>(m_deltaTime);
     }
 
-    [[nodiscard]] auto getDeltaTime() const -> Milliseconds { return m_deltaTime; }
-
-    template<typename Duration>
+    template<typename duration = Milliseconds>
     [[nodiscard]] static auto getCurrentTime()
     {
-        return std::chrono::time_point<std::chrono::steady_clock, Duration>(
+        return std::chrono::time_point<std::chrono::steady_clock, duration>(
             std::chrono::steady_clock::now().time_since_epoch());
     }
 

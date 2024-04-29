@@ -1,19 +1,21 @@
 #pragma once
 
 #include "allocator.hpp"
+#include "buffer.hpp"
 #include "command.hpp"
 #include "constants.hpp"
 #include "descriptor.hpp"
 #include "device.hpp"
 #include "image.hpp"
 #include "instance.hpp"
+#include "mesh.hpp"
 #include "pipeline.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
-#include "vertex.hpp"
 
 #include "vk_mem_alloc.h"
 #include <GLFW/glfw3.h>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/vector_uint2.hpp>
 #include <glm/mat4x4.hpp>
 #include <tracy/TracyVulkan.hpp>
@@ -22,6 +24,23 @@
 
 namespace renderer::backend
 {
+    struct GPUDrawPushConstants
+    {
+        glm::mat4 model { glm::identity<glm::mat4>() };
+        VkDeviceAddress vertexBuffer {};
+    };
+
+    struct GPUSceneData
+    {
+        glm::mat4 view;
+        glm::mat4 proj;
+        glm::mat4 viewproj;
+        glm::vec4 ambientColor;
+        glm::vec3 sunlightDirection;
+        float sunPower;
+        glm::vec4 sunlightColor;
+    };
+
     struct FrameResources
     {
         VkSemaphore imageAvailableSemaphore { VK_NULL_HANDLE };
@@ -36,9 +55,7 @@ namespace renderer::backend
     class RendererBackend
     {
     public:
-        explicit RendererBackend(window::Window& window,
-                                 std::vector<Vertex> const& vertices,
-                                 std::vector<uint32_t> const& indices);
+        explicit RendererBackend(window::Window& window);
 
         RendererBackend(RendererBackend const&)                    = delete;
         RendererBackend(RendererBackend&&)                         = delete;
@@ -65,41 +82,56 @@ namespace renderer::backend
             scheduleSwapchainUpdate();
         }
 
+        void toggleWireframe() { m_wireframe = !m_wireframe; }
+
     private:
         void initImgui(GLFWwindow* window);
         void renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage);
 
+        void drawGeometry(VkCommandBuffer cmdBuf);
+
         void initDescriptors();
 
-        void updateSwapchain();
+        void handleSurfaceResize();
         void createSyncObjects();
         void destroySyncObjects();
-        void updateUniforms(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
+        void updateDescriptors(glm::mat4 model, glm::mat4 view, glm::mat4 projection);
+        void update_scene();
 
         Instance m_instance;
         Surface m_surface;
         Device m_device;
+        Swapchain m_swapchain;
         Allocator m_allocator;
         DescriptorAllocator m_descriptorAllocator {};
-        ComputePipeline m_computePipeline;
         CommandManager m_commandManager;
 
-        Image m_drawImage;
-        VkDescriptorSet m_drawImageDescriptors { VK_NULL_HANDLE };
-        VkDescriptorSetLayout m_drawImageDescriptorLayout { VK_NULL_HANDLE };
-        VkDescriptorPool m_imGuiPool { VK_NULL_HANDLE };
+        Image m_drawImage, m_drawImageResolve, m_depthImage;
+        VkDescriptorSet m_sceneDataDescriptors {}, m_textureDescriptors {};
+        VkDescriptorSetLayout m_sceneDataDescriptorLayout {}, m_textureDescriptorsLayout {};
 
-        Swapchain m_swapchain;
+        VkDescriptorPool m_imGuiPool {};
+
+        PipelineLayout m_graphicsPipelineLayout;
+        GraphicsPipeline m_fillPipeline, m_wireframePipeline;
+
+        GPUSceneData m_sceneData {};
+        BasicBuffer m_gpuSceneDataBuffer, m_materialConstants;
+
+        GPUMeshData m_meshBuffers {};
+        Texture m_meshTexture;
+
+        struct EngineStats
+        {
+            uint64_t triangle_count;
+            uint64_t drawcall_count;
+        } m_stats {};
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 
-        int m_currentBackgroundEffect { 0 };
-
         uint32_t m_currentFrame { 0 };
 
-        bool m_windowResized { false };
-
-        size_t m_numIndices;
+        bool m_windowResized { false }, m_wireframe { false };
 
         uint64_t m_frameCount {};
     };

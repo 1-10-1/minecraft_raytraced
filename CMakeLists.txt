@@ -16,6 +16,8 @@ if(NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug or Release)" FORCE)
 endif()
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+
 add_subdirectory(lib)
 
 list(APPEND SOURCE_FILES
@@ -26,15 +28,16 @@ list(APPEND SOURCE_FILES
     src/utils.cpp
     src/window.cpp
     src/camera.cpp
-    src/assetloader.cpp
 
     src/game/game.cpp
 
     src/renderer/backend/vk_checker.cpp
+    src/renderer/backend/tinyobjloader.cpp
     src/renderer/backend/renderer_backend.cpp
+    src/renderer/backend/stb.cpp
     src/renderer/backend/render.cpp
+    src/renderer/backend/mesh.cpp
     src/renderer/backend/instance.cpp
-    # src/renderer/backend/framebuffers.cpp
     src/renderer/backend/surface.cpp
     src/renderer/backend/image.cpp
     src/renderer/backend/buffer.cpp
@@ -44,7 +47,6 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/allocator.cpp
     src/renderer/backend/descriptor.cpp
     src/renderer/backend/swapchain.cpp
-    # src/renderer/backend/render_pass.cpp
     src/renderer/backend/device.cpp
     src/renderer/renderer.cpp
 )
@@ -62,6 +64,7 @@ list(APPEND SOURCE_FILES
 #   -header-filter=${CMAKE_CURRENT_SOURCE_DIR}/include/*;
 # )
 
+find_package(ASSIMP REQUIRED)
 
 list(APPEND LIBS
     fmt
@@ -71,10 +74,17 @@ list(APPEND LIBS
     glfw
     magic_enum::magic_enum
     Tracy::TracyClient
+<<<<<<< HEAD
     assimp::assimp
+=======
+    tinyobjloader
+    stdc++exp
+>>>>>>> ef3ee02882f217b5a43ab0e7b02839e9852691ce
     stb
     imgui
     GPUOpen::VulkanMemoryAllocator
+    fastgltf::fastgltf
+    assimp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
@@ -101,6 +111,7 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
 
+<<<<<<< HEAD
 
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE
@@ -113,16 +124,23 @@ else()
         -Wno-deprecated-declarations -march=native -flto
         $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
         $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
+=======
+target_compile_options(${PROJECT_NAME} PRIVATE
+    -std=c++23 -Wall -Wunused -mavx2 -Werror
+    -Wno-format -Wno-switch
+    -Wno-deprecated-declarations -march=native -flto=auto
+    -Wno-sign-compare
+    $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
+    $<$<CONFIG:Debug>:-mtune=native -g> # -fsanitize=address -g -fno-omit-frame-pointer>
+>>>>>>> ef3ee02882f217b5a43ab0e7b02839e9852691ce
 )
 endif()
 
-target_link_options(${PROJECT_NAME} PRIVATE -flto) #-fsanitize=address -g -fno-omit-frame-pointer)
+target_link_options(${PROJECT_NAME} PRIVATE -flto=auto) #-fsanitize=address -g -fno-omit-frame-pointer)
 
 set(SHADER_FILES
     ${CMAKE_SOURCE_DIR}/shaders/main.frag
     ${CMAKE_SOURCE_DIR}/shaders/main.vert
-    ${CMAKE_SOURCE_DIR}/shaders/gradient_color.comp
-    ${CMAKE_SOURCE_DIR}/shaders/sky.comp
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
@@ -196,4 +214,3 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/res $<TARGET_FILE_DIR:${PROJECT_NAME}>/res
 )
-

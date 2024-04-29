@@ -20,6 +20,8 @@ namespace renderer::backend
         // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VmaAllocator() const { return m_allocator; }
 
+        [[nodiscard]] auto get() const -> VmaAllocator { return m_allocator; }
+
     private:
         VmaAllocator m_allocator {};
     };

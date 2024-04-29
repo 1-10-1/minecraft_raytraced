@@ -11,16 +11,13 @@
 namespace renderer
 {
     Renderer::Renderer(EventManager& eventManager, window::Window& window, Camera& camera)
-        : m_camera { camera },
-          m_model { Model("res/models/viking_room.obj") },
-          m_backend { backend::RendererBackend(
-              window, m_model.meshes[0].getVertices(), m_model.meshes[0].getIndices()) }
+        : m_camera { camera }, m_backend { backend::RendererBackend(window) }
 
     {
         eventManager.subscribe(
             this, &Renderer::onRender, &Renderer::onUpdate, &Renderer::onFramebufferResize, &Renderer::onKeyPress);
 
-        camera.setLens(glm::radians(45.0f), m_backend.getFramebufferSize(), 0.1f, 1000.f);
+        camera.setLens(glm::radians(45.0f), m_backend.getFramebufferSize(), 1000.f, 0.1f);
     }
 
     void Renderer::onRender(AppRenderEvent const& /* unused */)
@@ -39,9 +36,24 @@ namespace renderer
 
     void Renderer::onKeyPress(KeyPressEvent const& event)
     {
-        if (event.key == Key::V && !event.repeated)
+        if (event.repeated)
         {
-            m_backend.toggleVsync();
+            return;
+        }
+
+        switch (event.key)
+        {
+            case Key::V:
+                {
+                    m_backend.toggleVsync();
+                    break;
+                }
+            case Key::X:
+                {
+                    m_backend.toggleWireframe();
+
+                    break;
+                }
         }
     }
 

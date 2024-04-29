@@ -34,9 +34,9 @@ add_subdirectory(tracy)
 endif()
 
 # Assimp
-set(ASSIMP_BUILD_TESTS OFF)
-set(ASSIMP_WARNINGS_AS_ERRORS OFF)
-add_subdirectory(assimp)
+# set(ASSIMP_BUILD_TESTS OFF)
+# set(ASSIMP_WARNINGS_AS_ERRORS OFF)
+# add_subdirectory(assimp)
 
 # STB
 add_subdirectory(stb)
@@ -46,4 +46,8 @@ add_subdirectory(imgui)
 
 # Vulkan Memory Allocator
 add_subdirectory(vma)
+
+# Vulkan Memory Allocator
+set(FASTGLTF_COMPILE_AS_CPP20 ON)
+add_subdirectory(fastgltf)
 
