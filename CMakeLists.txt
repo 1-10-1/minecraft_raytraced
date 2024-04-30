@@ -171,6 +171,7 @@ foreach(SHADER_FILE ${SHADER_FILES})
                 --target-spv=spv1.6
                 --target-env=vulkan1.3
                 -fshader-stage=${SHADER_TYPE}
+                -g
         DEPENDS ${SHADER_FILE}
         COMMENT "Compiling ${SHADER_TYPE} shader: ${SHADER_FILE}"
     )
@@ -185,6 +186,7 @@ foreach(SHADER_FILE ${SHADER_FILES})
                     --target-spv=spv1.6
                     --target-env=vulkan1.3
                     -fshader-stage=${SHADER_TYPE}
+                -g
             DEPENDS ${SHADER_FILE}
             COMMENT "Compiling ${SHADER_TYPE} shader assembly: ${SHADER_FILE}"
         )
