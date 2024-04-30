@@ -31,7 +31,7 @@ void main()
     float diff = max(dot(norm, lightDir), 0.0);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
 
-    vec3 ambient = ambientIntensity * sceneData.lightColor * matDiffuse.xyz;
+    vec3 ambient = ambientIntensity * matDiffuse.xyz;
     vec3 diffuse = diffuseIntensity * diff * sceneData.lightColor * matDiffuse.xyz;
     vec3 specular = specularIntensity * spec * texture(specularTex, uv).xyz;
 
