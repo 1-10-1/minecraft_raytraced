@@ -88,7 +88,11 @@ namespace renderer::backend
                          static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
                          VK_IMAGE_ASPECT_DEPTH_BIT },
 
-          m_meshTexture(m_device, m_allocator, m_commandManager, StbiImage("res/textures/container2.png"))
+          m_diffuseTexture { m_device, m_allocator, m_commandManager, StbiImage("res/textures/container2cube.png") },
+
+          m_specularTexture {
+              m_device, m_allocator, m_commandManager, StbiImage("res/textures/container2speccube.png")
+          }
     // clang_format on
     {
         initImgui(window.getHandle());
@@ -119,8 +123,10 @@ namespace renderer::backend
                                       .setColorAttachmentFormat(m_drawImage.getFormat())
                                       .setDepthAttachmentFormat(kDepthStencilFormat)
                                       .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-                                      .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                      .setSampleCount(m_device.getMaxUsableSampleCount());
+                                      // NOTE: Culling is disabled
+                                      .setCullingSettings(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+                                      .setSampleCount(m_device.getMaxUsableSampleCount())
+                                      .setSampleShadingSettings(true, 0.1f);
 
             m_texturedPipeline = GraphicsPipeline(m_device, m_texturedPipelineLayout, pipelineConfig);
         }
@@ -140,7 +146,7 @@ namespace renderer::backend
 
         {
             Model sphereModel("res/models/uvsphere.obj");
-            Model cubeModel("res/models/cube.obj");
+            Model cubeModel("res/models/blendercube.obj");
 
             auto sphereMesh = uploadMesh(m_device,
                                          m_allocator,
@@ -162,7 +168,7 @@ namespace renderer::backend
             };
 
             m_lightPos   = { 7.5f, 5.f, -2.5f };
-            m_lightColor = { 255.0 / 255.0, 150.0 / 255.0, 80.0 / 255.0 };
+            m_lightColor = { 1.f, 1.f, 1.f };
 
             m_renderItems["light"] = {
                 .meshData = sphereMesh,
@@ -172,9 +178,6 @@ namespace renderer::backend
         }
 
         m_material = {
-            .ambient { 1.f,  0.5f, 0.31f },
-            .diffuse { 1.f,  0.f,  0.31f },
-            .specular { 0.5f, 0.5f, 0.5f  },
             .shininess = 32.f,
         };
 
@@ -232,9 +235,9 @@ namespace renderer::backend
     {
         {
             std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
-                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         4 },
-                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         4 },
-                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
+                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,          4},
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         4},
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
             };
 
             m_descriptorAllocator.initPool(m_device, 10, sizes);
@@ -250,7 +253,8 @@ namespace renderer::backend
         {
             m_materialDescriptorLayout = DescriptorLayoutBuilder()
                                              .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                                             .addBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                                             .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                                             .addBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                                              .build(m_device, VK_SHADER_STAGE_FRAGMENT_BIT);
         }
 
@@ -267,11 +271,16 @@ namespace renderer::backend
             // Texture and material
             DescriptorWriter writer;
             writer.write_image(0,
-                               m_meshTexture.getImageView(),
-                               m_meshTexture.getSampler(),
+                               m_diffuseTexture.getImageView(),
+                               m_diffuseTexture.getSampler(),
                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            writer.write_buffer(1, m_materialDataBuffer, sizeof(Material), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+            writer.write_image(1,
+                               m_specularTexture.getImageView(),
+                               m_specularTexture.getSampler(),
+                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                               VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            writer.write_buffer(2, m_materialDataBuffer, sizeof(Material), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
             writer.update_set(m_device, m_materialDescriptors);
         }
     }

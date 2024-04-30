@@ -9,6 +9,5 @@ target_include_directories(stb SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/stb)
 target_compile_definitions(stb PUBLIC)
 
 target_compile_options(stb PRIVATE
-    /w
 )
 

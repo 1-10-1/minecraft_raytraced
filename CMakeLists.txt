@@ -79,6 +79,7 @@ list(APPEND LIBS
     imgui
     GPUOpen::VulkanMemoryAllocator
     fastgltf::fastgltf
+    assimp
 )
 
 if (MSVC)

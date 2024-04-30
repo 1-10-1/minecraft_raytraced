@@ -349,12 +349,6 @@ namespace renderer::backend
 
             ImGui::Begin("Material");
 
-            ImGui::ColorPicker3("Diffuse", glm::value_ptr(m_material.diffuse));
-
-            ImGui::ColorPicker3("Ambient", glm::value_ptr(m_material.ambient));
-
-            ImGui::ColorPicker3("Specular", glm::value_ptr(m_material.specular));
-
             ImGui::SliderFloat("Shininess", &m_material.shininess, 0.f, 100.f);
 
             ImGui::End();

@@ -291,7 +291,8 @@ namespace renderer::backend
         VkPhysicalDeviceFeatures2 deviceFeatures {
             .sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
             .pNext    = &features13,
-            .features = { .fillModeNonSolid              = VK_TRUE,
+            .features = { .sampleRateShading             = VK_TRUE,
+                          .fillModeNonSolid              = VK_TRUE,
                           .samplerAnisotropy             = VK_TRUE,
                           .shaderStorageImageMultisample = VK_TRUE, },
         };

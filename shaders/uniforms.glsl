@@ -9,3 +9,4 @@ layout(set = 0, binding = 0) uniform SceneData {
     float pad2;
     vec3 cameraPos;
 } sceneData;
+

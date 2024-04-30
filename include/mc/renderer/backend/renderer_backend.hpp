@@ -45,11 +45,6 @@ namespace renderer::backend
 
     struct alignas(16) Material
     {
-        glm::vec3 ambient;
-        float pad1;
-        glm::vec3 diffuse;
-        float pad2;
-        glm::vec3 specular;
         float shininess;
     };
 
@@ -141,7 +136,7 @@ namespace renderer::backend
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 
-        Texture m_meshTexture;
+        Texture m_diffuseTexture, m_specularTexture;
         Material m_material {};
 
         Timer m_timer;
