@@ -16,24 +16,35 @@ layout(set = 1, binding = 2) uniform Material {
     float shininess;
 } material;
 
-void main() 
-{
-	float ambientIntensity = 0.2;
-	float diffuseIntensity = 1.0;
-	float specularIntensity = 1.0;
+vec3 calcPointLightContribution() {
+    float ambientIntensity = 0.2;
+    float diffuseIntensity = 1.0;
+    float specularIntensity = 1.0;
+
+    float distance    = length(pointLight.position - fragPos);
+    float attenuation = 1.0 / (
+	pointLight.attenuationFactors.constant
+      + pointLight.attenuationFactors.linear    * distance
+      + pointLight.attenuationFactors.quadratic * distance * distance
+    );
 
     vec4 matDiffuse = texture(diffuseTex, uv);
 
     vec3 norm = normalize(normal);
-    vec3 lightDir = normalize(sceneData.lightPos - fragPos);
+    vec3 lightDir = normalize(pointLight.position - fragPos);
     vec3 viewDir = normalize(sceneData.cameraPos - fragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
     float diff = max(dot(norm, lightDir), 0.0);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
 
     vec3 ambient = ambientIntensity * matDiffuse.xyz;
-    vec3 diffuse = diffuseIntensity * diff * sceneData.lightColor * matDiffuse.xyz;
+    vec3 diffuse = diffuseIntensity * diff * pointLight.color * matDiffuse.xyz;
     vec3 specular = specularIntensity * spec * texture(specularTex, uv).xyz;
 
-    outFragColor = vec4((specular + diffuse + ambient), 1.0);
+    return attenuation * (specular + diffuse + ambient);
+}
+
+void main() 
+{
+    outFragColor = vec4(calcPointLightContribution(), 1.0);
 }

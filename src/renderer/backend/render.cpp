@@ -330,13 +330,13 @@ namespace renderer::backend
 
             ImGui::Begin("Light", nullptr, window_flags);
 
-            ImGui::TextColored({ m_lightColor.r, m_lightColor.g, m_lightColor.b, 1.f },
+            ImGui::TextColored({ m_light.color.r, m_light.color.g, m_light.color.b, 1.f },
                                "{ %.1f, %.1f %.1f }",
-                               m_lightPos.x,
-                               m_lightPos.y,
-                               m_lightPos.z);
+                               m_light.position.x,
+                               m_light.position.y,
+                               m_light.position.z);
 
-            ImGui::ColorPicker3("Color", glm::value_ptr(m_lightColor));
+            ImGui::ColorPicker3("Color", glm::value_ptr(m_light.color));
 
             ImGui::End();
         }

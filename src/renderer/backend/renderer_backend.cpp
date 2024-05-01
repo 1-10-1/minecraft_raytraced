@@ -100,6 +100,9 @@ namespace renderer::backend
         m_gpuSceneDataBuffer = BasicBuffer(
             m_allocator, sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
+        m_lightDataBuffer =
+            BasicBuffer(m_allocator, sizeof(Light), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
         m_materialDataBuffer =
             BasicBuffer(m_allocator, sizeof(Material), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
@@ -160,21 +163,47 @@ namespace renderer::backend
                                        cubeModel.meshes[0].getVertices(),
                                        cubeModel.meshes[0].getIndices());
 
-            m_renderItems["model"] = {
-                .model    = glm::scale(glm::identity<glm::mat4>(), { 0.4f, 0.4f, 0.4f }),
-                .meshData = cubeMesh,
-                .layout   = m_texturedPipelineLayout,
-                .pipeline = m_texturedPipeline,
+            m_light = {
+                .position    = {1.5f,                 2.f,             0.f             },
+                .color       = { 1.f,                 1.f,             1.f             },
+                .attenuation = { .quadratic = 0.017f, .linear = 0.07f, .constant = 1.0f},
             };
 
-            m_lightPos   = { 7.5f, 5.f, -2.5f };
-            m_lightColor = { 1.f, 1.f, 1.f };
+            m_renderItems.insert(std::pair {
+                "light",
+                RenderItem {
+                            .model = glm::translate(glm::identity<glm::mat4>(), m_light.position) *
+                             glm::scale(glm::identity<glm::mat4>(), { 0.05f, 0.05f, 0.05f }),
+                            .meshData = sphereMesh,
+                            .layout   = m_texturelessPipelineLayout,
+                            .pipeline = m_texturelessPipeline,
+                            }
+            });
 
-            m_renderItems["light"] = {
-                .meshData = sphereMesh,
-                .layout   = m_texturelessPipelineLayout,
-                .pipeline = m_texturelessPipeline,
-            };
+            std::array cubePositions = { glm::vec3(0.0f, 0.0f, 0.0f),    glm::vec3(2.0f, 5.0f, -15.0f),
+                                         glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
+                                         glm::vec3(2.4f, -0.4f, -3.5f),  glm::vec3(-1.7f, 3.0f, -7.5f),
+                                         glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
+                                         glm::vec3(1.5f, 0.2f, -1.5f),   glm::vec3(-1.3f, 1.0f, -1.5f) };
+
+            for (uint32_t i = 0; i < 10; i++)
+            {
+                float angle = 20.0f * static_cast<float>(i);
+                auto model  = glm::mat4(1.0f);
+                model       = glm::translate(model, cubePositions[i]);
+                model       = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+                model       = glm::scale(model, glm::vec3 { 1.f / 3.f, 1.f / 3.f, 1.f / 3.f });
+
+                m_renderItems.insert(std::pair {
+                    "model",
+                    RenderItem {
+                                .model    = model,
+                                .meshData = cubeMesh,
+                                .layout   = m_texturedPipelineLayout,
+                                .pipeline = m_texturedPipeline,
+                                }
+                });
+            }
         }
 
         m_material = {
@@ -247,6 +276,7 @@ namespace renderer::backend
             m_sceneDataDescriptorLayout =
                 DescriptorLayoutBuilder()
                     .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                    .addBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
                     .build(m_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
         }
 
@@ -265,6 +295,7 @@ namespace renderer::backend
             // Global scene data descriptor set
             DescriptorWriter writer;
             writer.write_buffer(0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+            writer.write_buffer(1, m_lightDataBuffer, sizeof(Light), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
             writer.update_set(m_device, m_sceneDataDescriptors);
         }
         {
@@ -368,21 +399,29 @@ namespace renderer::backend
     {
         ZoneScopedN("Backend update");
 
-        m_timer.tick();
-
-        float radius = 4.5f;
-
-        m_lightPos = {
-            radius *
-                glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
-            radius *
-                glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
-            radius *
-                glm::fastSin(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
-        };
-
-        m_renderItems["light"].model = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
-                                       glm::translate(glm::identity<glm::mat4>(), m_lightPos);
+        // m_timer.tick();
+        //
+        // float radius = 10.0f;
+        //
+        // m_lightPos = {
+        //     radius *
+        //         glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+        //     radius *
+        //         glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+        //     radius *
+        //         glm::fastSin(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+        // };
+        //
+        // for (auto& [name, item] : m_renderItems)
+        // {
+        //     [[unlikely]] if (name == "model")
+        //     {
+        //         continue;
+        //     }
+        //
+        //     item.model = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
+        //                  glm::translate(glm::identity<glm::mat4>(), m_lightPos);
+        // }
 
         updateDescriptors(cameraPos, glm::identity<glm::mat4>(), view, projection);
     }
@@ -431,18 +470,19 @@ namespace renderer::backend
 
     void RendererBackend::updateDescriptors(glm::vec3 cameraPos, glm::mat4 model, glm::mat4 view, glm::mat4 projection)
     {
-        auto* sceneUniformData = static_cast<GPUSceneData*>(m_gpuSceneDataBuffer.getMappedData());
+        auto& sceneUniformData    = *static_cast<GPUSceneData*>(m_gpuSceneDataBuffer.getMappedData());
+        auto& materialUniformData = *static_cast<Material*>(m_materialDataBuffer.getMappedData());
+        auto& lightUniformData    = *static_cast<Light*>(m_lightDataBuffer.getMappedData());
 
-        *sceneUniformData = GPUSceneData { .view          = view,
-                                           .proj          = projection,
-                                           .viewproj      = projection * view,
-                                           .ambientColor  = glm::vec4(.1f),
-                                           .lightPosition = m_lightPos,
-                                           .lightColor    = m_lightColor,
-                                           .cameraPos     = cameraPos };
+        sceneUniformData = GPUSceneData { .view         = view,
+                                          .proj         = projection,
+                                          .viewproj     = projection * view,
+                                          .ambientColor = glm::vec4(.1f),
+                                          .cameraPos    = cameraPos };
 
-        auto* materialUniformData = static_cast<Material*>(m_materialDataBuffer.getMappedData());
-        *materialUniformData      = m_material;
+        lightUniformData = m_light;
+
+        materialUniformData = m_material;
 
     }  // namespace renderer::backend
 }  // namespace renderer::backend

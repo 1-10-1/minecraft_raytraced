@@ -36,10 +36,6 @@ namespace renderer::backend
         glm::mat4 proj;
         glm::mat4 viewproj;
         glm::vec4 ambientColor;
-        glm::vec3 lightPosition;
-        float pad1;
-        glm::vec3 lightColor;
-        float pad2;
         glm::vec3 cameraPos;
     };
 
@@ -65,6 +61,20 @@ namespace renderer::backend
 #if PROFILED
         TracyVkCtx tracyContext {};
 #endif
+    };
+
+    struct alignas(16) Light
+    {
+        glm::vec3 position;
+        float pad1;
+
+        glm::vec3 color;
+        float pad2;
+
+        struct AttenuationFactors
+        {
+            float quadratic, linear, constant;
+        } attenuation;
     };
 
     class RendererBackend
@@ -130,9 +140,9 @@ namespace renderer::backend
         GraphicsPipeline m_texturedPipeline, m_texturelessPipeline;
 
         GPUSceneData m_sceneData {};
-        BasicBuffer m_gpuSceneDataBuffer, m_materialDataBuffer;
+        BasicBuffer m_gpuSceneDataBuffer, m_lightDataBuffer, m_materialDataBuffer;
 
-        std::unordered_map<std::string, RenderItem> m_renderItems;
+        std::unordered_multimap<std::string, RenderItem> m_renderItems;
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 
@@ -141,8 +151,7 @@ namespace renderer::backend
 
         Timer m_timer;
 
-        glm::vec3 m_lightPos {};
-        glm::vec3 m_lightColor {};
+        Light m_light {};
 
         struct EngineStats
         {

@@ -8,5 +8,5 @@ layout (location = 0) out vec4 outFragColor;
 
 void main() 
 {
-	outFragColor = vec4(sceneData.lightColor.xyz, 1.0);
+	outFragColor = vec4(light.color.xyz, 1.0);
 }
