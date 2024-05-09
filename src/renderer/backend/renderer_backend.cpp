@@ -360,7 +360,7 @@ namespace renderer::backend
                                                .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                                .colorAttachmentCount    = 1,
                                                .pColorAttachmentFormats = &m_surface.getDetails().format,
-                                               .depthAttachmentFormat   = VK_FORMAT_D32_SFLOAT,
+                                               .depthAttachmentFormat   = m_depthImage.getFormat(),
                                                },
             .CheckVkResultFn = kDebug ? reinterpret_cast<void (*)(VkResult)>(&imguiCheckerFn) : nullptr,
         };

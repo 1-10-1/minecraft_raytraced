@@ -130,7 +130,7 @@ if ((CMAKE_BUILD_TYPE MATCHES Release) OR PROFILED_BUILD)
     if (MSVC)
         target_compile_options(${PROJECT_NAME} PRIVATE /O2)
     else()
-        target_compile_options(${PROJECT_NAME} PRIVATE -O1)
+        target_compile_options(${PROJECT_NAME} PRIVATE -O3)
     endif()
 endif()
 
