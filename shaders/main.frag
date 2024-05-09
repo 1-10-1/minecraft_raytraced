@@ -23,9 +23,9 @@ vec3 calcPointLightContribution() {
 
     float distance    = length(pointLight.position - fragPos);
     float attenuation = 1.0 / (
-	pointLight.attenuationFactors.constant
+        pointLight.attenuationFactors.quadratic * distance * distance
       + pointLight.attenuationFactors.linear    * distance
-      + pointLight.attenuationFactors.quadratic * distance * distance
+      + pointLight.attenuationFactors.constant
     );
 
     vec4 matDiffuse = texture(diffuseTex, uv);
@@ -44,7 +44,28 @@ vec3 calcPointLightContribution() {
     return attenuation * (specular + diffuse + ambient);
 }
 
+vec3 calcDirectionalLightContribution() {
+    float ambientIntensity = 0.1;
+    float diffuseIntensity = 0.4;
+    float specularIntensity = 0.5;
+
+    vec4 matDiffuse = texture(diffuseTex, uv);
+
+    vec3 norm = normalize(normal);
+    vec3 lightDir = normalize(-sceneData.sunlightDirection);
+    vec3 viewDir = normalize(sceneData.cameraPos - fragPos);
+    vec3 reflectDir = reflect(-lightDir, norm);
+    float diff = max(dot(norm, lightDir), 0.0);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+
+    vec3 ambient = ambientIntensity * matDiffuse.xyz;
+    vec3 diffuse = diffuseIntensity * diff * pointLight.color * matDiffuse.xyz;
+    vec3 specular = specularIntensity * spec * texture(specularTex, uv).xyz;
+
+    return specular + diffuse + ambient;
+}
+
 void main() 
 {
-    outFragColor = vec4(calcPointLightContribution(), 1.0);
+    outFragColor = vec4(calcPointLightContribution() + calcDirectionalLightContribution(), 1.0);
 }

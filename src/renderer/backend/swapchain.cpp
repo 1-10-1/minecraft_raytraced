@@ -5,9 +5,6 @@
 
 #include <ranges>
 
-namespace rn = std::ranges;
-namespace vi = std::ranges::views;
-
 namespace renderer::backend
 {
     Swapchain::Swapchain(Device const& device, Surface& surface) : m_device { device }

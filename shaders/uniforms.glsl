@@ -5,6 +5,7 @@ layout(set = 0, binding = 0) uniform SceneData {
     vec4 ambientColor;
     vec3 cameraPos;
     float pad1;
+    vec3 sunlightDirection;
 } sceneData;
 
 struct AttenuationFactors {

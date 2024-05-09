@@ -19,6 +19,12 @@ namespace renderer::backend
 
         ~Swapchain();
 
+        void recreate(Surface& surface)
+        {
+            destroy();
+            create(surface);
+        };
+
         void create(Surface& surface, bool refreshSurface = true);
         void destroy();
 

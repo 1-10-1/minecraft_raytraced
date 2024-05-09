@@ -37,6 +37,8 @@ namespace renderer::backend
         glm::mat4 viewproj;
         glm::vec4 ambientColor;
         glm::vec3 cameraPos;
+        float pad;
+        glm::vec3 sunlightDirection;
     };
 
     struct alignas(16) Material

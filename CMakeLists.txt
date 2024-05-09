@@ -115,15 +115,23 @@ target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE
         /std:c++latest /arch:AVX2
-        $<$<CONFIG:Release>:/O2 /EHs-c- /D_HAS_EXCEPTIONS=0>)
+        $<$<CONFIG:Release>:/EHs-c- /D_HAS_EXCEPTIONS=0>)
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE
         -std=c++23 -Wall -Wunused -mavx2 -Werror
         -Wno-format -Wno-switch
         -Wno-deprecated-declarations -march=native -flto=auto
         -Wno-sign-compare
-        $<$<CONFIG:Release>:-O3 -fno-exceptions -ffast-math -finline-functions>
+        $<$<CONFIG:Release>:-fno-exceptions -ffast-math -finline-functions>
         $<$<CONFIG:Debug>:-mtune=native -g>) # -fsanitize=address -g -fno-omit-frame-pointer>)
+endif()
+
+if ((CMAKE_BUILD_TYPE MATCHES Release) OR PROFILED_BUILD)
+    if (MSVC)
+        target_compile_options(${PROJECT_NAME} PRIVATE /O2)
+    else()
+        target_compile_options(${PROJECT_NAME} PRIVATE -O1)
+    endif()
 endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE -flto=auto) #-fsanitize=address -g -fno-omit-frame-pointer)

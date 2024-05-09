@@ -29,9 +29,6 @@
 #include <tracy/TracyVulkan.hpp>
 #include <vulkan/vulkan_core.h>
 
-namespace rn = std::ranges;
-namespace vi = std::ranges::views;
-
 namespace
 {
     using namespace renderer::backend;
@@ -88,11 +85,9 @@ namespace renderer::backend
                          static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
                          VK_IMAGE_ASPECT_DEPTH_BIT },
 
-          m_diffuseTexture { m_device, m_allocator, m_commandManager, StbiImage("res/textures/container2cube.png") },
+          m_diffuseTexture { m_device, m_allocator, m_commandManager, StbiImage("res/models/backpack/diffuse.jpg") },
 
-          m_specularTexture {
-              m_device, m_allocator, m_commandManager, StbiImage("res/textures/container2speccube.png")
-          }
+          m_specularTexture { m_device, m_allocator, m_commandManager, StbiImage("res/models/backpack/specular.jpg") }
     // clang_format on
     {
         initImgui(window.getHandle());
@@ -149,7 +144,7 @@ namespace renderer::backend
 
         {
             Model sphereModel("res/models/uvsphere.obj");
-            Model cubeModel("res/models/blendercube.obj");
+            Model mainModel("res/models/backpack/backpack2.obj");
 
             auto sphereMesh = uploadMesh(m_device,
                                          m_allocator,
@@ -157,16 +152,16 @@ namespace renderer::backend
                                          sphereModel.meshes[0].getVertices(),
                                          sphereModel.meshes[0].getIndices());
 
-            auto cubeMesh = uploadMesh(m_device,
-                                       m_allocator,
-                                       m_commandManager,
-                                       cubeModel.meshes[0].getVertices(),
-                                       cubeModel.meshes[0].getIndices());
+            auto modelMesh = uploadMesh(m_device,
+                                        m_allocator,
+                                        m_commandManager,
+                                        mainModel.meshes[0].getVertices(),
+                                        mainModel.meshes[0].getIndices());
 
             m_light = {
-                .position    = {1.5f,                 2.f,             0.f             },
-                .color       = { 1.f,                 1.f,             1.f             },
-                .attenuation = { .quadratic = 0.017f, .linear = 0.07f, .constant = 1.0f},
+                .position    = { 1.5f,                2.f,             0.f              },
+                .color       = { 1.f,                 1.f,             1.f              },
+                .attenuation = { .quadratic = 0.017f, .linear = 0.07f, .constant = 1.0f },
             };
 
             m_renderItems.insert(std::pair {
@@ -180,58 +175,43 @@ namespace renderer::backend
                             }
             });
 
-            std::array cubePositions = { glm::vec3(0.0f, 0.0f, 0.0f),    glm::vec3(2.0f, 5.0f, -15.0f),
-                                         glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
-                                         glm::vec3(2.4f, -0.4f, -3.5f),  glm::vec3(-1.7f, 3.0f, -7.5f),
-                                         glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
-                                         glm::vec3(1.5f, 0.2f, -1.5f),   glm::vec3(-1.3f, 1.0f, -1.5f) };
+            m_renderItems.insert(std::pair {
+                "model",
+                RenderItem {
+                            .model    = glm::scale(glm::identity<glm::mat4>(), glm::vec3 { 1.f / 3.f, 1.f / 3.f, 1.f / 3.f }),
+                            .meshData = modelMesh,
+                            .layout   = m_texturedPipelineLayout,
+                            .pipeline = m_texturedPipeline,
+                            }
+            });
 
-            for (uint32_t i = 0; i < 10; i++)
-            {
-                float angle = 20.0f * static_cast<float>(i);
-                auto model  = glm::mat4(1.0f);
-                model       = glm::translate(model, cubePositions[i]);
-                model       = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-                model       = glm::scale(model, glm::vec3 { 1.f / 3.f, 1.f / 3.f, 1.f / 3.f });
-
-                m_renderItems.insert(std::pair {
-                    "model",
-                    RenderItem {
-                                .model    = model,
-                                .meshData = cubeMesh,
-                                .layout   = m_texturedPipelineLayout,
-                                .pipeline = m_texturedPipeline,
-                                }
-                });
-            }
-        }
-
-        m_material = {
-            .shininess = 32.f,
-        };
+            m_material = {
+                .shininess = 32.f,
+            };
 
 #if PROFILED
-        for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
-        {
-            std::string ctxName = fmt::format("Frame {}/{}", i + 1, kNumFramesInFlight);
+            for (size_t i : vi::iota(0u, utils::size(m_frameResources)))
+            {
+                std::string ctxName = fmt::format("Frame {}/{}", i + 1, kNumFramesInFlight);
 
-            auto& ctx = m_frameResources[i].tracyContext;
+                auto& ctx = m_frameResources[i].tracyContext;
 
-            ctx = TracyVkContextCalibrated(
-                static_cast<VkPhysicalDevice>(m_device),
-                static_cast<VkDevice>(m_device),
-                m_device.getGraphicsQueue(),
-                m_commandManager.getGraphicsCmdBuffer(i),
-                reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(
-                    vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibratableTimeDomainsEXT")),
-                reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(
-                    vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibratableTimeDomainsEXT")));
+                ctx = TracyVkContextCalibrated(
+                    static_cast<VkPhysicalDevice>(m_device),
+                    static_cast<VkDevice>(m_device),
+                    m_device.getGraphicsQueue(),
+                    m_commandManager.getGraphicsCmdBuffer(i),
+                    reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(
+                        vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibratableTimeDomainsEXT")),
+                    reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(
+                        vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibratableTimeDomainsEXT")));
 
-            TracyVkContextName(ctx, ctxName.data(), ctxName.size());
-        }
+                TracyVkContextName(ctx, ctxName.data(), ctxName.size());
+            }
 #endif
 
-        createSyncObjects();
+            createSyncObjects();
+        }
     }
 
     RendererBackend::~RendererBackend()
@@ -264,9 +244,9 @@ namespace renderer::backend
     {
         {
             std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
-                {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,          4},
-                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         4},
-                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         4 },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         4 },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
             };
 
             m_descriptorAllocator.initPool(m_device, 10, sizes);
@@ -379,7 +359,7 @@ namespace renderer::backend
                 VkPipelineRenderingCreateInfo {
                                                .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                                .colorAttachmentCount    = 1,
-                                               .pColorAttachmentFormats = std::array { m_surface.getDetails().format }.data(),
+                                               .pColorAttachmentFormats = &m_surface.getDetails().format,
                                                .depthAttachmentFormat   = VK_FORMAT_D32_SFLOAT,
                                                },
             .CheckVkResultFn = kDebug ? reinterpret_cast<void (*)(VkResult)>(&imguiCheckerFn) : nullptr,
@@ -458,10 +438,7 @@ namespace renderer::backend
     {
         vkDeviceWaitIdle(m_device);
 
-        m_surface.refresh(m_device);
-
-        m_swapchain.destroy();
-        m_swapchain.create(m_surface);
+        m_swapchain.recreate(m_surface);
 
         m_drawImage.resize(m_allocator, m_surface.getFramebufferExtent());
         m_drawImageResolve.resize(m_allocator, m_surface.getFramebufferExtent());
@@ -474,15 +451,17 @@ namespace renderer::backend
         auto& materialUniformData = *static_cast<Material*>(m_materialDataBuffer.getMappedData());
         auto& lightUniformData    = *static_cast<Light*>(m_lightDataBuffer.getMappedData());
 
-        sceneUniformData = GPUSceneData { .view         = view,
-                                          .proj         = projection,
-                                          .viewproj     = projection * view,
-                                          .ambientColor = glm::vec4(.1f),
-                                          .cameraPos    = cameraPos };
+        sceneUniformData = GPUSceneData {
+            .view              = view,
+            .proj              = projection,
+            .viewproj          = projection * view,
+            .ambientColor      = glm::vec4(.1f),
+            .cameraPos         = cameraPos,
+            .sunlightDirection = glm::vec3 { -0.2f, -1.0f, -0.3f }
+        };
 
         lightUniformData = m_light;
 
         materialUniformData = m_material;
-
     }  // namespace renderer::backend
 }  // namespace renderer::backend
