@@ -13,9 +13,17 @@ namespace renderer::backend
         ~Allocator();
 
         Allocator(Allocator const&)                    = delete;
-        Allocator(Allocator&&)                         = delete;
         auto operator=(Allocator const&) -> Allocator& = delete;
-        auto operator=(Allocator&&) -> Allocator&      = delete;
+
+        Allocator(Allocator&& other) : m_allocator { other.m_allocator } { other.m_allocator = nullptr; };
+
+        auto operator=(Allocator&& other) -> Allocator&
+        {
+            m_allocator       = other.m_allocator;
+            other.m_allocator = nullptr;
+
+            return *this;
+        };
 
         // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VmaAllocator() const { return m_allocator; }

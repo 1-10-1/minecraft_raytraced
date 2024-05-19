@@ -37,8 +37,9 @@ namespace renderer::backend
     class GraphicsPipelineConfig
     {
     public:
-        auto addShader(std::filesystem::path const& path, VkShaderStageFlagBits stage, std::string const& entryPoint)
-            -> GraphicsPipelineConfig&;
+        auto addShader(std::filesystem::path const& path,
+                       VkShaderStageFlagBits stage,
+                       std::string const& entryPoint) -> GraphicsPipelineConfig&;
 
         auto enableBlending(bool enable = true) -> GraphicsPipelineConfig&;
         auto blendingSetAlphaBlend() -> GraphicsPipelineConfig&;
@@ -51,8 +52,8 @@ namespace renderer::backend
                                      bool enableBoundsTest = false,
                                      bool enableWrite      = true) -> GraphicsPipelineConfig&;
 
-        auto setPrimitiveSettings(bool primitiveRestart, VkPrimitiveTopology primitiveTopology)
-            -> GraphicsPipelineConfig&;
+        auto setPrimitiveSettings(bool primitiveRestart,
+                                  VkPrimitiveTopology primitiveTopology) -> GraphicsPipelineConfig&;
 
         auto enableRasterizerDiscard(bool enable = true) -> GraphicsPipelineConfig&;
 
@@ -76,9 +77,10 @@ namespace renderer::backend
 
         auto setSampleCount(VkSampleCountFlagBits count) -> GraphicsPipelineConfig&;
 
-        auto
-        setDepthBiasSettings(bool enable = true, float constantFactor = 0.f, float slopeFactor = 0.f, float clamp = 0.f)
-            -> GraphicsPipelineConfig&;
+        auto setDepthBiasSettings(bool enable          = true,
+                                  float constantFactor = 0.f,
+                                  float slopeFactor    = 0.f,
+                                  float clamp          = 0.f) -> GraphicsPipelineConfig&;
 
         auto setColorAttachmentFormat(VkFormat format) -> GraphicsPipelineConfig&;
 
@@ -118,7 +120,7 @@ namespace renderer::backend
         bool alphaToOneEnable      = false;
 
         VkSampleCountFlagBits rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-        float minSampleShading                     = 0.1f;
+        float minSampleShading                     = 0.3f;
         std::optional<VkSampleMask> sampleMask;
 
         // blending
@@ -273,8 +275,8 @@ namespace renderer::backend
             }
         };
 
-        [[nodiscard]] auto setShader(std::filesystem::path const& path, std::string_view entryPoint)
-            -> ComputePipeline&;
+        [[nodiscard]] auto setShader(std::filesystem::path const& path,
+                                     std::string_view entryPoint) -> ComputePipeline&;
 
         [[nodiscard]] auto get() const -> VkPipeline { return m_pipeline; }
 

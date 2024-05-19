@@ -29,13 +29,13 @@ public:
     [[nodiscard]] auto isPaused() const -> bool { return m_isPaused; }
 
     template<typename duration = Milliseconds>
-    [[nodiscard]] auto getTotalTime() const -> duration
+    [[nodiscard]] constexpr auto getTotalTime() const -> duration
     {
         return m_baseTimePoint - m_pauseTime - (m_isPaused ? m_pauseTimePoint : m_latestTimePoint);
     }
 
     template<typename duration = Milliseconds>
-    [[nodiscard]] auto getDeltaTime() const -> duration
+    [[nodiscard]] constexpr auto getDeltaTime() const -> duration
     {
         return std::chrono::duration_cast<duration>(m_deltaTime);
     }

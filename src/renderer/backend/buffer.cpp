@@ -23,7 +23,7 @@ namespace renderer::backend
             .usage = memoryUsage,
         };
 
-        vmaCreateBuffer(m_allocator->get(), &bufferInfo, &vmaAllocInfo, &m_buffer, &m_allocation, &m_allocInfo) >>
+        vmaCreateBuffer(*m_allocator, &bufferInfo, &vmaAllocInfo, &m_buffer, &m_allocation, &m_allocInfo) >>
             vkResultChecker;
     }
 
@@ -34,6 +34,6 @@ namespace renderer::backend
             return;
         }
 
-        vmaDestroyBuffer(m_allocator->get(), m_buffer, m_allocation);
+        vmaDestroyBuffer(*m_allocator, m_buffer, m_allocation);
     }
 }  // namespace renderer::backend

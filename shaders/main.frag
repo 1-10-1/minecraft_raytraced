@@ -59,7 +59,7 @@ vec3 calcDirectionalLightContribution() {
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
 
     vec3 ambient = ambientIntensity * matDiffuse.xyz;
-    vec3 diffuse = diffuseIntensity * diff * pointLight.color * matDiffuse.xyz;
+    vec3 diffuse = diffuseIntensity * diff * matDiffuse.xyz;
     vec3 specular = specularIntensity * spec * texture(specularTex, uv).xyz;
 
     return specular + diffuse + ambient;

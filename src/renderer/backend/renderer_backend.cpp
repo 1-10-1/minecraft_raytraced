@@ -25,6 +25,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+#include <ranges>
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
 #include <vulkan/vulkan_core.h>
@@ -121,8 +122,7 @@ namespace renderer::backend
                                       .setColorAttachmentFormat(m_drawImage.getFormat())
                                       .setDepthAttachmentFormat(kDepthStencilFormat)
                                       .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-                                      // NOTE: Culling is disabled
-                                      .setCullingSettings(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+                                      .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                                       .setSampleCount(m_device.getMaxUsableSampleCount())
                                       .setSampleShadingSettings(true, 0.1f);
 
@@ -139,12 +139,22 @@ namespace renderer::backend
                                       .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
                                       .setSampleCount(m_device.getMaxUsableSampleCount());
 
-            m_texturelessPipeline = GraphicsPipeline(m_device, m_texturelessPipelineLayout, pipelineConfig);
+            m_texturelessPipeline =
+                GraphicsPipeline(m_device,
+                                 m_texturelessPipelineLayout,
+                                 GraphicsPipelineConfig()
+                                     .addShader("shaders/textureless.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
+                                     .addShader("shaders/main.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
+                                     .setColorAttachmentFormat(m_drawImage.getFormat())
+                                     .setDepthAttachmentFormat(kDepthStencilFormat)
+                                     .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
+                                     .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+                                     .setSampleCount(m_device.getMaxUsableSampleCount()));
         }
 
         {
             Model sphereModel("res/models/uvsphere.obj");
-            Model mainModel("res/models/backpack/backpack2.obj");
+            Model mainModel("res/models/cube.obj");
 
             auto sphereMesh = uploadMesh(m_device,
                                          m_allocator,
@@ -159,9 +169,9 @@ namespace renderer::backend
                                         mainModel.meshes[0].getIndices());
 
             m_light = {
-                .position    = { 1.5f,                2.f,             0.f              },
-                .color       = { 1.f,                 1.f,             1.f              },
-                .attenuation = { .quadratic = 0.017f, .linear = 0.07f, .constant = 1.0f },
+                .position    = { 1.5f,                  2.f,               0.f              },
+                .color       = { 1.f,                   1.f,               1.f              },
+                .attenuation = { .quadratic = 0.00007f, .linear = 0.0014f, .constant = 1.0f },
             };
 
             m_renderItems.insert(std::pair {
@@ -379,29 +389,29 @@ namespace renderer::backend
     {
         ZoneScopedN("Backend update");
 
-        // m_timer.tick();
-        //
-        // float radius = 10.0f;
-        //
-        // m_lightPos = {
-        //     radius *
-        //         glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
-        //     radius *
-        //         glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
-        //     radius *
-        //         glm::fastSin(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
-        // };
-        //
-        // for (auto& [name, item] : m_renderItems)
-        // {
-        //     [[unlikely]] if (name == "model")
-        //     {
-        //         continue;
-        //     }
-        //
-        //     item.model = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
-        //                  glm::translate(glm::identity<glm::mat4>(), m_lightPos);
-        // }
+        m_timer.tick();
+
+        float radius = 5.0f;
+
+        m_light.position = {
+            radius *
+                glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+            0,
+            radius *
+                glm::fastSin(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+        };
+
+        for (RenderItem& item : m_renderItems |
+                                    rn::views::filter(
+                                        [](auto const& pair)
+                                        {
+                                            return pair.first == "light";
+                                        }) |
+                                    rn::views::values)
+        {
+            item.model = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
+                         glm::translate(glm::identity<glm::mat4>(), m_light.position);
+        }
 
         updateDescriptors(cameraPos, glm::identity<glm::mat4>(), view, projection);
     }

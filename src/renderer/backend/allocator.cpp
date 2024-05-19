@@ -16,6 +16,9 @@ namespace renderer::backend
 
     Allocator::~Allocator()
     {
-        vmaDestroyAllocator(m_allocator);
+        if (m_allocator)
+        {
+            vmaDestroyAllocator(m_allocator);
+        }
     }
 }  // namespace renderer::backend
