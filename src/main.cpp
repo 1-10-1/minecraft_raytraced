@@ -1,3 +1,5 @@
+#include "fastgltf/types.hpp"
+#include "mc/renderer/backend/image.hpp"
 #include <mc/events.hpp>
 #include <mc/exceptions.hpp>
 #include <mc/game/game.hpp>
@@ -15,6 +17,69 @@
 #    include <linux/limits.h>
 #    include <unistd.h>
 #endif
+
+// ******************************************************************************************************************************
+#include <fastgltf/core.hpp>
+#include <fastgltf/glm_element_traits.hpp>
+#include <fastgltf/tools.hpp>
+
+#include <filesystem>
+
+namespace fs = std::filesystem;
+namespace fg = fastgltf;
+
+namespace renderer::backend
+{
+    struct GltfSceneResources
+    {
+        std::vector<Texture> textures;
+    };
+
+    void processGltf()
+    {
+        fs::path gltfFile = "../../khrSampleModels/2.0/Cube/glTF/Cube.gltf";
+
+        if (!fs::exists(gltfFile))
+        {
+            MC_THROW Error(AssetError, std::format("glTF file {} not found", gltfFile.c_str()));
+        }
+
+        fg::Parser parser;
+
+        fg::GltfDataBuffer buffer;
+        buffer.loadFromFile(gltfFile);
+
+        GltfSceneResources resources;
+
+        fg::Asset asset;
+
+        {
+            Timer timer;
+
+            fg::Expected<fg::Asset> expected = parser.loadGltfJson(&buffer, gltfFile.parent_path());
+
+            if (!expected)
+            {
+                MC_THROW Error(AssetError,
+                               std::format("Could not parse gltf file {}: {}",
+                                           gltfFile.root_name().c_str(),
+                                           magic_enum::enum_name(expected.error())));
+            }
+
+            logger::debug("Parsed {} successfully! ({})", gltfFile.root_name().c_str(), timer.getTotalTime());
+
+            asset = std::move(expected.get());
+        }
+
+        // *********************************************************************************************************************
+        // TEXTURES
+
+        // resources.textures.reserve(asset.textures.size());
+    }
+
+}  // namespace renderer::backend
+
+// ******************************************************************************************************************************
 
 void switchCwd();
 
@@ -34,6 +99,8 @@ auto main() -> int
     game::Game game { eventManager, window, camera };
 
     eventManager.subscribe(&camera, &Camera::onUpdate, &Camera::onFramebufferResize);
+
+    renderer::backend::processGltf();
 
     MC_TRY
     {

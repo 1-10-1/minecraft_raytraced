@@ -173,7 +173,7 @@ namespace renderer::backend
             }
 
             GPUDrawPushConstants push_constants {
-                .model        = item.model,
+                .model        = item.modelMatrix,
                 .vertexBuffer = item.meshData->vertexBufferAddress,
             };
 
@@ -219,7 +219,7 @@ namespace renderer::backend
                 cmdBuf, m_depthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
             VkClearColorValue clearValue {
-                {33.f / 255.f, 33.f / 255.f, 33.f / 255.f, 1.f}
+                { 33.f / 255.f, 33.f / 255.f, 33.f / 255.f, 1.f }
             };
 
             VkImageSubresourceRange range = infoStructs::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);

@@ -1,3 +1,4 @@
+#include "mc/renderer/backend/resource.hpp"
 #include <mc/renderer/backend/buffer.hpp>
 #include <mc/renderer/backend/command.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
@@ -23,17 +24,11 @@ namespace renderer::backend
             .usage = memoryUsage,
         };
 
-        vmaCreateBuffer(*m_allocator, &bufferInfo, &vmaAllocInfo, &m_buffer, &m_allocation, &m_allocInfo) >>
+        VkBuffer buffer;
+
+        vmaCreateBuffer(*m_allocator, &bufferInfo, &vmaAllocInfo, &buffer, &m_allocation, &m_allocInfo) >>
             vkResultChecker;
-    }
 
-    BasicBuffer::~BasicBuffer()
-    {
-        if (m_buffer == nullptr)
-        {
-            return;
-        }
-
-        vmaDestroyBuffer(*m_allocator, m_buffer, m_allocation);
+        m_resource = VulkanResource<VkBuffer>(*m_allocator, m_allocation, buffer);
     }
 }  // namespace renderer::backend

@@ -177,8 +177,8 @@ namespace renderer::backend
             m_renderItems.insert(std::pair {
                 "light",
                 RenderItem {
-                            .model = glm::translate(glm::identity<glm::mat4>(), m_light.position) *
-                             glm::scale(glm::identity<glm::mat4>(), { 0.05f, 0.05f, 0.05f }),
+                            .modelMatrix = glm::translate(glm::identity<glm::mat4>(), m_light.position) *
+                                   glm::scale(glm::identity<glm::mat4>(), { 0.05f, 0.05f, 0.05f }),
                             .meshData = sphereMesh,
                             .layout   = m_texturelessPipelineLayout,
                             .pipeline = m_texturelessPipeline,
@@ -188,7 +188,8 @@ namespace renderer::backend
             m_renderItems.insert(std::pair {
                 "model",
                 RenderItem {
-                            .model    = glm::scale(glm::identity<glm::mat4>(), glm::vec3 { 1.f / 3.f, 1.f / 3.f, 1.f / 3.f }),
+                            .modelMatrix =
+                        glm::scale(glm::identity<glm::mat4>(), glm::vec3 { 1.f / 3.f, 1.f / 3.f, 1.f / 3.f }),
                             .meshData = modelMesh,
                             .layout   = m_texturedPipelineLayout,
                             .pipeline = m_texturedPipeline,
@@ -401,16 +402,16 @@ namespace renderer::backend
                 glm::fastSin(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
         };
 
-        for (RenderItem& item : m_renderItems |
-                                    rn::views::filter(
-                                        [](auto const& pair)
-                                        {
-                                            return pair.first == "light";
-                                        }) |
-                                    rn::views::values)
+        for (RenderItem& lightSource : m_renderItems |
+                                           rn::views::filter(
+                                               [](auto const& pair)
+                                               {
+                                                   return pair.first == "light";
+                                               }) |
+                                           rn::views::values)
         {
-            item.model = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
-                         glm::translate(glm::identity<glm::mat4>(), m_light.position);
+            lightSource.modelMatrix = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
+                                      glm::translate(glm::identity<glm::mat4>(), m_light.position);
         }
 
         updateDescriptors(cameraPos, glm::identity<glm::mat4>(), view, projection);
