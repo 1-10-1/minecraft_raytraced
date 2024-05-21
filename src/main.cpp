@@ -1,11 +1,11 @@
 #include "fastgltf/types.hpp"
 #include "mc/renderer/backend/image.hpp"
-#include <mc/events.hpp>
-#include <mc/exceptions.hpp>
-#include <mc/game/game.hpp>
-#include <mc/logger.hpp>
-#include <mc/renderer/renderer.hpp>
-#include <mc/timer.hpp>
+#include "mc/events.hpp"
+#include "mc/exceptions.hpp"
+#include "mc/game/game.hpp"
+#include "mc/logger.hpp"
+#include "mc/renderer/renderer.hpp"
+#include "mc/timer.hpp"
 
 #include <array>
 #include <filesystem>

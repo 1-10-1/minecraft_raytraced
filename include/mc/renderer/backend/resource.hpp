@@ -4,6 +4,7 @@
 
 #include "allocator.hpp"
 #include "device.hpp"
+#include "mc/utils.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -55,7 +56,7 @@ namespace renderer::backend
     template<typename T>
     class VulkanResource
     {
-        static_assert(isVkResource<T*>);
+        static_assert(isVkResource<T>);
 
     public:
         VulkanResource() = default;
@@ -68,8 +69,7 @@ namespace renderer::backend
 
         ~VulkanResource() { destroy(); }
 
-        VulkanResource(VulkanResource const&)                    = delete;
-        auto operator=(VulkanResource const&) -> VulkanResource& = delete;
+        RESTRICT_COPY(VulkanResource);
 
         auto operator=(VulkanResource&& other) noexcept -> VulkanResource&
         {
@@ -219,8 +219,7 @@ namespace renderer::backend
 
         ~VulkanResource() { destroy(); }
 
-        VulkanResource(VulkanResource const&)                    = delete;
-        auto operator=(VulkanResource const&) -> VulkanResource& = delete;
+        RESTRICT_COPY(VulkanResource);
 
         auto operator=(VulkanResource&& other) noexcept -> VulkanResource&
         {

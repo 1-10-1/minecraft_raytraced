@@ -5,23 +5,22 @@
 #include "resource.hpp"
 
 #include <vk_mem_alloc.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 namespace renderer::backend
 {
     class BasicBuffer
     {
     public:
-        BasicBuffer()  = default;
-        ~BasicBuffer() = default;
+        BasicBuffer() = default;
+
+        ~BasicBuffer() { m_buffer.destroy(); };
 
         BasicBuffer(Allocator& allocator, size_t allocSize, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
 
         DEFAULT_MOVE(BasicBuffer);
         RESTRICT_COPY(BasicBuffer);
 
-        [[nodiscard]] operator VkBuffer() const { return m_resource; }
+        [[nodiscard]] operator VkBuffer() const { return m_buffer; }
 
         [[nodiscard]] auto getMappedData() const -> void const* { return m_allocInfo.pMappedData; }
 
@@ -30,7 +29,7 @@ namespace renderer::backend
     private:
         Allocator* m_allocator { nullptr };
 
-        VulkanResource<VkBuffer> m_resource {};
+        VulkanResource<VkBuffer> m_buffer {};
         VmaAllocation m_allocation { nullptr };
         VmaAllocationInfo m_allocInfo {};
     };

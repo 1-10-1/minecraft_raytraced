@@ -1,8 +1,8 @@
-#include <mc/camera.hpp>
-#include <mc/events.hpp>
-#include <mc/logger.hpp>
-#include <mc/renderer/backend/renderer_backend.hpp>
-#include <mc/renderer/renderer.hpp>
+#include "mc/camera.hpp"
+#include "mc/events.hpp"
+#include "mc/logger.hpp"
+#include "mc/renderer/backend/renderer_backend.hpp"
+#include "mc/renderer/renderer.hpp"
 
 #include <glm/fwd.hpp>
 #include <glm/trigonometric.hpp>

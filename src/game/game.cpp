@@ -1,7 +1,7 @@
-#include <mc/events.hpp>
-#include <mc/game/game.hpp>
-#include <mc/logger.hpp>
-#include <mc/window.hpp>
+#include "mc/events.hpp"
+#include "mc/game/game.hpp"
+#include "mc/logger.hpp"
+#include "mc/window.hpp"
 
 #include <glm/vec3.hpp>
 
