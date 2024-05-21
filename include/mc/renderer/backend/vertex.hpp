@@ -1,6 +1,6 @@
 #pragma once
 
-#include "mc/utils.hpp"
+#include <mc/utils.hpp>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>

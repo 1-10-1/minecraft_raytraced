@@ -4,22 +4,6 @@
 #include <filesystem>
 #include <functional>
 
-#define DEFAULT_MOVE(className)                  \
-    className(className&&)            = default; \
-    className& operator=(className&&) = default;
-
-#define DEFAULT_COPY(className)                       \
-    className(className const&)            = default; \
-    className& operator=(className const&) = default;
-
-#define RESTRICT_MOVE(className)                \
-    className(className&&)            = delete; \
-    className& operator=(className&&) = delete;
-
-#define RESTRICT_COPY(className)                     \
-    className(className const&)            = delete; \
-    className& operator=(className const&) = delete;
-
 namespace utils
 {
     template<typename Class, typename Ret, typename... Args>
@@ -33,7 +17,9 @@ namespace utils
 
     template<typename T>
     concept HasSize = requires(T const& t) {
-        { t.size() } -> std::convertible_to<size_t>;
+        {
+            t.size()
+        } -> std::convertible_to<size_t>;
     };
 
     template<typename SizeType = uint32_t, typename T>

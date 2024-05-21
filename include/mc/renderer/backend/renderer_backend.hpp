@@ -48,7 +48,7 @@ namespace renderer::backend
 
     struct RenderItem
     {
-        glm::mat4 modelMatrix;
+        glm::mat4 model;
         std::shared_ptr<GPUMeshData> meshData;
         VkPipelineLayout layout;
         VkPipeline pipeline;

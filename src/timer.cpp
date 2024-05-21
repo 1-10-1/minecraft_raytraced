@@ -1,4 +1,4 @@
-#include "mc/timer.hpp"
+#include <mc/timer.hpp>
 
 using namespace std::chrono_literals;
 

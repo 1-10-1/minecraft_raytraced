@@ -1,6 +1,6 @@
-#include "mc/formatters/glm_types.hpp"
-#include "mc/logger.hpp"
-#include "mc/window.hpp"
+#include <mc/formatters/glm_types.hpp>
+#include <mc/logger.hpp>
+#include <mc/window.hpp>
 
 #include "GLFW/glfw3.h"
 #include "mc/events.hpp"
