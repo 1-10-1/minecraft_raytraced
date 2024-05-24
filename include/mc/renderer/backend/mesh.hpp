@@ -21,7 +21,7 @@ namespace renderer::backend
     {
         BasicBuffer indexBuffer;
         BasicBuffer vertexBuffer;
-        VkDeviceAddress vertexBufferAddress;
+        vk::DeviceAddress vertexBufferAddress;
         uint64_t indexCount;
     };
 
@@ -49,7 +49,9 @@ struct TextureData
 class Mesh
 {
 public:
-    Mesh(std::vector<Vertex>&& vertices, std::vector<unsigned int>&& indices, std::vector<TextureData>&& textures);
+    Mesh(std::vector<Vertex>&& vertices,
+         std::vector<unsigned int>&& indices,
+         std::vector<TextureData>&& textures);
 
     [[nodiscard]] auto getVertices() -> std::vector<Vertex>& { return m_vertices; }
 
@@ -82,5 +84,7 @@ private:
 
     auto processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh;
 
-    auto loadMaterialTextures(aiMaterial* mat, aiTextureType type, TextureType typeEnum) -> std::vector<TextureData>;
+    auto loadMaterialTextures(aiMaterial* mat,
+                              aiTextureType type,
+                              TextureType typeEnum) -> std::vector<TextureData>;
 };

@@ -39,8 +39,11 @@ namespace window
 
         // Reason: window hints need to be set before creating the window
         // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
-        m_handle = glfwCreateWindow(
-            static_cast<int>(windowDimensions.x), static_cast<int>(windowDimensions.y), "Minecraft", nullptr, nullptr);
+        m_handle = glfwCreateWindow(static_cast<int>(windowDimensions.x),
+                                    static_cast<int>(windowDimensions.y),
+                                    "Minecraft",
+                                    nullptr,
+                                    nullptr);
 
         int fbWidth {};
         int fbHeight {};
@@ -78,7 +81,10 @@ namespace window
         m_eventManager.subscribe(this, &Window::onUpdate);
     };
 
-    Window::Window(Window&& window) noexcept : m_eventManager { window.m_eventManager }, m_handle(window.m_handle) {}
+    Window::Window(Window&& window) noexcept
+        : m_eventManager { window.m_eventManager }, m_handle(window.m_handle)
+    {
+    }
 
     Window::~Window()
     {
@@ -180,8 +186,8 @@ namespace window
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager.dispatchEvent(WindowFocusChangedEvent(focused == 0 ? WindowFocusChangedEvent::Defocused
-                                                                                : WindowFocusChangedEvent::Focused));
+        self->m_eventManager.dispatchEvent(WindowFocusChangedEvent(
+            focused == 0 ? WindowFocusChangedEvent::Defocused : WindowFocusChangedEvent::Focused));
     }
 
     void Window::windowMinimizeCallback(GLFWwindow* window, int iconified)
@@ -215,7 +221,8 @@ namespace window
         MouseButton mousebutton = glfwIntToMouseButton(button);
         auto buttonaction       = static_cast<MouseButtonEvent::Action>(action);
 
-        self->m_eventManager.dispatchEvent(MouseButtonEvent(&self->m_inputManager, mousebutton, buttonaction, mods));
+        self->m_eventManager.dispatchEvent(
+            MouseButtonEvent(&self->m_inputManager, mousebutton, buttonaction, mods));
 
         switch (buttonaction)
         {
@@ -241,8 +248,8 @@ namespace window
     {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-        self->m_eventManager.dispatchEvent(CursorFocusChangedEvent(entered != 0 ? CursorFocusChangedEvent::Focused
-                                                                                : CursorFocusChangedEvent::Defocused));
+        self->m_eventManager.dispatchEvent(CursorFocusChangedEvent(
+            entered != 0 ? CursorFocusChangedEvent::Focused : CursorFocusChangedEvent::Defocused));
     }
 
     void Window::scrollCallback(GLFWwindow* window, double x, double y)

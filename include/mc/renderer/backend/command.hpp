@@ -1,64 +1,109 @@
 #pragma once
 
-#include "constants.hpp"
 #include "device.hpp"
 
-#include <array>
-
-#include <vulkan/vulkan_core.h>
+#include <utility>
+#include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan_shared.hpp>
 
 namespace renderer::backend
 {
     class ScopedCommandBuffer
     {
     public:
-        ScopedCommandBuffer(Device& device, VkCommandPool commandPool, VkQueue queue, bool oneTimeUse = false);
+        ScopedCommandBuffer() = default;
+
+        ScopedCommandBuffer(Device& device,
+                            vk::raii::CommandPool const& commandPool,
+                            vk::raii::Queue const& queue,
+                            bool oneTimeUse = false);
         ~ScopedCommandBuffer();
 
         ScopedCommandBuffer(ScopedCommandBuffer const&)                    = delete;
-        ScopedCommandBuffer(ScopedCommandBuffer&&)                         = delete;
         auto operator=(ScopedCommandBuffer const&) -> ScopedCommandBuffer& = delete;
-        auto operator=(ScopedCommandBuffer&&) -> ScopedCommandBuffer&      = delete;
 
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        [[nodiscard]] operator VkCommandBuffer() const { return m_handle; }
+        auto operator=(ScopedCommandBuffer&& other) noexcept -> ScopedCommandBuffer&
+        {
+            if (this == &other)
+            {
+                return *this;
+            }
+
+            m_device = std::exchange(other.m_device, nullptr);
+            m_queue  = std::exchange(other.m_queue, nullptr);
+            m_handle = std::exchange(other.m_handle, nullptr);
+
+            return *this;
+        };
+
+        ScopedCommandBuffer(ScopedCommandBuffer&& other) noexcept
+            : m_device { std::exchange(other.m_device, nullptr) },
+              m_queue { std::exchange(other.m_queue, nullptr) },
+              m_handle { std::exchange(other.m_handle, nullptr) } {};
+
+        [[nodiscard]] operator vk::CommandBuffer() const { return m_handle; }
+
+        [[nodiscard]] auto operator->() const -> vk::raii::CommandBuffer const* { return &m_handle; }
 
     private:
-        Device& m_device;
+        Device const* m_device { nullptr };
 
-        VkCommandPool m_pool;
-        VkQueue m_queue;
+        vk::Queue m_queue { nullptr };
 
-        VkCommandBuffer m_handle { VK_NULL_HANDLE };
+        vk::raii::CommandBuffer m_handle { nullptr };
     };
 
     class CommandManager
     {
     public:
+        CommandManager()  = default;
+        ~CommandManager() = default;
+
         explicit CommandManager(Device const& device);
-        ~CommandManager();
 
-        CommandManager(CommandManager const&) = delete;
-        CommandManager(CommandManager&&)      = delete;
-
+        CommandManager(CommandManager const&)                    = delete;
         auto operator=(CommandManager const&) -> CommandManager& = delete;
-        auto operator=(CommandManager&&) -> CommandManager&      = delete;
 
-        [[nodiscard]] auto getGraphicsCmdBuffer(size_t index) const -> VkCommandBuffer
+        auto operator=(CommandManager&& other) noexcept -> CommandManager&
+        {
+            if (this == &other)
+            {
+                return *this;
+            }
+
+            m_graphicsCommandPool    = std::exchange(other.m_graphicsCommandPool, nullptr);
+            m_transferCommandPool    = std::exchange(other.m_transferCommandPool, nullptr);
+            m_graphicsCommandBuffers = std::exchange(other.m_graphicsCommandBuffers, {});
+
+            return *this;
+        };
+
+        CommandManager(CommandManager&& other) noexcept
+            : m_graphicsCommandPool { std::exchange(other.m_graphicsCommandPool, nullptr) },
+              m_transferCommandPool { std::exchange(other.m_transferCommandPool, nullptr) },
+              m_graphicsCommandBuffers { std::exchange(other.m_graphicsCommandBuffers, {}) }
+        {
+        }
+
+        [[nodiscard]] auto getGraphicsCmdBuffer(size_t index) const -> vk::raii::CommandBuffer const&
         {
             return m_graphicsCommandBuffers[index];
         }
 
-        [[nodiscard]] auto getGraphicsCmdPool() const -> VkCommandPool { return m_graphicsCommandPool; }
+        [[nodiscard]] auto getGraphicsCmdPool() const -> vk::raii::CommandPool const&
+        {
+            return m_graphicsCommandPool;
+        }
 
-        [[nodiscard]] auto getTransferCmdPool() const -> VkCommandPool { return m_transferCommandPool; }
+        [[nodiscard]] auto getTransferCmdPool() const -> vk::raii::CommandPool const&
+        {
+            return m_transferCommandPool;
+        }
 
     private:
-        Device const& m_device;
+        vk::raii::CommandPool m_graphicsCommandPool { nullptr };
+        vk::raii::CommandPool m_transferCommandPool { nullptr };
 
-        VkCommandPool m_graphicsCommandPool {};
-        VkCommandPool m_transferCommandPool {};
-
-        std::array<VkCommandBuffer, kNumFramesInFlight> m_graphicsCommandBuffers {};
+        std::vector<vk::raii::CommandBuffer> m_graphicsCommandBuffers {};
     };
 }  // namespace renderer::backend

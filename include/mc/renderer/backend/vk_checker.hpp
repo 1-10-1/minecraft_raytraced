@@ -1,27 +1,56 @@
 #pragma once
 
+#include "vk_result_messages.hpp"
+#include <mc/asserts.hpp>
+#include <mc/defines.hpp>
+
 #include <source_location>
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
-    class ResultGrabber
+    class ResultChecker
     {
     public:
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        ResultGrabber(VkResult res, std::source_location loc = std::source_location::current())
-            : result { res }, location { loc }
-        {
-        }
+        constexpr ResultChecker(std::source_location loc = std::source_location::current()) : loc { loc } {}
 
-        VkResult result;
-        std::source_location location;
+        std::source_location loc;
     };
 
-    constexpr struct DummyToken
+    inline void operator>>(vk::Result res, ResultChecker token)
     {
-    } vkResultChecker;
+        if constexpr (!kDebug)
+        {
+            return;
+        }
 
-    void operator>>(ResultGrabber grabber, DummyToken /*unused*/);
+        MC_ASSERT_MSG_LOC(token.loc, res == vk::Result::eSuccess, vkResultToStr(res));
+    }
+
+    template<typename T>
+    T operator>>(vk::ResultValue<T>&& res, ResultChecker token)
+    {
+        if constexpr (!kDebug)
+        {
+            return res.value;
+        }
+
+        MC_ASSERT_MSG_LOC(token.loc, res.result == vk::Result::eSuccess, vkResultToStr(res.result));
+
+        return res.value;
+    }
+
+    template<typename T>
+    T operator>>(std::expected<T, vk::Result>&& res, ResultChecker token)
+    {
+        if constexpr (!kDebug)
+        {
+            return res.value();
+        }
+
+        MC_ASSERT_MSG_LOC(token.loc, res.has_value(), vkResultToStr(res.error()));
+
+        return std::move(res.value());
+    }
 }  // namespace renderer::backend

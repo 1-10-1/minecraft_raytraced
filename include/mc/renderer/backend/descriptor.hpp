@@ -4,16 +4,16 @@
 #include <span>
 #include <vector>
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
     class DescriptorLayoutBuilder
     {
     public:
-        std::vector<VkDescriptorSetLayoutBinding> bindings;
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
 
-        auto addBinding(uint32_t binding, VkDescriptorType type) -> DescriptorLayoutBuilder&
+        auto addBinding(uint32_t binding, vk::DescriptorType type) -> DescriptorLayoutBuilder&
         {
             bindings.push_back({
                 .binding         = binding,
@@ -26,21 +26,27 @@ namespace renderer::backend
 
         void clear() { bindings.clear(); };
 
-        auto build(VkDevice device, VkShaderStageFlags shaderStages) -> VkDescriptorSetLayout;
+        auto build(vk::raii::Device const& device,
+                   vk::ShaderStageFlags shaderStages) -> vk::raii::DescriptorSetLayout;
     };
 
     struct DescriptorWriter
     {
-        std::deque<VkDescriptorImageInfo> imageInfos;
-        std::deque<VkDescriptorBufferInfo> bufferInfos;
-        std::vector<VkWriteDescriptorSet> writes;
+        std::deque<vk::DescriptorImageInfo> imageInfos;
+        std::deque<vk::DescriptorBufferInfo> bufferInfos;
+        std::vector<vk::WriteDescriptorSet> writes;
+
+        void write_image(int binding,
+                         vk::ImageView image,
+                         vk::Sampler sampler,
+                         vk::ImageLayout layout,
+                         vk::DescriptorType type);
 
         void
-        write_image(int binding, VkImageView image, VkSampler sampler, VkImageLayout layout, VkDescriptorType type);
-        void write_buffer(int binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type);
+        write_buffer(int binding, vk::Buffer buffer, size_t size, size_t offset, vk::DescriptorType type);
 
         void clear();
-        void update_set(VkDevice device, VkDescriptorSet set);
+        void update_set(vk::raii::Device const& device, vk::DescriptorSet set);
     };
 
     struct DescriptorAllocatorGrowable
@@ -48,24 +54,26 @@ namespace renderer::backend
     public:
         struct PoolSizeRatio
         {
-            VkDescriptorType type;
+            vk::DescriptorType type;
             float ratio;
         };
 
-        void init(VkDevice device, uint32_t initialSets, std::span<PoolSizeRatio> poolRatios);
-        void clear_pools(VkDevice device);
-        void destroy_pools(VkDevice device);
+        void init(vk::raii::Device const& device, uint32_t initialSets, std::span<PoolSizeRatio> poolRatios);
+        void clear_pools(vk::raii::Device const& device);
+        void destroy_pools(vk::raii::Device const& device);
 
-        auto allocate(VkDevice device, VkDescriptorSetLayout layout) -> VkDescriptorSet;
+        auto allocate(vk::raii::Device const& device,
+                      vk::raii::DescriptorSetLayout const& layout) -> vk::DescriptorSet;
 
     private:
-        auto get_pool(VkDevice device) -> VkDescriptorPool;
-        static auto create_pool(VkDevice device, uint32_t setCount, std::span<PoolSizeRatio> poolRatios)
-            -> VkDescriptorPool;
+        auto get_pool(vk::raii::Device const& device) -> vk::raii::DescriptorPool;
+        static auto create_pool(vk::raii::Device const& device,
+                                uint32_t setCount,
+                                std::span<PoolSizeRatio> poolRatios) -> vk::raii::DescriptorPool;
 
         std::vector<PoolSizeRatio> ratios;
-        std::vector<VkDescriptorPool> fullPools;
-        std::vector<VkDescriptorPool> readyPools;
+        std::vector<vk::raii::DescriptorPool> fullPools;
+        std::vector<vk::raii::DescriptorPool> readyPools;
         uint32_t setsPerPool;
     };
 
@@ -74,54 +82,27 @@ namespace renderer::backend
     public:
         struct PoolSizeRatio
         {
-            VkDescriptorType type;
+            vk::DescriptorType type;
             float ratio;
         };
 
-        void initPool(VkDevice device, uint32_t maxSets, std::span<PoolSizeRatio> poolRatios);
+        DescriptorAllocator()  = default;
+        ~DescriptorAllocator() = default;
 
-        auto allocate(VkDevice device, VkDescriptorSetLayout layout) -> VkDescriptorSet;
+        DescriptorAllocator(vk::raii::Device const& device,
+                            uint32_t maxSets,
+                            std::span<PoolSizeRatio> poolRatios);
 
-        void clearDescriptors(VkDevice device) { vkResetDescriptorPool(device, m_pool, 0); }
+        DescriptorAllocator(DescriptorAllocator&&)                    = default;
+        auto operator=(DescriptorAllocator&&) -> DescriptorAllocator& = default;
 
-        void destroyPool(VkDevice device) { vkDestroyDescriptorPool(device, m_pool, nullptr); };
+        auto allocate(vk::Device device, vk::DescriptorSetLayout layout) -> vk::DescriptorSet;
 
-        [[nodiscard]] auto getPool() const -> VkDescriptorPool { return m_pool; }
+        void clearDescriptors(vk::raii::Device const& device) { m_pool.reset(); }
+
+        [[nodiscard]] auto getPool() const -> vk::raii::DescriptorPool const& { return m_pool; }
 
     private:
-        VkDescriptorPool m_pool;
+        vk::raii::DescriptorPool m_pool { nullptr };
     };
-
-    // class DescriptorManager
-    // {
-    // public:
-    //     explicit DescriptorManager(Device& device,
-    //                                std::array<UniformBuffer, kNumFramesInFlight> const& uniformBufferArray,
-    //                                VkImageView textureImageView,
-    //                                VkSampler textureSampler);
-    //     ~DescriptorManager();
-    //
-    //     DescriptorManager(DescriptorManager const&)                    = delete;
-    //     DescriptorManager(DescriptorManager&&)                         = delete;
-    //     auto operator=(DescriptorManager const&) -> DescriptorManager& = delete;
-    //     auto operator=(DescriptorManager&&) -> DescriptorManager&      = delete;
-    //
-    //     void bind(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, size_t currentFrame);
-    //
-    //     [[nodiscard]] auto getLayout() const -> VkDescriptorSetLayout { return m_layout; }
-    //
-    //     [[nodiscard]] auto getPool() const -> VkDescriptorPool { return m_pool; }
-    //
-    // private:
-    //     void initLayout();
-    //     void initPool();
-    //     void initSets();
-    //
-    //     Device& m_device;
-    //
-    //     VkDescriptorSetLayout m_layout {};
-    //     VkDescriptorPool m_pool {};
-    //
-    //     std::array<VkDescriptorSet, kNumFramesInFlight> m_descriptorSets {};
-    // };
 }  // namespace renderer::backend

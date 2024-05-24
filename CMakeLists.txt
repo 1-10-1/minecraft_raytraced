@@ -31,7 +31,6 @@ list(APPEND SOURCE_FILES
 
     src/game/game.cpp
 
-    src/renderer/backend/vk_checker.cpp
     src/renderer/backend/tinyobjloader.cpp
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/stb.cpp
@@ -95,7 +94,8 @@ target_compile_definitions(
     GLM_FORCE_SIMD_AVX2 GLM_FORCE_AVX2 GLFW_INCLUDE_VULKAN GLM_ENABLE_EXPERIMENTAL
     NOMINMAX GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE IMGUI_ENABLE_FREETYPE
     _CRT_SECURE_NO_WARNINGS MAGIC_ENUM_RANGE_MIN=-1 MAGIC_ENUM_RANGE_MAX=1000
-    ROOT_SOURCE_PATH="${CMAKE_SOURCE_DIR}"
+    __cpp_lib_expected VULKAN_HPP_NO_EXCEPTIONS VULKAN_HPP_RAII_NO_EXCEPTIONS
+    VULKAN_HPP_NO_CONSTRUCTORS ROOT_SOURCE_PATH="${CMAKE_SOURCE_DIR}"
 )
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)

@@ -33,6 +33,31 @@
                 debugBreak();                                                  \
             }                                                                  \
         }
+
+#    define MC_ASSERT_LOC(expr, location)                                                          \
+        {                                                                                          \
+            if (expr)                                                                              \
+            {                                                                                      \
+            }                                                                                      \
+            else                                                                                   \
+            {                                                                                      \
+                logger::logAt<logger::level::critical>(location, "Assertion '{}' failed.", #expr); \
+                debugBreak();                                                                      \
+            }                                                                                      \
+        }
+
+#    define MC_ASSERT_MSG_LOC(location, expr, message)                      \
+        {                                                                   \
+            if (expr)                                                       \
+            {                                                               \
+            }                                                               \
+            else                                                            \
+            {                                                               \
+                logger::logAt<logger::level::critical>(                     \
+                    location, "Assertion '{}' failed: {}", #expr, message); \
+                debugBreak();                                               \
+            }                                                               \
+        }
 #else
 #    define MC_ASSERT(expr)
 #    define MC_ASSERT_MSG(expr, message)

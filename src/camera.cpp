@@ -90,6 +90,9 @@ void Camera::onUpdate(AppUpdateEvent const& event)
 
 void Camera::onFramebufferResize(WindowFramebufferResizeEvent const& event)
 {
-    setLens(
-        m_verticalFov, static_cast<float>(event.dimensions.x), static_cast<float>(event.dimensions.y), m_near, m_far);
+    setLens(m_verticalFov,
+            static_cast<float>(event.dimensions.x),
+            static_cast<float>(event.dimensions.y),
+            m_near,
+            m_far);
 };

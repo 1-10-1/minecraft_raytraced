@@ -24,7 +24,10 @@ namespace renderer::backend
         auto operator=(Framebuffers const&) -> Framebuffers& = delete;
         auto operator=(Framebuffers&&) -> Framebuffers&      = delete;
 
-        [[nodiscard]] auto operator[](size_t index) const -> VkFramebuffer { return m_swapChainFramebuffers[index]; }
+        [[nodiscard]] auto operator[](size_t index) const -> VkFramebuffer
+        {
+            return m_swapChainFramebuffers[index];
+        }
 
         void create(RenderPass const& renderPass,
                     Swapchain const& swapchain,

@@ -2,11 +2,11 @@
 
 #include <cstdint>
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
-    constexpr uint32_t kNumFramesInFlight       = 2;
-    constexpr VkFormat kDepthStencilFormat      = VK_FORMAT_D32_SFLOAT;
-    constexpr VkSampleCountFlagBits kMaxSamples = VK_SAMPLE_COUNT_4_BIT;
+    constexpr uint32_t kNumFramesInFlight         = 2;
+    constexpr vk::Format kDepthStencilFormat      = vk::Format::eD32Sfloat;
+    constexpr vk::SampleCountFlagBits kMaxSamples = vk::SampleCountFlagBits::e4;
 }  // namespace renderer::backend

@@ -3,8 +3,7 @@
 #include "allocator.hpp"
 
 #include <vk_mem_alloc.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
@@ -12,7 +11,10 @@ namespace renderer::backend
     {
     public:
         BasicBuffer() = default;
-        BasicBuffer(Allocator& allocator, size_t allocSize, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage);
+        BasicBuffer(Allocator& allocator,
+                    size_t allocSize,
+                    vk::BufferUsageFlags bufferUsage,
+                    VmaMemoryUsage memoryUsage);
         ~BasicBuffer();
 
         BasicBuffer(BasicBuffer const&)                    = delete;
@@ -43,8 +45,9 @@ namespace renderer::backend
             other.m_allocInfo  = {};
         };
 
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        [[nodiscard]] operator VkBuffer() const { return m_buffer; }
+        [[nodiscard]] operator vk::Buffer() const { return m_buffer; }
+
+        [[nodiscard]] auto operator->() const -> vk::Buffer { return m_buffer; }
 
         [[nodiscard]] auto getMappedData() const -> void* { return m_allocInfo.pMappedData; }
 

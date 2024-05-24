@@ -2,90 +2,88 @@
 
 #include "instance.hpp"
 
-#include <optional>
+#include <cstdint>
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
     class Surface;
 
-    class QueueFamilyIndices
+    struct QueueFamilyIndices
     {
-    public:
-        QueueFamilyIndices() = default;
-
-        std::optional<uint32_t> graphicsFamily;
-        std::optional<uint32_t> presentFamily;
-        std::optional<uint32_t> transferFamily;
-
-        [[nodiscard]] auto isComplete() const -> bool
-        {
-            return graphicsFamily.has_value() && presentFamily.has_value() && transferFamily.has_value();
-        };
+        uint32_t graphicsFamily = std::numeric_limits<uint32_t>::max();
+        uint32_t presentFamily  = std::numeric_limits<uint32_t>::max();
+        uint32_t transferFamily = std::numeric_limits<uint32_t>::max();
     };
 
     class Device
     {
     public:
+        Device()  = default;
+        ~Device() = default;
+
         explicit Device(Instance& instance, Surface& surface);
-        ~Device();
 
-        Device(Device const&) = delete;
-        Device(Device&&)      = default;
-
+        Device(Device const&)                    = delete;
         auto operator=(Device const&) -> Device& = delete;
-        auto operator=(Device&&) -> Device&      = default;
 
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        [[nodiscard]] operator VkDevice() const { return m_logicalHandle; }
+        Device(Device&&)                    = default;
+        auto operator=(Device&&) -> Device& = default;
 
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        [[nodiscard]] operator VkPhysicalDevice() const { return m_physicalHandle; }
+        [[nodiscard]] operator vk::Device() const { return m_logicalHandle; }
 
-        [[nodiscard]] auto getQueueFamilyIndices() const -> QueueFamilyIndices const& { return m_queueFamilyIndices; }
+        [[nodiscard]] operator vk::PhysicalDevice() const { return m_physicalHandle; }
 
-        [[nodiscard]] auto getGraphicsQueue() const -> VkQueue { return m_graphicsQueue; }
+        [[nodiscard]] operator vk::raii::Device const&() const { return m_logicalHandle; }
 
-        [[nodiscard]] auto getTransferQueue() const -> VkQueue { return m_transferQueue; }
+        [[nodiscard]] operator vk::raii::PhysicalDevice const&() const { return m_physicalHandle; }
 
-        [[nodiscard]] auto getPresentQueue() const -> VkQueue { return m_presentQueue; }
+        [[nodiscard]] vk::raii::Device const* operator->() const { return &m_logicalHandle; }
 
-        [[nodiscard]] auto getDeviceProperties() const -> VkPhysicalDeviceProperties
+        [[nodiscard]] vk::raii::PhysicalDevice const& getPhysical() const { return m_physicalHandle; }
+
+        [[nodiscard]] vk::raii::Device const& get() const { return m_logicalHandle; }
+
+        [[nodiscard]] auto getQueueFamilyIndices() const -> QueueFamilyIndices const&
         {
-            VkPhysicalDeviceProperties properties;
-            vkGetPhysicalDeviceProperties(m_physicalHandle, &properties);
-
-            return properties;
+            return m_queueFamilyIndices;
         }
 
-        [[nodiscard]] auto getFormatProperties(VkFormat format) const -> VkFormatProperties
-        {
-            VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(m_physicalHandle, format, &props);
+        [[nodiscard]] auto getGraphicsQueue() const -> vk::raii::Queue const& { return m_graphicsQueue; }
 
-            return props;
+        [[nodiscard]] auto getTransferQueue() const -> vk::raii::Queue const& { return m_transferQueue; }
+
+        [[nodiscard]] auto getPresentQueue() const -> vk::raii::Queue const& { return m_presentQueue; }
+
+        [[nodiscard]] auto getDeviceProperties() const -> vk::PhysicalDeviceProperties
+        {
+            return m_physicalHandle.getProperties();
         }
 
-        [[nodiscard]] auto findSuitableMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
-            -> uint32_t;
+        [[nodiscard]] auto getFormatProperties(vk::Format format) const -> vk::FormatProperties
+        {
+            return m_physicalHandle.getFormatProperties(format);
+        }
 
-        [[nodiscard]] auto getMaxUsableSampleCount() const -> VkSampleCountFlagBits { return m_sampleCount; };
+        [[nodiscard]] auto getMaxUsableSampleCount() const -> vk::SampleCountFlagBits
+        {
+            return m_sampleCount;
+        };
 
     private:
         void selectPhysicalDevice(Instance& instance, Surface& surface);
         void selectLogicalDevice();
 
-        VkDevice m_logicalHandle { VK_NULL_HANDLE };
-        VkPhysicalDevice m_physicalHandle { VK_NULL_HANDLE };
+        vk::raii::Device m_logicalHandle { nullptr };
+        vk::raii::PhysicalDevice m_physicalHandle { nullptr };
 
-        VkSampleCountFlagBits m_sampleCount {};
+        vk::SampleCountFlagBits m_sampleCount { vk::SampleCountFlagBits::e1 };
 
         QueueFamilyIndices m_queueFamilyIndices {};
 
-        VkQueue m_graphicsQueue { VK_NULL_HANDLE };
-        VkQueue m_presentQueue { VK_NULL_HANDLE };
-        VkQueue m_transferQueue { VK_NULL_HANDLE };
-
-    };  // namespace renderer::backend
+        vk::raii::Queue m_graphicsQueue { nullptr };
+        vk::raii::Queue m_presentQueue { nullptr };
+        vk::raii::Queue m_transferQueue { nullptr };
+    };
 }  // namespace renderer::backend

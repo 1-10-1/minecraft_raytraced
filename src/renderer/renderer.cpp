@@ -14,8 +14,11 @@ namespace renderer
         : m_camera { camera }, m_backend { backend::RendererBackend(window) }
 
     {
-        eventManager.subscribe(
-            this, &Renderer::onRender, &Renderer::onUpdate, &Renderer::onFramebufferResize, &Renderer::onKeyPress);
+        eventManager.subscribe(this,
+                               &Renderer::onRender,
+                               &Renderer::onUpdate,
+                               &Renderer::onFramebufferResize,
+                               &Renderer::onKeyPress);
 
         camera.setLens(glm::radians(45.0f), m_backend.getFramebufferSize(), 1000.f, 0.1f);
     }

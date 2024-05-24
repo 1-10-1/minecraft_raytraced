@@ -65,7 +65,8 @@ public:
 
     void setLens(float verticalFov, glm::uvec2 dimensions, float near_z, float far_z)
     {
-        setLens(verticalFov, static_cast<float>(dimensions.x), static_cast<float>(dimensions.y), near_z, far_z);
+        setLens(
+            verticalFov, static_cast<float>(dimensions.x), static_cast<float>(dimensions.y), near_z, far_z);
     }
 
     void lookAt(glm::vec3 const& position, glm::vec3 const& target, glm::vec3 const& world_up);

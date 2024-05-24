@@ -11,7 +11,9 @@
 #include "imgui_internal.h"
 #include <glm/glm.hpp>
 #include <tracy/Tracy.hpp>
+#include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_structs.hpp>
 
 namespace renderer::backend
 {
@@ -23,76 +25,79 @@ namespace renderer::backend
 
         ZoneText(zoneName.c_str(), zoneName.size());
 
-        auto frame = m_frameResources[m_currentFrame];
+        FrameResources& frame = m_frameResources[m_currentFrame];
 
-        vkWaitForFences(m_device, 1, &frame.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
-        vkResetFences(m_device, 1, &frame.inFlightFence);
+        m_device->waitForFences({ frame.inFlightFence }, true, std::numeric_limits<uint64_t>::max()) >>
+            ResultChecker();
+        m_device->resetFences({ frame.inFlightFence });
 
         uint32_t imageIndex {};
 
         {
-            VkResult result = vkAcquireNextImageKHR(
-                m_device, m_swapchain, UINT64_MAX, frame.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+            auto [result, index] = m_swapchain->acquireNextImage(
+                std::numeric_limits<uint64_t>::max(), { frame.imageAvailableSemaphore }, {});
 
-            if (result == VK_ERROR_OUT_OF_DATE_KHR)
+            imageIndex = index;
+
+            if (result == vk::Result::eErrorOutOfDateKHR)
             {
                 handleSurfaceResize();
+
                 return;
             }
 
-            if (result != VK_SUBOPTIMAL_KHR)
+            if (result != vk::Result::eSuboptimalKHR)
             {
-                result >> vkResultChecker;
+                result >> ResultChecker();
             }
         }
 
-        VkCommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
+        vk::CommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
 
-        vkResetCommandBuffer(cmdBuf, 0);
+        cmdBuf.reset();
 
         recordCommandBuffer(imageIndex);
 
-        VkCommandBufferSubmitInfo cmdinfo = infoStructs::command_buffer_submit_info(cmdBuf);
+        auto cmdinfo = vk::CommandBufferSubmitInfo().setCommandBuffer(cmdBuf);
 
-        VkSemaphoreSubmitInfo waitInfo = infoStructs::semaphore_submit_info(
-            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, frame.imageAvailableSemaphore);
+        auto waitInfo = vk::SemaphoreSubmitInfo()
+                            .setValue(1)
+                            .setStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                            .setSemaphore(frame.imageAvailableSemaphore);
 
-        VkSemaphoreSubmitInfo signalInfo =
-            infoStructs::semaphore_submit_info(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, frame.renderFinishedSemaphore);
+        auto signalInfo = vk::SemaphoreSubmitInfo()
+                              .setValue(1)
+                              .setStageMask(vk::PipelineStageFlagBits2::eAllGraphics)
+                              .setSemaphore(frame.renderFinishedSemaphore);
 
-        VkSubmitInfo2 submit = infoStructs::submit_info(&cmdinfo, &signalInfo, &waitInfo);
+        auto submit = vk::SubmitInfo2()
+                          .setCommandBufferInfos(cmdinfo)
+                          .setWaitSemaphoreInfos(waitInfo)
+                          .setSignalSemaphoreInfos(signalInfo);
 
         {
             ZoneNamedN(tracy_queue_submit_zone, "Queue Submit", true);
-            vkQueueSubmit2(m_device.getGraphicsQueue(), 1, &submit, frame.inFlightFence) >> vkResultChecker;
+            m_device.getGraphicsQueue().submit2(submit, frame.inFlightFence);
         }
 
-        std::array swapChains = { static_cast<VkSwapchainKHR>(m_swapchain) };
-
-        VkPresentInfoKHR presentInfo {
-            .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores    = &frame.renderFinishedSemaphore,
-
-            .swapchainCount = 1,
-            .pSwapchains    = swapChains.data(),
-            .pImageIndices  = &imageIndex,
-
-            .pResults = nullptr,
-        };
+        auto presentInfo = vk::PresentInfoKHR()
+                               .setWaitSemaphores(*frame.renderFinishedSemaphore)
+                               .setSwapchains(*m_swapchain.get())
+                               .setImageIndices(imageIndex);
 
         {
             ZoneNamedN(tracy_queue_present_zone, "Queue presentation", true);
-            VkResult result = vkQueuePresentKHR(m_device.getPresentQueue(), &presentInfo);
+            vk::Result result = m_device.getPresentQueue().presentKHR(presentInfo);
 
-            if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_windowResized)
+            if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR ||
+                m_windowResized)
             {
                 handleSurfaceResize();
                 m_windowResized = false;
             }
             else
             {
-                result >> vkResultChecker;
+                result >> ResultChecker();
             }
         }
 
@@ -100,25 +105,35 @@ namespace renderer::backend
         ++m_frameCount;
     }
 
-    void RendererBackend::drawGeometry(VkCommandBuffer cmdBuf)
+    void RendererBackend::drawGeometry(vk::CommandBuffer cmdBuf)
     {
-        VkExtent2D imageExtent = m_drawImage.getDimensions();
+        vk::Extent2D imageExtent = m_drawImage.getDimensions();
 
-        VkRenderingAttachmentInfo colorAttachment =
-            infoStructs::attachment_info(m_drawImage.getImageView(), nullptr, VK_IMAGE_LAYOUT_GENERAL);
+        auto colorAttachment = vk::RenderingAttachmentInfo()
+                                   .setImageView(m_drawImage.getImageView())
+                                   .setImageLayout(vk::ImageLayout::eGeneral)
+                                   .setLoadOp(vk::AttachmentLoadOp::eLoad)
+                                   .setStoreOp(vk::AttachmentStoreOp::eStore)
+                                   .setResolveImageView(m_drawImageResolve.getImageView())
+                                   .setResolveImageLayout(vk::ImageLayout::eGeneral)
+                                   .setResolveMode(vk::ResolveModeFlagBits::eAverage);
 
-        colorAttachment.resolveImageView   = m_drawImageResolve.getImageView();
-        colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        colorAttachment.resolveMode        = VK_RESOLVE_MODE_AVERAGE_BIT;
+        auto depthAttachment = vk::RenderingAttachmentInfo()
+                                   .setImageView(m_depthImage.getImageView())
+                                   .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+                                   .setLoadOp(vk::AttachmentLoadOp::eClear)
+                                   .setStoreOp(vk::AttachmentStoreOp::eStore)
+                                   .setClearValue({ .depthStencil = { .depth = 0.f } });
 
-        VkRenderingAttachmentInfo depthAttachment =
-            infoStructs::depth_attachment_info(m_depthImage.getImageView(), VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        auto renderInfo = vk::RenderingInfo()
+                              .setRenderArea({ .extent = imageExtent })
+                              .setColorAttachments(colorAttachment)
+                              .setPDepthAttachment(&depthAttachment)
+                              .setLayerCount(1);
 
-        VkRenderingInfo renderInfo = infoStructs::rendering_info(imageExtent, &colorAttachment, &depthAttachment);
+        cmdBuf.beginRendering(renderInfo);
 
-        vkCmdBeginRendering(cmdBuf, &renderInfo);
-
-        VkViewport viewport = {
+        vk::Viewport viewport = {
             .x        = 0,
             .y        = 0,
             .width    = static_cast<float>(imageExtent.width),
@@ -127,49 +142,31 @@ namespace renderer::backend
             .maxDepth = 1.f,
         };
 
-        vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+        cmdBuf.setViewport(0, viewport);
 
-        // clang-format off
-        VkRect2D scissor = {
-            .offset = { 0,                          0                            },
-            .extent = { .width = imageExtent.width, .height = imageExtent.height }
-        };
-        // clang-format on
+        auto scissor = vk::Rect2D().setExtent(imageExtent).setOffset({ 0, 0 });
 
-        vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+        cmdBuf.setScissor(0, scissor);
 
         m_stats.drawcall_count = 0;
         m_stats.triangle_count = 0;
 
         for (auto const& [_, item] : m_renderItems)
         {
-            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, item.pipeline);
+            cmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, item.pipeline);
 
             if (item.layout == m_texturedPipelineLayout)
             {
-                std::array descriptorSets { m_sceneDataDescriptors, m_materialDescriptors };
-
-                vkCmdBindDescriptorSets(cmdBuf,
-                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        item.layout,
-                                        0,
-                                        descriptorSets.size(),
-                                        descriptorSets.data(),
-                                        0,
-                                        nullptr);
+                cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                          item.layout,
+                                          0,
+                                          { m_sceneDataDescriptors, m_materialDescriptors },
+                                          {});
             }
             else
-            {  // No textures
-                std::array descriptorSets { m_sceneDataDescriptors };
-
-                vkCmdBindDescriptorSets(cmdBuf,
-                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        item.layout,
-                                        0,
-                                        descriptorSets.size(),
-                                        descriptorSets.data(),
-                                        0,
-                                        nullptr);
+            {
+                cmdBuf.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics, item.layout, 0, { m_sceneDataDescriptors }, {});
             }
 
             GPUDrawPushConstants push_constants {
@@ -177,22 +174,21 @@ namespace renderer::backend
                 .vertexBuffer = item.meshData->vertexBufferAddress,
             };
 
-            vkCmdPushConstants(cmdBuf,
-                               m_texturedPipelineLayout,
-                               VK_SHADER_STAGE_VERTEX_BIT,
-                               0,
-                               sizeof(GPUDrawPushConstants),
-                               &push_constants);
+            cmdBuf.pushConstants(m_texturedPipelineLayout,
+                                 vk::ShaderStageFlagBits::eVertex,
+                                 0,
+                                 sizeof(GPUDrawPushConstants),
+                                 &push_constants);
 
-            vkCmdBindIndexBuffer(cmdBuf, item.meshData->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            cmdBuf.bindIndexBuffer(item.meshData->indexBuffer, 0, vk::IndexType::eUint32);
 
-            vkCmdDrawIndexed(cmdBuf, item.meshData->indexCount, 1, 0, 0, 0);
+            cmdBuf.drawIndexed(item.meshData->indexCount, 1, 0, 0, 0);
 
             m_stats.drawcall_count++;
             m_stats.triangle_count += item.meshData->indexCount / 3;
         }
 
-        vkCmdEndRendering(cmdBuf);
+        cmdBuf.endRendering();
     }
 
     void RendererBackend::recordCommandBuffer(uint32_t imageIndex)
@@ -201,33 +197,41 @@ namespace renderer::backend
         TracyVkCtx tracyCtx = m_frameResources[m_currentFrame].tracyContext;
 #endif
 
-        VkCommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
+        vk::CommandBuffer cmdBuf = m_commandManager.getGraphicsCmdBuffer(m_currentFrame);
 
-        VkCommandBufferBeginInfo beginInfo =
-            infoStructs::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        auto beginInfo =
+            vk::CommandBufferBeginInfo().setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
-        vkBeginCommandBuffer(cmdBuf, &beginInfo) >> vkResultChecker;
+        cmdBuf.begin(beginInfo) >> ResultChecker();
 
         {
             TracyVkZone(tracyCtx, cmdBuf, "Command buffer recording");
 
-            VkImage swapchainImage = m_swapchain.getImages()[imageIndex];
-            VkExtent2D imageExtent = m_swapchain.getImageExtent();
+            vk::Image swapchainImage = m_swapchain.getImages()[imageIndex];
+            vk::Extent2D imageExtent = m_swapchain.getImageExtent();
 
-            Image::transition(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
             Image::transition(
-                cmdBuf, m_depthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+                cmdBuf, m_drawImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+            Image::transition(
+                cmdBuf, m_depthImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal);
 
-            VkClearColorValue clearValue {
-                {33.f / 255.f, 33.f / 255.f, 33.f / 255.f, 1.f}
+            vk::ClearColorValue clearValue {
+                std::array { 33.f / 255.f, 33.f / 255.f, 33.f / 255.f, 1.f }
             };
 
-            VkImageSubresourceRange range = infoStructs::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+            auto range = vk::ImageSubresourceRange()
+                             .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                             .setLayerCount(vk::RemainingArrayLayers)
+                             .setLevelCount(vk::RemainingMipLevels)
+                             .setBaseMipLevel(0)
+                             .setBaseArrayLayer(0);
 
-            vkCmdClearColorImage(cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &range);
+            cmdBuf.clearColorImage(m_drawImage, vk::ImageLayout::eTransferDstOptimal, clearValue, range);
 
-            Image::transition(
-                cmdBuf, m_drawImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            Image::transition(cmdBuf,
+                              m_drawImage,
+                              vk::ImageLayout::eTransferDstOptimal,
+                              vk::ImageLayout::eColorAttachmentOptimal);
 
             {
                 TracyVkZone(tracyCtx, cmdBuf, "Geometry render");
@@ -238,11 +242,15 @@ namespace renderer::backend
             {
                 TracyVkZone(tracyCtx, cmdBuf, "Draw image copy");
 
-                Image::transition(
-                    cmdBuf, m_drawImageResolve, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                Image::transition(cmdBuf,
+                                  m_drawImageResolve,
+                                  vk::ImageLayout::eUndefined,
+                                  vk::ImageLayout::eTransferSrcOptimal);
 
-                Image::transition(
-                    cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                Image::transition(cmdBuf,
+                                  swapchainImage,
+                                  vk::ImageLayout::eUndefined,
+                                  vk::ImageLayout::eTransferDstOptimal);
 
                 m_drawImageResolve.copyTo(cmdBuf, swapchainImage, imageExtent, m_drawImage.getDimensions());
             }
@@ -250,19 +258,21 @@ namespace renderer::backend
             {
                 TracyVkZone(tracyCtx, cmdBuf, "ImGui render");
 
-                renderImgui(cmdBuf, m_swapchain.getImageViews()[imageIndex]);
+                renderImgui(cmdBuf, *m_swapchain.getImageViews()[imageIndex]);
             }
 
-            Image::transition(
-                cmdBuf, swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            Image::transition(cmdBuf,
+                              swapchainImage,
+                              vk::ImageLayout::eTransferDstOptimal,
+                              vk::ImageLayout::ePresentSrcKHR);
         }
 
         TracyVkCollect(tracyCtx, cmdBuf);
 
-        vkEndCommandBuffer(cmdBuf) >> vkResultChecker;
+        cmdBuf.end() >> ResultChecker();
     }
 
-    void RendererBackend::renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage)
+    void RendererBackend::renderImgui(vk::CommandBuffer cmdBuf, vk::ImageView targetImage)
     {
         ImGuiIO& io = ImGui::GetIO();
 
@@ -270,8 +280,8 @@ namespace renderer::backend
         static Timer::Clock::time_point lastFrametimeUpdate = Timer::Clock::now();
 
         if (auto now = Timer::Clock::now();
-            std::chrono::duration_cast<std::chrono::duration<float, std::milli>>(now - lastFrametimeUpdate).count() >
-            333.333f)
+            std::chrono::duration_cast<std::chrono::duration<float, std::milli>>(now - lastFrametimeUpdate)
+                .count() > 333.333f)
         {
             frametime           = 1000.f / io.Framerate;
             lastFrametimeUpdate = now;
@@ -289,18 +299,24 @@ namespace renderer::backend
         window_flags |= ImGuiWindowFlags_NoNav;
         window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-        VkRenderingAttachmentInfo colorAttachment =
-            infoStructs::attachment_info(targetImage, nullptr, VK_IMAGE_LAYOUT_GENERAL);
+        auto colorAttachment = vk::RenderingAttachmentInfo()
+                                   .setImageView(targetImage)
+                                   .setImageLayout(vk::ImageLayout::eGeneral)
+                                   .setLoadOp(vk::AttachmentLoadOp::eLoad)
+                                   .setStoreOp(vk::AttachmentStoreOp::eStore);
 
-        VkRenderingInfo renderInfo =
-            infoStructs::rendering_info(m_swapchain.getImageExtent(), &colorAttachment, nullptr);
+        auto renderInfo = vk::RenderingInfo()
+                              .setRenderArea({ .extent = m_swapchain.getImageExtent() })
+                              .setColorAttachments(colorAttachment)
+                              .setLayerCount(1);
 
-        vkCmdBeginRendering(cmdBuf, &renderInfo);
+        cmdBuf.beginRendering(renderInfo);
 
         float windowPadding = 10.0f;
 
         {
-            ImGui::SetNextWindowPos(ImVec2(windowPadding, windowPadding), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
+            ImGui::SetNextWindowPos(
+                ImVec2(windowPadding, windowPadding), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
             ImGui::SetNextWindowSize({});
 
             ImGui::Begin("Statistics", nullptr, window_flags);
@@ -309,12 +325,14 @@ namespace renderer::backend
             ImGui::SameLine();
             ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical, 2.5f);
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(255.f / 255, 163.f / 255, 77.f / 255, 1.f), "%.0f fps", 1000 / frametime);
+            ImGui::TextColored(
+                ImVec4(255.f / 255, 163.f / 255, 77.f / 255, 1.f), "%.0f fps", 1000 / frametime);
             ImGui::SameLine();
             ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical, 2.5f);
             ImGui::SameLine();
-            ImGui::TextColored(
-                ImVec4(255.f / 255, 215.f / 255, 100.f / 255, 1.f), "Vsync: %s", m_surface.getVsync() ? "on" : "off");
+            ImGui::TextColored(ImVec4(255.f / 255, 215.f / 255, 100.f / 255, 1.f),
+                               "Vsync: %s",
+                               m_surface.getVsync() ? "on" : "off");
 
             ImGui::Text("Triangles %i", m_stats.triangle_count);
             ImGui::Text("Draws %i", m_stats.drawcall_count);
@@ -357,6 +375,6 @@ namespace renderer::backend
         ImGui::Render();
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuf);
 
-        vkCmdEndRendering(cmdBuf);
+        cmdBuf.endRendering();
     }
 }  // namespace renderer::backend

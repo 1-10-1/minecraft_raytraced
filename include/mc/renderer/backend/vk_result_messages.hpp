@@ -3,11 +3,11 @@
 #include <string_view>
 #include <unordered_map>
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
-    inline auto vkResultToStr(VkResult result) -> std::string_view const&
+    inline auto vkResultToStr(vk::Result result) -> std::string_view const&
     {
         // clang-format off
     static std::unordered_map<VkResult, std::string_view> vkResultNames {
@@ -62,6 +62,6 @@ namespace renderer::backend
     };
         // clang-format on
 
-        return vkResultNames.at(result);
+        return vkResultNames.at(static_cast<VkResult>(result));
     }
 }  // namespace renderer::backend

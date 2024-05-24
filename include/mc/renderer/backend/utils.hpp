@@ -1,29 +1,25 @@
 #pragma once
 
+#include "mc/renderer/backend/vk_checker.hpp"
 #include "mc/utils.hpp"
-#include "vk_checker.hpp"
 
 #include <vulkan/vulkan_core.h>
 
 #include <filesystem>
 #include <vector>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
-    auto createShaderModule(VkDevice device, std::filesystem::path const& shaderPath) -> VkShaderModule
+    inline auto createShaderModule(vk::raii::Device const& device, std::filesystem::path const& shaderPath)
+        -> vk::raii::ShaderModule
     {
         std::vector<char> shaderCode = utils::readBytes(shaderPath);
 
-        VkShaderModuleCreateInfo createInfo {
-            .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = shaderCode.size(),
-            .pCode    = reinterpret_cast<uint32_t const*>(shaderCode.data()),
-        };
-
-        VkShaderModule shaderModule {};
-
-        vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) >> vkResultChecker;
-
-        return shaderModule;
+        return device.createShaderModule({
+                   .codeSize = shaderCode.size(),
+                   .pCode    = reinterpret_cast<uint32_t const*>(shaderCode.data()),
+               }) >>
+               ResultChecker();
     };
 }  // namespace renderer::backend

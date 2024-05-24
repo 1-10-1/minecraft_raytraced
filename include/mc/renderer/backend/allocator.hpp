@@ -9,8 +9,10 @@ namespace renderer::backend
     class Allocator
     {
     public:
-        Allocator(Instance const& instance, Device const& device);
+        Allocator() = default;
         ~Allocator();
+
+        Allocator(Instance const& instance, Device const& device);
 
         Allocator(Allocator const&)                    = delete;
         auto operator=(Allocator const&) -> Allocator& = delete;
@@ -25,7 +27,6 @@ namespace renderer::backend
             return *this;
         };
 
-        // NOLINTNEXTLINE(google-explicit-constructor)
         [[nodiscard]] operator VmaAllocator() const { return m_allocator; }
 
         [[nodiscard]] auto get() const -> VmaAllocator { return m_allocator; }

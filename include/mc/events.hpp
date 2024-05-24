@@ -166,7 +166,9 @@ class MouseScrollEvent : public InputEvent
 {
 public:
     MouseScrollEvent(InputManager const* inputManager, glm::vec2 delta)
-        : InputEvent { inputManager }, wheelDelta { delta }, position { getInputManager()->getCurrentCursorPosition() }
+        : InputEvent { inputManager },
+          wheelDelta { delta },
+          position { getInputManager()->getCurrentCursorPosition() }
     {
     }
 

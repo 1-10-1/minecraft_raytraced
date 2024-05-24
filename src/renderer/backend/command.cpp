@@ -1,3 +1,4 @@
+#include "mc/asserts.hpp"
 #include <mc/renderer/backend/command.hpp>
 #include <mc/renderer/backend/constants.hpp>
 #include <mc/renderer/backend/info_structs.hpp>
@@ -8,78 +9,62 @@
 
 namespace renderer::backend
 {
-    ScopedCommandBuffer::ScopedCommandBuffer(Device& device, VkCommandPool commandPool, VkQueue queue, bool oneTimeUse)
-        : m_device { device }, m_pool { commandPool }, m_queue { queue }
+    ScopedCommandBuffer::ScopedCommandBuffer(Device& device,
+                                             vk::raii::CommandPool const& commandPool,
+                                             vk::raii::Queue const& queue,
+                                             bool oneTimeUse)
+        : m_device { &device }, m_queue { queue }
     {
-        VkCommandBufferAllocateInfo allocInfo {
-            .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool        = m_pool,
-            .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = 1,
-        };
+        m_handle = std::move(m_device->get()
+                                 .allocateCommandBuffers(vk::CommandBufferAllocateInfo()
+                                                             .setCommandPool(commandPool)
+                                                             .setLevel(vk::CommandBufferLevel::ePrimary)
+                                                             .setCommandBufferCount(1))
+                                 .value()[0]);
 
-        vkAllocateCommandBuffers(m_device, &allocInfo, &m_handle);
-
-        VkCommandBufferBeginInfo beginInfo {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = oneTimeUse ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0u,
-        };
-
-        vkBeginCommandBuffer(m_handle, &beginInfo);
+        m_handle.begin(
+            vk::CommandBufferBeginInfo().setFlags(oneTimeUse ? vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+                                                             : static_cast<vk::CommandBufferUsageFlags>(0)));
     }
 
     ScopedCommandBuffer::~ScopedCommandBuffer()
     {
-        vkEndCommandBuffer(m_handle);
+        m_handle.end();
 
-        VkCommandBufferSubmitInfo cmdSubInfo = infoStructs::command_buffer_submit_info(m_handle);
+        std::array cmdSubmits { vk::CommandBufferSubmitInfo().setCommandBuffer(m_handle) };
+        std::array submits { vk::SubmitInfo2().setCommandBufferInfos(cmdSubmits) };
 
-        VkSubmitInfo2 submitInfo = infoStructs::submit_info(&cmdSubInfo, nullptr, nullptr);
+        vk::raii::Fence fence = m_device->get().createFence(vk::FenceCreateInfo {}).value();
 
-        VkFence fence {};
+        MC_ASSERT(m_queue.submit2(submits, fence) == vk::Result::eSuccess);
 
-        VkFenceCreateInfo fenceInfo { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
-
-        vkCreateFence(m_device, &fenceInfo, nullptr, &fence) >> vkResultChecker;
-
-        vkQueueSubmit2(m_queue, 1, &submitInfo, fence);
-        vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX);
-
-        vkFreeCommandBuffers(m_device, m_pool, 1, &m_handle);
-
-        vkDestroyFence(m_device, fence, nullptr);
+        MC_ASSERT(m_device->get().waitForFences({ fence }, true, std::numeric_limits<uint64_t>::max()) !=
+                  vk::Result::eTimeout);
     }
 
-    CommandManager::CommandManager(Device const& device) : m_device { device }
+    CommandManager::CommandManager(Device const& device)
     {
-        VkCommandPoolCreateInfo graphicsPoolInfo {
-            .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .queueFamilyIndex = device.getQueueFamilyIndices().graphicsFamily.value(),
-        };
+        m_graphicsCommandPool =
+            device
+                ->createCommandPool(vk::CommandPoolCreateInfo()
+                                        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
+                                        .setQueueFamilyIndex(device.getQueueFamilyIndices().graphicsFamily))
+                .value();
 
-        VkCommandPoolCreateInfo transferPoolInfo {
-            .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .flags            = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .queueFamilyIndex = m_device.getQueueFamilyIndices().transferFamily.value()
-        };
+        m_transferCommandPool =
+            device
+                ->createCommandPool(vk::CommandPoolCreateInfo()
+                                        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer |
+                                                  vk::CommandPoolCreateFlagBits::eTransient)
+                                        .setQueueFamilyIndex(device.getQueueFamilyIndices().transferFamily))
+                .value();
 
-        vkCreateCommandPool(device, &graphicsPoolInfo, nullptr, &m_graphicsCommandPool);
-        vkCreateCommandPool(device, &transferPoolInfo, nullptr, &m_transferCommandPool);
-
-        VkCommandBufferAllocateInfo allocInfo {
-            .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool        = m_graphicsCommandPool,
-            .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = utils::size(m_graphicsCommandBuffers),
-        };
-
-        vkAllocateCommandBuffers(device, &allocInfo, m_graphicsCommandBuffers.data()) >> vkResultChecker;
-    }
-
-    CommandManager::~CommandManager()
-    {
-        vkDestroyCommandPool(m_device, m_graphicsCommandPool, nullptr);
-        vkDestroyCommandPool(m_device, m_transferCommandPool, nullptr);
+        m_graphicsCommandBuffers =
+            device
+                ->allocateCommandBuffers(vk::CommandBufferAllocateInfo()
+                                             .setCommandPool(m_graphicsCommandPool)
+                                             .setLevel(vk::CommandBufferLevel::ePrimary)
+                                             .setCommandBufferCount(kNumFramesInFlight))
+                .value();
     }
 }  // namespace renderer::backend

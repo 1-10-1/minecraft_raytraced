@@ -51,7 +51,8 @@ namespace renderer::backend
                 .layers          = 1,
             };
 
-            vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_swapChainFramebuffers[i]) >> vkResultChecker;
+            vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_swapChainFramebuffers[i]) >>
+                vkResultChecker;
         }
     }
 

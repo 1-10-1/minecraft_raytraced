@@ -6,9 +6,9 @@ namespace renderer::backend
     {
         VmaAllocatorCreateInfo allocatorInfo = {
             .flags          = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-            .physicalDevice = device,
-            .device         = device,
-            .instance       = instance,
+            .physicalDevice = *device.getPhysical(),
+            .device         = *device.get(),
+            .instance       = static_cast<vk::Instance>(instance),
         };
 
         vmaCreateAllocator(&allocatorInfo, &m_allocator);

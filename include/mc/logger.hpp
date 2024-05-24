@@ -109,10 +109,10 @@ namespace logger
             return;
         }
 
-        logAt<lvl>(
-            spdlog::source_loc(location.file_name(), static_cast<int>(location.line()), location.function_name()),
-            fmtstr,
-            std::forward<Args>(args)...);
+        logAt<lvl>(spdlog::source_loc(
+                       location.file_name(), static_cast<int>(location.line()), location.function_name()),
+                   fmtstr,
+                   std::forward<Args>(args)...);
     }
 
     template<typename... Args>

@@ -7,29 +7,13 @@
 
 namespace renderer::backend
 {
-    void Surface::refresh(VkPhysicalDevice device)
+    void Surface::refresh(vk::PhysicalDevice device)
     {
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &m_details.capabilities);
+        m_details.capabilities = device.getSurfaceCapabilitiesKHR(m_surface).value;
+        m_details.formats      = device.getSurfaceFormatsKHR(m_surface).value;
+        m_details.presentModes = device.getSurfacePresentModesKHR(m_surface).value;
 
-        uint32_t formatCount {};
-        uint32_t presentModeCount {};
-
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, nullptr);
-
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, nullptr);
-
-        if (formatCount == 0 || presentModeCount == 0)
-        {
-            MC_THROW Error(GraphicsError, "Surface cannot be created for the given device");
-        }
-
-        m_details.formats.resize(formatCount);
-
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, m_details.formats.data());
-
-        m_details.presentModes.resize(presentModeCount);
-
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, m_details.presentModes.data());
+        MC_ASSERT(m_details.formats.size() > 0 && m_details.presentModes.size() > 0);
 
         // Choose extent
         {
@@ -39,15 +23,17 @@ namespace renderer::backend
             }
             else
             {
-                glm::uvec2 dimensions = m_window.getFramebufferDimensions();
+                glm::uvec2 dimensions = m_window->getFramebufferDimensions();
 
-                m_details.extent = { std::clamp(dimensions.x,
-                                                m_details.capabilities.minImageExtent.width,
-                                                m_details.capabilities.maxImageExtent.width),
+                m_details.extent = vk::Extent2D {
+                    .width = std::clamp(dimensions.x,
+                                        m_details.capabilities.minImageExtent.width,
+                                        m_details.capabilities.maxImageExtent.width),
 
-                                     std::clamp(dimensions.y,
-                                                m_details.capabilities.minImageExtent.height,
-                                                m_details.capabilities.maxImageExtent.height) };
+                    .height = std::clamp(dimensions.y,
+                                         m_details.capabilities.minImageExtent.height,
+                                         m_details.capabilities.maxImageExtent.height),
+                };
             }
         }
 
@@ -57,8 +43,8 @@ namespace renderer::backend
 
             for (auto const& availableFormat : m_details.formats)
             {
-                if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM &&
-                    availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+                if (availableFormat.format == vk::Format::eB8G8R8A8Unorm &&
+                    availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
                 {
                     m_details.surfaceFormat = availableFormat;
                 }
@@ -75,14 +61,14 @@ namespace renderer::backend
             {
                 for (auto const& availablePresentMode : m_details.presentModes)
                 {
-                    if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+                    if (availablePresentMode == vk::PresentModeKHR::eMailbox)
                     {
                         m_details.presentMode = availablePresentMode;
                         presentModeChosen     = true;
                         break;
                     }
 
-                    if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+                    if (availablePresentMode == vk::PresentModeKHR::eImmediate)
                     {
                         m_details.presentMode = availablePresentMode;
                         presentModeChosen     = true;
@@ -92,7 +78,7 @@ namespace renderer::backend
 
             if (!presentModeChosen)
             {
-                m_details.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+                m_details.presentMode = vk::PresentModeKHR::eFifo;
             }
         }
     }

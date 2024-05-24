@@ -27,7 +27,7 @@ namespace renderer::backend
     struct GPUDrawPushConstants
     {
         glm::mat4 model { glm::identity<glm::mat4>() };
-        VkDeviceAddress vertexBuffer {};
+        vk::DeviceAddress vertexBuffer {};
     };
 
     struct alignas(16) GPUSceneData
@@ -50,18 +50,18 @@ namespace renderer::backend
     {
         glm::mat4 model;
         std::shared_ptr<GPUMeshData> meshData;
-        VkPipelineLayout layout;
-        VkPipeline pipeline;
+        vk::PipelineLayout layout;
+        vk::Pipeline pipeline;
     };
 
     struct FrameResources
     {
-        VkSemaphore imageAvailableSemaphore { VK_NULL_HANDLE };
-        VkSemaphore renderFinishedSemaphore { VK_NULL_HANDLE };
-        VkFence inFlightFence { VK_NULL_HANDLE };
+        vk::raii::Semaphore imageAvailableSemaphore { nullptr };
+        vk::raii::Semaphore renderFinishedSemaphore { nullptr };
+        vk::raii::Fence inFlightFence { nullptr };
 
 #if PROFILED
-        TracyVkCtx tracyContext {};
+        TracyVkCtx tracyContext { nullptr };
 #endif
     };
 
@@ -99,7 +99,7 @@ namespace renderer::backend
 
         [[nodiscard]] auto getFramebufferSize() const -> glm::uvec2
         {
-            VkExtent2D extent = m_swapchain.getImageExtent();
+            vk::Extent2D extent = m_swapchain.getImageExtent();
             return { extent.width, extent.height };
         }
 
@@ -113,9 +113,9 @@ namespace renderer::backend
 
     private:
         void initImgui(GLFWwindow* window);
-        void renderImgui(VkCommandBuffer cmdBuf, VkImageView targetImage);
+        void renderImgui(vk::CommandBuffer cmdBuf, vk::ImageView targetImage);
 
-        void drawGeometry(VkCommandBuffer cmdBuf);
+        void drawGeometry(vk::CommandBuffer cmdBuf);
 
         void initDescriptors();
 
@@ -129,14 +129,15 @@ namespace renderer::backend
         Device m_device;
         Swapchain m_swapchain;
         Allocator m_allocator;
-        DescriptorAllocator m_descriptorAllocator {};
+        DescriptorAllocator m_descriptorAllocator;
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;
-        VkDescriptorSet m_sceneDataDescriptors {}, m_materialDescriptors {};
-        VkDescriptorSetLayout m_sceneDataDescriptorLayout {}, m_materialDescriptorLayout {};
+        vk::DescriptorSet m_sceneDataDescriptors { nullptr }, m_materialDescriptors { nullptr };
+        vk::raii::DescriptorSetLayout m_sceneDataDescriptorLayout { nullptr },
+            m_materialDescriptorLayout { nullptr };
 
-        VkDescriptorPool m_imGuiPool {};
+        vk::raii::DescriptorPool m_imGuiPool { nullptr };
 
         PipelineLayout m_texturedPipelineLayout, m_texturelessPipelineLayout;
         GraphicsPipeline m_texturedPipeline, m_texturelessPipeline;

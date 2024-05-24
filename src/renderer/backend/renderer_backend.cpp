@@ -29,18 +29,16 @@
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_structs.hpp>
 
 namespace
 {
     using namespace renderer::backend;
 
-    [[maybe_unused]] void imguiCheckerFn(VkResult result,
+    [[maybe_unused]] void imguiCheckerFn(vk::Result result,
                                          std::source_location location = std::source_location::current())
     {
-        if (result != VK_SUCCESS)
-        {
-            MC_THROW Error(GraphicsError, vkResultToStr(result).data(), location);
-        }
+        MC_ASSERT_LOC(result == vk::Result::eSuccess, location);
     }
 }  // namespace
 
@@ -61,95 +59,106 @@ namespace renderer::backend
           m_drawImage { m_device,
                         m_allocator,
                         m_surface.getFramebufferExtent(),
-                        VK_FORMAT_R16G16B16A16_SFLOAT,
+                        vk::Format::eR16G16B16A16Sfloat,
                         m_device.getMaxUsableSampleCount(),
-                        static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                                          VK_IMAGE_USAGE_TRANSFER_DST_BIT |  // maybe remove?
-                                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
-                        VK_IMAGE_ASPECT_COLOR_BIT },
+                        vk::ImageUsageFlagBits::eTransferSrc |
+                            vk::ImageUsageFlagBits::eTransferDst |  // maybe remove?
+                            vk::ImageUsageFlagBits::eColorAttachment,
+                        vk::ImageAspectFlagBits::eColor },
 
           m_drawImageResolve { m_device,
                                m_allocator,
                                m_drawImage.getDimensions(),
                                m_drawImage.getFormat(),
-                               VK_SAMPLE_COUNT_1_BIT,
-                               static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                                                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT),
-                               VK_IMAGE_ASPECT_COLOR_BIT },
+                               vk::SampleCountFlagBits::e1,
+                               vk::ImageUsageFlagBits::eColorAttachment |
+                                   vk::ImageUsageFlagBits::eTransferSrc |
+                                   vk::ImageUsageFlagBits::eTransferDst,
+                               vk::ImageAspectFlagBits::eColor },
 
           m_depthImage { m_device,
                          m_allocator,
                          m_drawImage.getDimensions(),
                          kDepthStencilFormat,
                          m_device.getMaxUsableSampleCount(),
-                         static_cast<VkImageUsageFlagBits>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT),
-                         VK_IMAGE_ASPECT_DEPTH_BIT },
+                         vk::ImageUsageFlagBits::eDepthStencilAttachment,
+                         vk::ImageAspectFlagBits::eDepth },
 
-          m_diffuseTexture { m_device, m_allocator, m_commandManager, StbiImage("res/models/backpack/diffuse.jpg") },
+          m_diffuseTexture {
+              m_device, m_allocator, m_commandManager, StbiImage("res/models/backpack/diffuse.jpg")
+          },
 
-          m_specularTexture { m_device, m_allocator, m_commandManager, StbiImage("res/models/backpack/specular.jpg") }
+          m_specularTexture {
+              m_device, m_allocator, m_commandManager, StbiImage("res/models/backpack/specular.jpg")
+          }
     // clang_format on
     {
         initImgui(window.getHandle());
 
-        m_gpuSceneDataBuffer = BasicBuffer(
-            m_allocator, sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_gpuSceneDataBuffer = BasicBuffer(m_allocator,
+                                           sizeof(GPUSceneData),
+                                           vk::BufferUsageFlagBits::eUniformBuffer,
+                                           VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-        m_lightDataBuffer =
-            BasicBuffer(m_allocator, sizeof(Light), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_lightDataBuffer = BasicBuffer(
+            m_allocator, sizeof(Light), vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-        m_materialDataBuffer =
-            BasicBuffer(m_allocator, sizeof(Material), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_materialDataBuffer = BasicBuffer(m_allocator,
+                                           sizeof(Material),
+                                           vk::BufferUsageFlagBits::eUniformBuffer,
+                                           VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         initDescriptors();
 
         auto pipelineLayoutConfig =
             PipelineLayoutConfig()
                 .setDescriptorSetLayouts({ m_sceneDataDescriptorLayout })
-                .setPushConstantSettings(sizeof(GPUDrawPushConstants), VK_SHADER_STAGE_VERTEX_BIT);
+                .setPushConstantSettings(sizeof(GPUDrawPushConstants), vk::ShaderStageFlagBits::eVertex);
 
         m_texturelessPipelineLayout = PipelineLayout(m_device, pipelineLayoutConfig);
 
-        pipelineLayoutConfig.setDescriptorSetLayouts({ m_sceneDataDescriptorLayout, m_materialDescriptorLayout });
+        pipelineLayoutConfig.setDescriptorSetLayouts(
+            { m_sceneDataDescriptorLayout, m_materialDescriptorLayout });
 
         m_texturedPipelineLayout = PipelineLayout(m_device, pipelineLayoutConfig);
 
         {
-            auto pipelineConfig = GraphicsPipelineConfig()
-                                      .addShader("shaders/main.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
-                                      .addShader("shaders/main.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
-                                      .setColorAttachmentFormat(m_drawImage.getFormat())
-                                      .setDepthAttachmentFormat(kDepthStencilFormat)
-                                      .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-                                      .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                      .setSampleCount(m_device.getMaxUsableSampleCount())
-                                      .setSampleShadingSettings(true, 0.1f);
+            auto pipelineConfig =
+                GraphicsPipelineConfig()
+                    .addShader("shaders/main.frag.spv", vk::ShaderStageFlagBits::eFragment, "main")
+                    .addShader("shaders/main.vert.spv", vk::ShaderStageFlagBits::eVertex, "main")
+                    .setColorAttachmentFormat(m_drawImage.getFormat())
+                    .setDepthAttachmentFormat(kDepthStencilFormat)
+                    .setDepthStencilSettings(true, vk::CompareOp::eGreaterOrEqual)
+                    .setCullingSettings(vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise)
+                    .setSampleCount(m_device.getMaxUsableSampleCount())
+                    .setSampleShadingSettings(true, 0.1f);
 
             m_texturedPipeline = GraphicsPipeline(m_device, m_texturedPipelineLayout, pipelineConfig);
         }
 
         {
-            auto pipelineConfig = GraphicsPipelineConfig()
-                                      .addShader("shaders/textureless.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
-                                      .addShader("shaders/main.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
-                                      .setColorAttachmentFormat(m_drawImage.getFormat())
-                                      .setDepthAttachmentFormat(kDepthStencilFormat)
-                                      .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-                                      .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                      .setSampleCount(m_device.getMaxUsableSampleCount());
+            auto pipelineConfig =
+                GraphicsPipelineConfig()
+                    .addShader("shaders/textureless.frag.spv", vk::ShaderStageFlagBits::eFragment, "main")
+                    .addShader("shaders/main.vert.spv", vk::ShaderStageFlagBits::eVertex, "main")
+                    .setColorAttachmentFormat(m_drawImage.getFormat())
+                    .setDepthAttachmentFormat(kDepthStencilFormat)
+                    .setDepthStencilSettings(true, vk::CompareOp::eGreaterOrEqual)
+                    .setCullingSettings(vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise)
+                    .setSampleCount(m_device.getMaxUsableSampleCount());
 
-            m_texturelessPipeline =
-                GraphicsPipeline(m_device,
-                                 m_texturelessPipelineLayout,
-                                 GraphicsPipelineConfig()
-                                     .addShader("shaders/textureless.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, "main")
-                                     .addShader("shaders/main.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, "main")
-                                     .setColorAttachmentFormat(m_drawImage.getFormat())
-                                     .setDepthAttachmentFormat(kDepthStencilFormat)
-                                     .setDepthStencilSettings(true, VK_COMPARE_OP_GREATER_OR_EQUAL)
-                                     .setCullingSettings(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-                                     .setSampleCount(m_device.getMaxUsableSampleCount()));
+            m_texturelessPipeline = GraphicsPipeline(
+                m_device,
+                m_texturelessPipelineLayout,
+                GraphicsPipelineConfig()
+                    .addShader("shaders/textureless.frag.spv", vk::ShaderStageFlagBits::eFragment, "main")
+                    .addShader("shaders/main.vert.spv", vk::ShaderStageFlagBits::eVertex, "main")
+                    .setColorAttachmentFormat(m_drawImage.getFormat())
+                    .setDepthAttachmentFormat(kDepthStencilFormat)
+                    .setDepthStencilSettings(true, vk::CompareOp::eGreaterOrEqual)
+                    .setCullingSettings(vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise)
+                    .setSampleCount(m_device.getMaxUsableSampleCount()));
         }
 
         {
@@ -188,7 +197,8 @@ namespace renderer::backend
             m_renderItems.insert(std::pair {
                 "model",
                 RenderItem {
-                            .model    = glm::scale(glm::identity<glm::mat4>(), glm::vec3 { 1.f / 3.f, 1.f / 3.f, 1.f / 3.f }),
+                            .model =
+                        glm::scale(glm::identity<glm::mat4>(), glm::vec3 { 1.f / 3.f, 1.f / 3.f, 1.f / 3.f }),
                             .meshData = modelMesh,
                             .layout   = m_texturedPipelineLayout,
                             .pipeline = m_texturedPipeline,
@@ -207,14 +217,15 @@ namespace renderer::backend
                 auto& ctx = m_frameResources[i].tracyContext;
 
                 ctx = TracyVkContextCalibrated(
-                    static_cast<VkPhysicalDevice>(m_device),
-                    static_cast<VkDevice>(m_device),
-                    m_device.getGraphicsQueue(),
-                    m_commandManager.getGraphicsCmdBuffer(i),
+                    *m_device.getPhysical(),
+                    *m_device.get(),
+                    *m_device.getGraphicsQueue(),
+                    *m_commandManager.getGraphicsCmdBuffer(i),
                     reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(
-                        vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibratableTimeDomainsEXT")),
-                    reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(
-                        vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibratableTimeDomainsEXT")));
+                        vkGetInstanceProcAddr(*m_instance.get(),
+                                              "vkGetPhysicalDeviceCalibratableTimeDomainsEXT")),
+                    reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(vkGetInstanceProcAddr(
+                        *m_instance.get(), "vkGetPhysicalDeviceCalibratableTimeDomainsEXT")));
 
                 TracyVkContextName(ctx, ctxName.data(), ctxName.size());
             }
@@ -226,21 +237,16 @@ namespace renderer::backend
 
     RendererBackend::~RendererBackend()
     {
-        if (static_cast<VkDevice>(m_device) != VK_NULL_HANDLE)
+        if (!*m_instance.get())
         {
-            vkDeviceWaitIdle(m_device);
+            return;
         }
+
+        m_device->waitIdle();
 
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
-
-        destroySyncObjects();
-
-        m_descriptorAllocator.destroyPool(m_device);
-        vkDestroyDescriptorSetLayout(m_device, m_sceneDataDescriptorLayout, nullptr);
-        vkDestroyDescriptorSetLayout(m_device, m_materialDescriptorLayout, nullptr);
-        vkDestroyDescriptorPool(m_device, m_imGuiPool, nullptr);
 
 #if PROFILED
         for (auto& resource : m_frameResources)
@@ -254,28 +260,28 @@ namespace renderer::backend
     {
         {
             std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
-                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         4 },
-                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         4 },
-                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 },
+                { vk::DescriptorType::eStorageBuffer,        4 },
+                { vk::DescriptorType::eUniformBuffer,        4 },
+                { vk::DescriptorType::eCombinedImageSampler, 4 },
             };
 
-            m_descriptorAllocator.initPool(m_device, 10, sizes);
+            m_descriptorAllocator = DescriptorAllocator(m_device, 10, sizes);
         }
 
         {
             m_sceneDataDescriptorLayout =
                 DescriptorLayoutBuilder()
-                    .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-                    .addBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-                    .build(m_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+                    .addBinding(0, vk::DescriptorType::eUniformBuffer)
+                    .addBinding(1, vk::DescriptorType::eUniformBuffer)
+                    .build(m_device, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
         }
 
         {
             m_materialDescriptorLayout = DescriptorLayoutBuilder()
-                                             .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                                             .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                                             .addBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-                                             .build(m_device, VK_SHADER_STAGE_FRAGMENT_BIT);
+                                             .addBinding(0, vk::DescriptorType::eCombinedImageSampler)
+                                             .addBinding(1, vk::DescriptorType::eCombinedImageSampler)
+                                             .addBinding(2, vk::DescriptorType::eUniformBuffer)
+                                             .build(m_device, vk::ShaderStageFlagBits::eFragment);
         }
 
         m_sceneDataDescriptors = m_descriptorAllocator.allocate(m_device, m_sceneDataDescriptorLayout);
@@ -284,54 +290,50 @@ namespace renderer::backend
         {
             // Global scene data descriptor set
             DescriptorWriter writer;
-            writer.write_buffer(0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            writer.write_buffer(1, m_lightDataBuffer, sizeof(Light), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+            writer.write_buffer(
+                0, m_gpuSceneDataBuffer, sizeof(GPUSceneData), 0, vk::DescriptorType::eUniformBuffer);
+            writer.write_buffer(1, m_lightDataBuffer, sizeof(Light), 0, vk::DescriptorType::eUniformBuffer);
             writer.update_set(m_device, m_sceneDataDescriptors);
         }
         {
             // Texture and material
             DescriptorWriter writer;
+
             writer.write_image(0,
                                m_diffuseTexture.getImageView(),
                                m_diffuseTexture.getSampler(),
-                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                               VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+                               vk::ImageLayout::eReadOnlyOptimal,
+                               vk::DescriptorType::eCombinedImageSampler);
+
             writer.write_image(1,
                                m_specularTexture.getImageView(),
                                m_specularTexture.getSampler(),
-                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                               VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            writer.write_buffer(2, m_materialDataBuffer, sizeof(Material), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+                               vk::ImageLayout::eReadOnlyOptimal,
+                               vk::DescriptorType::eCombinedImageSampler);
+
+            writer.write_buffer(
+                2, m_materialDataBuffer, sizeof(Material), 0, vk::DescriptorType::eUniformBuffer);
             writer.update_set(m_device, m_materialDescriptors);
         }
     }
 
-    static auto initImGuiDescriptors(VkDevice device) -> VkDescriptorPool
-    {
-        std::array poolSizes {
-            VkDescriptorPoolSize {
-                                  .type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                  .descriptorCount = kNumFramesInFlight,
-                                  },
-        };
-
-        VkDescriptorPoolCreateInfo poolInfo {
-            .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-            .maxSets       = kNumFramesInFlight,
-            .poolSizeCount = utils::size(poolSizes),
-            .pPoolSizes    = poolSizes.data(),
-        };
-
-        VkDescriptorPool pool = nullptr;
-        vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool) >> vkResultChecker;
-
-        return pool;
-    }
-
     void RendererBackend::initImgui(GLFWwindow* window)
     {
-        m_imGuiPool = initImGuiDescriptors(m_device);
+        std::array poolSizes {
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(kNumFramesInFlight),
+        };
+
+        vk::DescriptorPoolCreateInfo poolInfo {
+            .flags   = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+            .maxSets = kNumFramesInFlight,
+        };
+
+        poolInfo.setPoolSizes(poolSizes);
+
+        m_imGuiPool = m_device->createDescriptorPool(poolInfo) >> ResultChecker();
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
@@ -355,23 +357,19 @@ namespace renderer::backend
                                    ImGuiColorEditFlags_PickerHueBar);
 
         ImGui_ImplVulkan_InitInfo initInfo {
-            .Instance            = m_instance,
-            .PhysicalDevice      = m_device,
-            .Device              = m_device,
-            .QueueFamily         = m_device.getQueueFamilyIndices().graphicsFamily.value(),
-            .Queue               = m_device.getGraphicsQueue(),
-            .DescriptorPool      = m_imGuiPool,
-            .MinImageCount       = kNumFramesInFlight,
-            .ImageCount          = utils::size(m_swapchain.getImageViews()),
-            .MSAASamples         = VK_SAMPLE_COUNT_1_BIT,
-            .UseDynamicRendering = true,
-            .PipelineRenderingCreateInfo =
-                VkPipelineRenderingCreateInfo {
-                                               .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-                                               .colorAttachmentCount    = 1,
-                                               .pColorAttachmentFormats = &m_surface.getDetails().format,
-                                               .depthAttachmentFormat   = m_depthImage.getFormat(),
-                                               },
+            .Instance                    = *m_instance.get(),
+            .PhysicalDevice              = *m_device.getPhysical(),
+            .Device                      = *m_device.get(),
+            .QueueFamily                 = m_device.getQueueFamilyIndices().graphicsFamily,
+            .Queue                       = *m_device.getGraphicsQueue(),
+            .DescriptorPool              = *m_imGuiPool,
+            .MinImageCount               = kNumFramesInFlight,
+            .ImageCount                  = utils::size(m_swapchain.getImageViews()),
+            .MSAASamples                 = VK_SAMPLE_COUNT_1_BIT,
+            .UseDynamicRendering         = true,
+            .PipelineRenderingCreateInfo = vk::PipelineRenderingCreateInfo()
+                                               .setColorAttachmentFormats(m_surface.getDetails().format)
+                                               .setDepthAttachmentFormat(m_depthImage.getFormat()),
             .CheckVkResultFn = kDebug ? reinterpret_cast<void (*)(VkResult)>(&imguiCheckerFn) : nullptr,
         };
 
@@ -394,11 +392,11 @@ namespace renderer::backend
         float radius = 5.0f;
 
         m_light.position = {
-            radius *
-                glm::fastCos(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+            radius * glm::fastCos(glm::radians(
+                         static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
             0,
-            radius *
-                glm::fastSin(glm::radians(static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
+            radius * glm::fastSin(glm::radians(
+                         static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
         };
 
         for (RenderItem& item : m_renderItems |
@@ -418,24 +416,13 @@ namespace renderer::backend
 
     void RendererBackend::createSyncObjects()
     {
-        VkSemaphoreCreateInfo semaphoreInfo = infoStructs::semaphore_create_info();
-        VkFenceCreateInfo fenceInfo         = infoStructs::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
-
         for (FrameResources& frame : m_frameResources)
         {
-            vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &frame.imageAvailableSemaphore) >> vkResultChecker;
-            vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &frame.renderFinishedSemaphore) >> vkResultChecker;
-            vkCreateFence(m_device, &fenceInfo, nullptr, &frame.inFlightFence) >> vkResultChecker;
-        }
-    }
-
-    void RendererBackend::destroySyncObjects()
-    {
-        for (FrameResources& frame : m_frameResources)
-        {
-            vkDestroySemaphore(m_device, frame.imageAvailableSemaphore, nullptr);
-            vkDestroySemaphore(m_device, frame.renderFinishedSemaphore, nullptr);
-            vkDestroyFence(m_device, frame.inFlightFence, nullptr);
+            frame.imageAvailableSemaphore = m_device->createSemaphore({}) >> ResultChecker();
+            frame.renderFinishedSemaphore = m_device->createSemaphore({}) >> ResultChecker();
+            frame.inFlightFence =
+                m_device->createFence(vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled)) >>
+                ResultChecker();
         }
     }
 
@@ -446,16 +433,19 @@ namespace renderer::backend
 
     void RendererBackend::handleSurfaceResize()
     {
-        vkDeviceWaitIdle(m_device);
+        m_device->waitIdle();
 
-        m_swapchain.recreate(m_surface);
+        m_swapchain = Swapchain(m_device, m_surface);
 
-        m_drawImage.resize(m_allocator, m_surface.getFramebufferExtent());
-        m_drawImageResolve.resize(m_allocator, m_surface.getFramebufferExtent());
-        m_depthImage.resize(m_allocator, m_surface.getFramebufferExtent());
+        m_drawImage.resize(m_surface.getFramebufferExtent());
+        m_drawImageResolve.resize(m_surface.getFramebufferExtent());
+        m_depthImage.resize(m_surface.getFramebufferExtent());
     }
 
-    void RendererBackend::updateDescriptors(glm::vec3 cameraPos, glm::mat4 model, glm::mat4 view, glm::mat4 projection)
+    void RendererBackend::updateDescriptors(glm::vec3 cameraPos,
+                                            glm::mat4 model,
+                                            glm::mat4 view,
+                                            glm::mat4 projection)
     {
         auto& sceneUniformData    = *static_cast<GPUSceneData*>(m_gpuSceneDataBuffer.getMappedData());
         auto& materialUniformData = *static_cast<Material*>(m_materialDataBuffer.getMappedData());

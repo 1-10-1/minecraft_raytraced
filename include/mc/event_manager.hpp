@@ -35,7 +35,8 @@ public:
         size_t eventType = std::to_underlying(Event::eventType);
         size_t listenerHash { typeid(listener).hash_code() };
 
-        std::function<void(std::any const&)> callback = [listener = std::move(listener)](std::any const& event)
+        std::function<void(std::any const&)> callback =
+            [listener = std::move(listener)](std::any const& event)
         {
             listener(std::any_cast<Event const&>(event));
         };
@@ -139,7 +140,8 @@ public:
     }
 
 private:
-    std::array<std::vector<std::function<void(std::any const&)>>, static_cast<size_t>(EventType::EVENT_TYPE_MAX)>
+    std::array<std::vector<std::function<void(std::any const&)>>,
+               static_cast<size_t>(EventType::EVENT_TYPE_MAX)>
         m_eventListeners {};
 
     std::array<std::vector<size_t>, static_cast<size_t>(EventType::EVENT_TYPE_MAX)> m_eventListenerHashes {};

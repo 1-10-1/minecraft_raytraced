@@ -26,28 +26,29 @@ namespace renderer::backend
 
         std::shared_ptr<GPUMeshData> newSurface { std::make_shared<GPUMeshData>() };
 
-        newSurface->indexBuffer = BasicBuffer(allocator,
-                                              indexBufferSize,
-                                              VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                              VMA_MEMORY_USAGE_GPU_ONLY);
+        newSurface->indexBuffer =
+            BasicBuffer(allocator,
+                        indexBufferSize,
+                        vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                        VMA_MEMORY_USAGE_GPU_ONLY);
 
-        newSurface->vertexBuffer = BasicBuffer(allocator,
-                                               vertexBufferSize,
-                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                               VMA_MEMORY_USAGE_GPU_ONLY);
+        newSurface->vertexBuffer =
+            BasicBuffer(allocator,
+                        vertexBufferSize,
+                        vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst |
+                            vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                        VMA_MEMORY_USAGE_GPU_ONLY);
 
         newSurface->indexCount = indices.size();
 
-        VkBufferDeviceAddressInfo deviceAdressInfo { .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                                                     .buffer = newSurface->vertexBuffer };
+        auto deviceAddressInfo = vk::BufferDeviceAddressInfo().setBuffer(newSurface->vertexBuffer);
 
-        newSurface->vertexBufferAddress = vkGetBufferDeviceAddress(device, &deviceAdressInfo);
+        newSurface->vertexBufferAddress = device->getBufferAddress(deviceAddressInfo);
 
         {
             BasicBuffer staging { allocator,
                                   vertexBufferSize + indexBufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                  vk::BufferUsageFlagBits::eTransferSrc,
                                   VMA_MEMORY_USAGE_CPU_ONLY };
 
             void* data = staging.getMappedData();
@@ -57,22 +58,24 @@ namespace renderer::backend
             memcpy(static_cast<char*>(data) + vertexBufferSize, indices.data(), indexBufferSize);
 
             {
-                ScopedCommandBuffer cmdBuf { device, cmdManager.getTransferCmdPool(), device.getTransferQueue(), true };
+                ScopedCommandBuffer cmdBuf {
+                    device, cmdManager.getTransferCmdPool(), device.getTransferQueue(), true
+                };
 
-                VkBufferCopy vertexCopy {
+                vk::BufferCopy vertexCopy {
                     .srcOffset = 0,
                     .dstOffset = 0,
                     .size      = vertexBufferSize,
                 };
 
-                VkBufferCopy indexCopy {
+                vk::BufferCopy indexCopy {
                     .srcOffset = vertexBufferSize,
                     .dstOffset = 0,
                     .size      = indexBufferSize,
                 };
 
-                vkCmdCopyBuffer(cmdBuf, staging, newSurface->indexBuffer, 1, &indexCopy);
-                vkCmdCopyBuffer(cmdBuf, staging, newSurface->vertexBuffer, 1, &vertexCopy);
+                cmdBuf->copyBuffer(staging, newSurface->indexBuffer, indexCopy);
+                cmdBuf->copyBuffer(staging, newSurface->vertexBuffer, vertexCopy);
             };
         }
 
@@ -80,7 +83,9 @@ namespace renderer::backend
     };
 }  // namespace renderer::backend
 
-Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<unsigned int>&& indices, std::vector<TextureData>&& textures)
+Mesh::Mesh(std::vector<Vertex>&& vertices,
+           std::vector<unsigned int>&& indices,
+           std::vector<TextureData>&& textures)
     : m_vertices { std::move(vertices) }, m_indices { std::move(indices) }, m_textures { std::move(textures) }
 {
     setupMesh();
@@ -91,7 +96,8 @@ void Model::loadModel(std::string const& path)
     Assimp::Importer importer;
     aiScene const* scene = importer.ReadFile(path, aiProcess_Triangulate);
 
-    if ((scene == nullptr) || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 || (scene->mRootNode == nullptr))
+    if ((scene == nullptr) || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 ||
+        (scene->mRootNode == nullptr))
     {
         MC_THROW Error(AssetError, std::format("Assimp error: {}", importer.GetErrorString()));
     }
@@ -126,15 +132,17 @@ auto Model::processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh
         vertices.push_back({
             .position { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z },
             .uv_x = mesh->mTextureCoords[0] != nullptr ? mesh->mTextureCoords[0][i].x : 0,
-            .normal { mesh->HasNormals() ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
-                                         : glm::vec3 {} },
+            .normal { mesh->HasNormals()
+                          ? glm::vec3 { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z }
+                          : glm::vec3 {} },
             // A vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
             // use models where a vertex can have multiple texture coordinates so we always take the first set (0).
             .uv_y = mesh->mTextureCoords[0] != nullptr ? mesh->mTextureCoords[0][i].y : 0,
-            .color {
-                       mesh->mColors[0] != nullptr
-                    ? glm::vec4 { mesh->mColors[0]->r, mesh->mColors[0]->g, mesh->mColors[0]->b, mesh->mColors[0]->a }
-                    : glm::vec4 {} }
+            .color { mesh->mColors[0] != nullptr ? glm::vec4 { mesh->mColors[0]->r,
+                                                               mesh->mColors[0]->g,
+                                                               mesh->mColors[0]->b,
+                                                               mesh->mColors[0]->a }
+                                                 : glm::vec4 {} }
         });
     }
 
@@ -150,23 +158,28 @@ auto Model::processMesh(aiMesh* mesh, aiScene const* scene) -> Mesh
 
     aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-    std::vector<TextureData> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, TextureType::Diffuse);
+    std::vector<TextureData> diffuseMaps =
+        loadMaterialTextures(material, aiTextureType_DIFFUSE, TextureType::Diffuse);
     textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
 
     std::vector<TextureData> specularMaps =
         loadMaterialTextures(material, aiTextureType_SPECULAR, TextureType::Specular);
     textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
 
-    std::vector<TextureData> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, TextureType::Normal);
+    std::vector<TextureData> normalMaps =
+        loadMaterialTextures(material, aiTextureType_HEIGHT, TextureType::Normal);
     textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
 
-    std::vector<TextureData> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, TextureType::Height);
+    std::vector<TextureData> heightMaps =
+        loadMaterialTextures(material, aiTextureType_AMBIENT, TextureType::Height);
     textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
 
     return { std::move(vertices), std::move(indices), std::move(textures) };
 }
 
-auto Model::loadMaterialTextures(aiMaterial* mat, aiTextureType type, TextureType typeEnum) -> std::vector<TextureData>
+auto Model::loadMaterialTextures(aiMaterial* mat,
+                                 aiTextureType type,
+                                 TextureType typeEnum) -> std::vector<TextureData>
 {
     std::vector<TextureData> textures;
     for (unsigned int i = 0; i < mat->GetTextureCount(type); i++)

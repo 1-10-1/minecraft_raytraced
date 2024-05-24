@@ -17,23 +17,46 @@ namespace renderer::backend
     class StbiImage
     {
     public:
-        // NOLINTNEXTLINE(google-explicit-constructor)
         StbiImage(std::string_view const& path);
         ~StbiImage();
 
         StbiImage(StbiImage const&)                    = delete;
-        StbiImage(StbiImage&&)                         = delete;
         auto operator=(StbiImage const&) -> StbiImage& = delete;
-        auto operator=(StbiImage&&) -> StbiImage&      = delete;
 
-        [[nodiscard]] auto getDimensions() const -> VkExtent2D { return m_dimensions; }
+        StbiImage(StbiImage&& other) noexcept
+            : m_dimensions { other.m_dimensions }, m_size { other.m_size }, m_data { other.m_data }
+        {
+            other.m_dimensions = vk::Extent2D { 0, 0 };
+            other.m_size       = 0;
+            other.m_data       = nullptr;
+        };
+
+        auto operator=(StbiImage&& other) noexcept -> StbiImage&
+        {
+            if (this == &other)
+            {
+                return *this;
+            }
+
+            m_dimensions = other.m_dimensions;
+            m_size       = other.m_size;
+            m_data       = other.m_data;
+
+            other.m_dimensions = vk::Extent2D { 0, 0 };
+            other.m_size       = 0;
+            other.m_data       = nullptr;
+
+            return *this;
+        };
+
+        [[nodiscard]] auto getDimensions() const -> vk::Extent2D { return m_dimensions; }
 
         [[nodiscard]] auto getData() const -> unsigned char const* { return m_data; }
 
         [[nodiscard]] auto getDataSize() const -> size_t { return m_size; }
 
     private:
-        VkExtent2D m_dimensions {};
+        vk::Extent2D m_dimensions {};
         size_t m_size {};
         unsigned char* m_data { nullptr };
     };
@@ -41,46 +64,92 @@ namespace renderer::backend
     class Image
     {
     public:
+        Image() = default;
+
         Image(Device const& device,
               Allocator const& allocator,
-              VkExtent2D dimensions,
-              VkFormat format,
-              VkSampleCountFlagBits sampleCount,
-              VkImageUsageFlagBits usageFlags,
-              VkImageAspectFlagBits aspectFlags,
+              vk::Extent2D dimensions,
+              vk::Format format,
+              vk::SampleCountFlagBits sampleCount,
+              vk::ImageUsageFlags usageFlags,
+              vk::ImageAspectFlags aspectFlags,
               uint32_t mipLevels = 1);
 
         ~Image();
 
         auto operator=(Image const&) -> Image& = delete;
         Image(Image const&)                    = delete;
-        auto operator=(Image&&) -> Image&      = delete;
-        Image(Image&&)                         = delete;
 
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        [[nodiscard]] operator VkImage() const { return m_handle; }
-
-        [[nodiscard]] auto getImageView() const -> VkImageView
+        Image(Image&& other) noexcept
         {
-            MC_ASSERT_MSG(m_imageView,
-                          "Image view is not present, probably because the image is being used for transfer only.");
+            std::swap(m_device, other.m_device);
+            std::swap(m_allocator, other.m_allocator);
+            std::swap(m_handle, other.m_handle);
+            std::swap(m_allocation, other.m_allocation);
+            std::swap(m_format, other.m_format);
+            std::swap(m_sampleCount, other.m_sampleCount);
+            std::swap(m_usageFlags, other.m_usageFlags);
+            std::swap(m_aspectFlags, other.m_aspectFlags);
+            std::swap(m_mipLevels, other.m_mipLevels);
+            std::swap(m_dimensions, other.m_dimensions);
+
+            m_imageView = std::move(other.m_imageView);
+        };
+
+        auto operator=(Image&& other) noexcept -> Image&
+        {
+            if (this == &other)
+            {
+                return *this;
+            }
+
+            m_device     = std::exchange(other.m_device, { nullptr });
+            m_allocator  = std::exchange(other.m_allocator, { nullptr });
+            m_handle     = std::exchange(other.m_handle, { nullptr });
+            m_allocation = std::exchange(other.m_allocation, { nullptr });
+
+            m_format      = std::exchange(other.m_format, {});
+            m_sampleCount = std::exchange(other.m_sampleCount, {});
+            m_usageFlags  = std::exchange(other.m_usageFlags, {});
+            m_aspectFlags = std::exchange(other.m_aspectFlags, {});
+            m_mipLevels   = std::exchange(other.m_mipLevels, {});
+            m_dimensions  = std::exchange(other.m_dimensions, {});
+
+            m_imageView = std::move(other.m_imageView);
+
+            other.m_imageView = nullptr;
+
+            return *this;
+        };
+
+        [[nodiscard]] operator vk::Image() const { return m_handle; }
+
+        [[nodiscard]] auto get() const -> vk::Image { return m_handle; }
+
+        [[nodiscard]] auto getImageView() const -> vk::raii::ImageView const&
+        {
+            MC_ASSERT_MSG(*m_imageView,
+                          "Image view is not present, probably because the image is "
+                          "being used for transfer only.");
 
             return m_imageView;
         }
 
-        [[nodiscard]] auto getDimensions() const -> VkExtent2D { return m_dimensions; }
+        [[nodiscard]] auto getDimensions() const -> vk::Extent2D { return m_dimensions; }
 
         [[nodiscard]] auto getMipLevels() const -> uint32_t { return m_mipLevels; }
 
-        [[nodiscard]] auto getFormat() const -> VkFormat { return m_format; }
+        [[nodiscard]] auto getFormat() const -> vk::Format { return m_format; }
 
-        void copyTo(VkCommandBuffer cmdBuf, VkImage dst, VkExtent2D dstSize, VkExtent2D offset);
-        void resolveTo(VkCommandBuffer cmdBuf, VkImage dst, VkExtent2D dstSize, VkExtent2D offset);
+        void copyTo(vk::CommandBuffer cmdBuf, vk::Image dst, vk::Extent2D dstSize, vk::Extent2D offset);
+        void resolveTo(vk::CommandBuffer cmdBuf, vk::Image dst, vk::Extent2D dstSize, vk::Extent2D offset);
 
-        static void
-        transition(VkCommandBuffer cmdBuf, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+        static void transition(vk::CommandBuffer cmdBuf,
+                               vk::Image image,
+                               vk::ImageLayout currentLayout,
+                               vk::ImageLayout newLayout);
 
-        void resize(Allocator const& allocator, VkExtent2D dimensions)
+        void resize(VkExtent2D dimensions)
         {
             m_dimensions = dimensions;
 
@@ -89,43 +158,46 @@ namespace renderer::backend
         }
 
     private:
-        void createImage(VkFormat format,
-                         VkImageTiling tiling,
-                         VkImageUsageFlags usage,
-                         VkMemoryPropertyFlags properties,
+        void createImage(vk::Format format,
+                         vk::ImageTiling tiling,
+                         vk::ImageUsageFlags usage,
+                         vk::MemoryPropertyFlags properties,
                          uint32_t mipLevels,
-                         VkSampleCountFlagBits numSamples);
+                         vk::SampleCountFlagBits numSamples);
 
-        void createImageView(VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
+        void createImageView(vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
 
         void create();
         void destroy();
 
-        Device const& m_device;
-        Allocator const& m_allocator;
+        Device const* m_device { nullptr };
+        Allocator const* m_allocator { nullptr };
 
-        VkImage m_handle {};
-        VkImageView m_imageView {};
-        VmaAllocation m_allocation {};
+        VkImage m_handle { nullptr };
+        vk::raii::ImageView m_imageView { nullptr };
+        VmaAllocation m_allocation { nullptr };
 
-        VkFormat m_format;
-        VkSampleCountFlagBits m_sampleCount;
-        VkImageUsageFlagBits m_usageFlags;
-        VkImageAspectFlagBits m_aspectFlags;
+        vk::Format m_format;
+        vk::SampleCountFlagBits m_sampleCount;
+        vk::ImageUsageFlags m_usageFlags;
+        vk::ImageAspectFlags m_aspectFlags;
 
         uint32_t m_mipLevels;
 
-        VkExtent2D m_dimensions;
+        vk::Extent2D m_dimensions;
     };
 
     class Texture
     {
     public:
-        Texture(Device& device, Allocator& allocator, CommandManager& commandManager, StbiImage const& stbiImage);
         Texture(Device& device,
                 Allocator& allocator,
                 CommandManager& commandManager,
-                VkExtent2D dimensions,
+                StbiImage const& stbiImage);
+        Texture(Device& device,
+                Allocator& allocator,
+                CommandManager& commandManager,
+                vk::Extent2D dimensions,
                 void* data,
                 size_t dataSize);
 
@@ -138,30 +210,30 @@ namespace renderer::backend
 
         [[nodiscard]] auto getPath() const -> std::string const& { return m_path; }
 
-        [[nodiscard]] auto getSampler() const -> VkSampler { return m_sampler; }
+        [[nodiscard]] auto getSampler() const -> vk::Sampler { return m_sampler; }
 
-        [[nodiscard]] auto getImageView() const -> VkImageView { return m_image.getImageView(); }
+        [[nodiscard]] auto getImageView() const -> vk::ImageView { return m_image.getImageView(); }
 
         [[nodiscard]] auto getImage() const -> Image const& { return m_image; }
 
     private:
-        Device& m_device;
-        Allocator& m_allocator;
-        CommandManager& m_commandManager;
+        Device* m_device;
+        Allocator* m_allocator;
+        CommandManager* m_commandManager;
 
         void createSamplers(uint32_t mipLevels);
 
         void generateMipmaps(ScopedCommandBuffer& commandBuffer,
-                             VkImage image,
-                             VkExtent2D dimensions,
-                             VkFormat imageFormat,
+                             vk::Image image,
+                             vk::Extent2D dimensions,
+                             vk::Format imageFormat,
                              uint32_t mipLevels);
 
         std::string m_path;
 
         Image m_image;
 
-        VkSampler m_sampler { VK_NULL_HANDLE };
+        vk::raii::Sampler m_sampler { nullptr };
     };
 
 }  // namespace renderer::backend

@@ -4,47 +4,69 @@
 #include "surface.hpp"
 
 #include <glm/ext/vector_uint2.hpp>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
     class Swapchain
     {
     public:
-        Swapchain(Device const& device, Surface& surface);
+        Swapchain();
+        ~Swapchain() = default;
+
+        Swapchain(Device const& device, Surface& surface, bool refreshSurface = true);
 
         Swapchain(Swapchain const&)                    = delete;
-        Swapchain(Swapchain&&)                         = delete;
         auto operator=(Swapchain const&) -> Swapchain& = delete;
-        auto operator=(Swapchain&&) -> Swapchain&      = delete;
 
-        ~Swapchain();
+        Swapchain(Swapchain&& other) noexcept
+            : m_device { std::exchange(other.m_device, nullptr) },
+              m_handle { std::exchange(other.m_handle, nullptr) },
+              m_images { std::exchange(other.m_images, {}) },
+              m_imageViews { std::exchange(other.m_imageViews, {}) },
+              m_imageExtent { std::exchange(other.m_imageExtent, {}) } {};
 
-        void recreate(Surface& surface)
+        auto operator=(Swapchain&& other) noexcept -> Swapchain&
         {
-            destroy();
-            create(surface);
+            if (this == &other)
+            {
+                return *this;
+            }
+
+            m_device      = std::exchange(other.m_device, nullptr);
+            m_handle      = std::exchange(other.m_handle, nullptr);
+            m_images      = std::exchange(other.m_images, {});
+            m_imageViews  = std::exchange(other.m_imageViews, {});
+            m_imageExtent = std::exchange(other.m_imageExtent, {});
+
+            return *this;
         };
 
-        void create(Surface& surface, bool refreshSurface = true);
-        void destroy();
+        [[nodiscard]] operator vk::raii::SwapchainKHR const&() const { return m_handle; }
 
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        [[nodiscard]] operator VkSwapchainKHR() const { return m_handle; }
+        [[nodiscard]] operator vk::SwapchainKHR() const { return m_handle; }
 
-        [[nodiscard]] auto getImages() const -> std::vector<VkImage> const& { return m_images; }
+        [[nodiscard]] auto operator->() const -> vk::raii::SwapchainKHR const* { return &m_handle; }
 
-        [[nodiscard]] auto getImageViews() const -> std::vector<VkImageView> const& { return m_imageViews; }
+        [[nodiscard]] auto get() const -> vk::raii::SwapchainKHR const& { return m_handle; }
 
-        [[nodiscard]] auto getImageExtent() const -> VkExtent2D const& { return m_imageExtent; }
+        [[nodiscard]] auto getImages() const -> std::vector<vk::Image> const& { return m_images; }
+
+        [[nodiscard]] auto getImageViews() const -> std::vector<vk::raii::ImageView> const&
+        {
+            return m_imageViews;
+        }
+
+        [[nodiscard]] auto getImageExtent() const -> vk::Extent2D const& { return m_imageExtent; }
 
     private:
-        Device const& m_device;
+        Device const* m_device { nullptr };
 
-        VkSwapchainKHR m_handle { VK_NULL_HANDLE };
+        vk::raii::SwapchainKHR m_handle { nullptr };
 
-        std::vector<VkImage> m_images;
-        std::vector<VkImageView> m_imageViews;
+        std::vector<vk::Image> m_images {};
+        std::vector<vk::raii::ImageView> m_imageViews {};
 
-        VkExtent2D m_imageExtent {};
+        vk::Extent2D m_imageExtent {};
     };
 }  // namespace renderer::backend

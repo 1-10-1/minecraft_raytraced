@@ -21,7 +21,10 @@ class InputManager
 public:
     [[nodiscard]] auto isDown(Key key) const -> bool { return m_keyStates.test(static_cast<size_t>(key)); }
 
-    [[nodiscard]] auto isDown(MouseButton button) const -> bool { return m_keyStates.test(static_cast<size_t>(button)); }
+    [[nodiscard]] auto isDown(MouseButton button) const -> bool
+    {
+        return m_keyStates.test(static_cast<size_t>(button));
+    }
 
     [[nodiscard]] auto getDownKeys() const -> std::unordered_set<Key> const& { return m_downKeys; }
 

@@ -1,11 +1,14 @@
-#include "mc/defines.hpp"
+#include <mc/asserts.hpp>
+#include <mc/defines.hpp>
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
 #include <mc/renderer/backend/instance.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/utils.hpp>
 
+#include <algorithm>
 #include <array>
+#include <expected>
 #include <print>
 #include <ranges>
 #include <stacktrace>
@@ -14,8 +17,6 @@
 #include <GLFW/glfw3.h>
 #include <fmt/core.h>
 #include <tracy/Tracy.hpp>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 namespace rn = std::ranges;
 namespace vi = std::ranges::views;
@@ -24,22 +25,23 @@ namespace
 {
     using namespace renderer::backend;
 
-    VKAPI_ATTR auto VKAPI_CALL validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                                       VkDebugUtilsMessageTypeFlagsEXT messageType,
-                                                       VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
-                                                       void* pUserData) -> VkBool32;
+    VKAPI_ATTR auto VKAPI_CALL
+    validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                            VkDebugUtilsMessageTypeFlagsEXT messageType,
+                            VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
+                            void* pUserData) -> VkBool32;
 
-    VkDebugUtilsMessengerCreateInfoEXT constexpr m_debugMessengerInfo {
-        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+    vk::DebugUtilsMessengerCreateInfoEXT constexpr debugMessengerInfo {
+        .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
 
-        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+        .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding,
 
-        .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                       VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-
-        .pfnUserCallback = validationLayerCallback,
+        .pfnUserCallback = validationLayerCallback
     };
 
 #if DEBUG
@@ -53,26 +55,19 @@ namespace renderer::backend
 {
     Instance::Instance()
     {
-        VkApplicationInfo appInfo {
-            .sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            .pApplicationName   = "Untitled",
-            .applicationVersion = VK_VERSION_1_0,
-            .pEngineName        = "No engine",
-            .engineVersion      = VK_VERSION_1_0,
-            .apiVersion         = VK_API_VERSION_1_3,
-        };
+        vk::raii::Context context {};
+
+        MC_ASSERT(context.enumerateInstanceVersion() >= vk::ApiVersion13);
+
+        vk::ApplicationInfo applicationInfo { .pApplicationName   = "Minecraft",
+                                              .applicationVersion = 1,
+                                              .pEngineName        = "Untitled",
+                                              .engineVersion      = 1,
+                                              .apiVersion         = vk::ApiVersion13 };
 
         std::vector<char const*> requiredExtensions;
-        std::vector<VkExtensionProperties> supportedExtensions;
-
-        {
-            uint32_t extensionCount = 0;
-            vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-            supportedExtensions.resize(extensionCount);
-
-            vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, supportedExtensions.data());
-        }
+        std::vector<vk::ExtensionProperties> supportedExtensions =
+            context.enumerateInstanceExtensionProperties();
 
         {
             uint32_t count {};
@@ -102,56 +97,36 @@ namespace renderer::backend
                                       });
                 it == supportedExtensions.end())
             {
-                MC_THROW Error(GraphicsError, std::format("Extension {} is required but isn't supported", requiredExt));
+                MC_THROW Error(GraphicsError,
+                               std::format("Extension {} is required but isn't supported", requiredExt));
             }
         }
 
-        VkInstanceCreateInfo instanceInfo {
-            .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-            .pNext                   = kDebug ? &m_debugMessengerInfo : nullptr,
-            .pApplicationInfo        = &appInfo,
-            .enabledLayerCount       = utils::size(m_validationLayers),
-            .ppEnabledLayerNames     = m_validationLayers.data(),
-            .enabledExtensionCount   = utils::size(requiredExtensions),
-            .ppEnabledExtensionNames = requiredExtensions.data(),
-        };
-
-        vkCreateInstance(&instanceInfo, nullptr, &m_handle) >> vkResultChecker;
+        m_handle = context.createInstance(
+                       vk::InstanceCreateInfo { .pApplicationInfo        = &applicationInfo,
+                                                .enabledLayerCount       = utils::size(m_validationLayers),
+                                                .ppEnabledLayerNames     = m_validationLayers.data(),
+                                                .enabledExtensionCount   = utils::size(requiredExtensions),
+                                                .ppEnabledExtensionNames = requiredExtensions.data() }) >>
+                   ResultChecker();
 
         if constexpr (kDebug)
         {
-            initValidationLayers();
+            initValidationLayers(context);
         }
     }
 
-    Instance::~Instance()
+    void Instance::initValidationLayers(vk::raii::Context const& context)
     {
-        if constexpr (kDebug)
-        {
-            std::function destroyDebugMessenger = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-                vkGetInstanceProcAddr(m_handle, "vkDestroyDebugUtilsMessengerEXT"));
-
-            destroyDebugMessenger(m_handle, m_debugMessenger, nullptr);
-        }
-
-        vkDestroyInstance(m_handle, nullptr);
-    }
-
-    void Instance::initValidationLayers()
-    {
-        uint32_t layerCount {};
-        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-        std::vector<VkLayerProperties> availableLayers(layerCount);
-        vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+        std::vector<vk::LayerProperties> availableLayers = context.enumerateInstanceLayerProperties();
 
         for (char const* neededLayer : m_validationLayers)
         {
             if (auto it = rn::find_if(availableLayers,
                                       [neededLayer](VkLayerProperties const& layer)
                                       {
-                                          return std::string_view(static_cast<char const*>(layer.layerName)) ==
-                                                 neededLayer;
+                                          return std::string_view(static_cast<char const*>(
+                                                     layer.layerName)) == neededLayer;
                                       });
                 it == availableLayers.end())
             {
@@ -159,10 +134,7 @@ namespace renderer::backend
             };
         }
 
-        std::function createDebugMessenger = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-            vkGetInstanceProcAddr(m_handle, "vkCreateDebugUtilsMessengerEXT"));
-
-        createDebugMessenger(m_handle, &m_debugMessengerInfo, nullptr, &m_debugMessenger) >> vkResultChecker;
+        m_debugMessenger = m_handle.createDebugUtilsMessengerEXT(debugMessengerInfo) >> ResultChecker();
     };
 
 }  // namespace renderer::backend
@@ -171,10 +143,11 @@ namespace
 {
     using namespace renderer::backend;
 
-    VKAPI_ATTR auto VKAPI_CALL validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                                       VkDebugUtilsMessageTypeFlagsEXT messageType,
-                                                       VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
-                                                       void* pUserData) -> VkBool32
+    VKAPI_ATTR auto VKAPI_CALL
+    validationLayerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                            VkDebugUtilsMessageTypeFlagsEXT messageType,
+                            VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
+                            void* pUserData) -> VkBool32
     {
         ZoneScopedN("Validation layer callback");
 

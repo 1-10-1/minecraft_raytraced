@@ -8,12 +8,11 @@ namespace renderer::backend
 {
     BasicBuffer::BasicBuffer(Allocator& allocator,
                              size_t allocSize,
-                             VkBufferUsageFlags bufferUsage,
+                             vk::BufferUsageFlags bufferUsage,
                              VmaMemoryUsage memoryUsage)
         : m_allocator { &allocator }
     {
-        VkBufferCreateInfo bufferInfo = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        vk::BufferCreateInfo bufferInfo = {
             .size  = allocSize,
             .usage = bufferUsage,
         };
@@ -23,8 +22,12 @@ namespace renderer::backend
             .usage = memoryUsage,
         };
 
-        vmaCreateBuffer(*m_allocator, &bufferInfo, &vmaAllocInfo, &m_buffer, &m_allocation, &m_allocInfo) >>
-            vkResultChecker;
+        MC_ASSERT(vmaCreateBuffer(*m_allocator,
+                                  &static_cast<VkBufferCreateInfo&>(bufferInfo),
+                                  &vmaAllocInfo,
+                                  &m_buffer,
+                                  &m_allocation,
+                                  &m_allocInfo) == VK_SUCCESS);
     }
 
     BasicBuffer::~BasicBuffer()

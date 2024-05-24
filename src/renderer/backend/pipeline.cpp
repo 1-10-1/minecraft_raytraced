@@ -7,8 +7,8 @@
 #include <mc/utils.hpp>
 
 #include <algorithm>
-#include <ranges>
 
+#include <ranges>
 #include <vulkan/vulkan_core.h>
 
 namespace rn = std::ranges;
@@ -16,11 +16,11 @@ namespace vi = std::ranges::views;
 
 namespace renderer::backend
 {
-    auto PipelineLayoutConfig::setPushConstantSettings(uint32_t size, VkShaderStageFlagBits shaderStage)
+    auto PipelineLayoutConfig::setPushConstantSettings(uint32_t size, vk::ShaderStageFlagBits shaderStage)
         -> PipelineLayoutConfig&
     {
         pushConstants = {
-            .stageFlags = static_cast<uint32_t>(shaderStage),
+            .stageFlags = shaderStage,
             .offset     = 0,
             .size       = size,
         };
@@ -28,7 +28,7 @@ namespace renderer::backend
         return *this;
     }
 
-    auto PipelineLayoutConfig::setDescriptorSetLayouts(std::vector<VkDescriptorSetLayout> const& layout)
+    auto PipelineLayoutConfig::setDescriptorSetLayouts(std::vector<vk::DescriptorSetLayout> const& layout)
         -> PipelineLayoutConfig&
     {
         descriptorSetLayouts = layout;
@@ -37,7 +37,7 @@ namespace renderer::backend
     }
 
     auto GraphicsPipelineConfig::addShader(std::filesystem::path const& path,
-                                           VkShaderStageFlagBits stage,
+                                           vk::ShaderStageFlagBits stage,
                                            std::string const& entryPoint) -> GraphicsPipelineConfig&
     {
         shaders.push_back({ path, stage, entryPoint });
@@ -54,19 +54,20 @@ namespace renderer::backend
 
     auto GraphicsPipelineConfig::blendingSetAlphaBlend() -> GraphicsPipelineConfig&
     {
-        srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+        srcColorBlendFactor = vk::BlendFactor::eOneMinusDstAlpha;
 
         return *this;
     }
 
     auto GraphicsPipelineConfig::blendingSetAdditiveBlend() -> GraphicsPipelineConfig&
     {
-        srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        srcColorBlendFactor = vk::BlendFactor::eOne;
 
         return *this;
     }
 
-    auto GraphicsPipelineConfig::setBlendingWriteMask(VkColorComponentFlagBits mask) -> GraphicsPipelineConfig&
+    auto
+    GraphicsPipelineConfig::setBlendingWriteMask(vk::ColorComponentFlagBits mask) -> GraphicsPipelineConfig&
     {
         blendingColorWriteMask = mask;
 
@@ -74,7 +75,7 @@ namespace renderer::backend
     }
 
     auto GraphicsPipelineConfig::setDepthStencilSettings(bool enable,
-                                                         VkCompareOp compareOp,
+                                                         vk::CompareOp compareOp,
                                                          bool stencilEnable,
                                                          bool enableBoundsTest,
                                                          bool enableWrite) -> GraphicsPipelineConfig&
@@ -88,8 +89,8 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setPrimitiveSettings(bool primitiveRestart, VkPrimitiveTopology primitiveTopology)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setPrimitiveSettings(
+        bool primitiveRestart, vk::PrimitiveTopology primitiveTopology) -> GraphicsPipelineConfig&
     {
         this->primitiveRestart  = primitiveRestart;
         this->primitiveTopology = primitiveTopology;
@@ -118,15 +119,15 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setPolygonMode(VkPolygonMode mode) -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setPolygonMode(vk::PolygonMode mode) -> GraphicsPipelineConfig&
     {
         polygonMode = mode;
 
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setCullingSettings(VkCullModeFlags cullMode, VkFrontFace frontFace)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setCullingSettings(vk::CullModeFlags cullMode,
+                                                    vk::FrontFace frontFace) -> GraphicsPipelineConfig&
     {
         this->cullMode  = cullMode;
         this->frontFace = frontFace;
@@ -134,8 +135,8 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setViewportScissorCount(uint32_t viewportCount, uint32_t scissorCount)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setViewportScissorCount(uint32_t viewportCount,
+                                                         uint32_t scissorCount) -> GraphicsPipelineConfig&
     {
         this->viewportCount = viewportCount;
         this->scissorCount  = scissorCount;
@@ -143,8 +144,8 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setSampleShadingSettings(bool enable, float minSampleShading)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setSampleShadingSettings(bool enable,
+                                                          float minSampleShading) -> GraphicsPipelineConfig&
     {
         sampleShadingEnable    = enable;
         this->minSampleShading = minSampleShading;
@@ -166,22 +167,24 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setSampleMask(VkSampleMask mask) -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setSampleMask(vk::SampleMask mask) -> GraphicsPipelineConfig&
     {
         sampleMask = mask;
 
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setSampleCount(VkSampleCountFlagBits count) -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setSampleCount(vk::SampleCountFlagBits count) -> GraphicsPipelineConfig&
     {
         rasterizationSamples = count;
 
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setDepthBiasSettings(bool enable, float constantFactor, float slopeFactor, float clamp)
-        -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setDepthBiasSettings(bool enable,
+                                                      float constantFactor,
+                                                      float slopeFactor,
+                                                      float clamp) -> GraphicsPipelineConfig&
     {
         depthBiasEnabled        = enable;
         depthBiasConstantFactor = constantFactor;
@@ -191,14 +194,14 @@ namespace renderer::backend
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setColorAttachmentFormat(VkFormat format) -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setColorAttachmentFormat(vk::Format format) -> GraphicsPipelineConfig&
     {
         colorAttachmentFormat = format;
 
         return *this;
     };
 
-    auto GraphicsPipelineConfig::setDepthAttachmentFormat(VkFormat format) -> GraphicsPipelineConfig&
+    auto GraphicsPipelineConfig::setDepthAttachmentFormat(vk::Format format) -> GraphicsPipelineConfig&
     {
         depthAttachmentFormat = format;
 
@@ -208,9 +211,9 @@ namespace renderer::backend
     GraphicsPipeline::GraphicsPipeline(Device const& device,
                                        PipelineLayout const& layout,
                                        GraphicsPipelineConfig const& config)
-        : m_device { &device }
     {
-        [[maybe_unused]] auto checkShaderStagePresent = [&shaders = config.shaders](VkShaderStageFlagBits stage)
+        [[maybe_unused]] auto checkShaderStagePresent =
+            [&shaders = config.shaders](vk::ShaderStageFlagBits stage)
         {
             return rn::find_if(shaders,
                                [stage](ShaderInfo const& info)
@@ -220,110 +223,101 @@ namespace renderer::backend
         };
 
         // clang-format off
-        MC_ASSERT_MSG(checkShaderStagePresent(VK_SHADER_STAGE_VERTEX_BIT)
-                   && checkShaderStagePresent(VK_SHADER_STAGE_FRAGMENT_BIT)
+        MC_ASSERT_MSG(checkShaderStagePresent(vk::ShaderStageFlagBits::eVertex)
+                   && checkShaderStagePresent(vk::ShaderStageFlagBits::eFragment)
                    && config.shaders.size() >= 2
                    && config.colorAttachmentFormat.has_value()
                    && config.depthAttachmentFormat.has_value(),
                       "Graphics pipeline builder was not correctly configured");
         // clang-format on
 
-        std::array dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+        std::array dynamicStates { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
 
-        VkPipelineDynamicStateCreateInfo dynamicState {
-            .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-            .dynamicStateCount = utils::size(dynamicStates),
-            .pDynamicStates    = dynamicStates.data(),
-        };
+        auto dynamicState = vk::PipelineDynamicStateCreateInfo().setDynamicStates(dynamicStates);
 
-        VkPipelineColorBlendAttachmentState colorBlendAttachment {
-            .blendEnable         = static_cast<VkBool32>(config.blendingEnable),
+        vk::PipelineColorBlendAttachmentState colorBlendAttachment {
+            .blendEnable         = config.blendingEnable,
             .srcColorBlendFactor = config.srcColorBlendFactor,
-            .dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA,
-            .colorBlendOp        = VK_BLEND_OP_ADD,
-            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-            .alphaBlendOp        = VK_BLEND_OP_ADD,
+            .dstColorBlendFactor = vk::BlendFactor::eDstAlpha,
+            .colorBlendOp        = vk::BlendOp::eAdd,
+            .srcAlphaBlendFactor = vk::BlendFactor::eOne,
+            .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+            .alphaBlendOp        = vk::BlendOp::eAdd,
             .colorWriteMask      = config.blendingColorWriteMask,
         };
 
-        VkPipelineColorBlendStateCreateInfo colorBlending = {
-            .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-            .logicOpEnable   = VK_FALSE,
-            .logicOp         = VK_LOGIC_OP_COPY,
-            .attachmentCount = 1,
-            .pAttachments    = &colorBlendAttachment,
+        vk::PipelineColorBlendStateCreateInfo colorBlending = {
+            .logicOpEnable = false,
+            .logicOp       = vk::LogicOp::eCopy,
         };
 
-        VkPipelineVertexInputStateCreateInfo vertexInput = {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
-        };
+        colorBlending.setAttachments(colorBlendAttachment);
 
-        VkPipelineDepthStencilStateCreateInfo depthStencil {
-            .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-            .depthTestEnable       = static_cast<VkBool32>(config.depthTestEnable),
-            .depthWriteEnable      = static_cast<VkBool32>(config.depthWriteEnable),
+        vk::PipelineVertexInputStateCreateInfo vertexInput {};
+
+        vk::PipelineDepthStencilStateCreateInfo depthStencil {
+            .depthTestEnable       = config.depthTestEnable,
+            .depthWriteEnable      = config.depthWriteEnable,
             .depthCompareOp        = config.depthCompareOp,
-            .depthBoundsTestEnable = static_cast<VkBool32>(config.depthBoundsTest),
-            .stencilTestEnable     = static_cast<VkBool32>(config.stencilEnable),
+            .depthBoundsTestEnable = config.depthBoundsTest,
+            .stencilTestEnable     = config.stencilEnable,
         };
 
-        VkPipelineInputAssemblyStateCreateInfo inputAssembly {
-            .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        vk::PipelineInputAssemblyStateCreateInfo inputAssembly {
             .topology               = config.primitiveTopology,
-            .primitiveRestartEnable = static_cast<VkBool32>(config.primitiveRestart),
+            .primitiveRestartEnable = config.primitiveRestart,
         };
 
-        VkPipelineViewportStateCreateInfo viewportState {
-            .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        vk::PipelineViewportStateCreateInfo viewportState {
             .viewportCount = config.viewportCount,
             .scissorCount  = config.scissorCount,
         };
 
-        VkPipelineRasterizationStateCreateInfo rasterizer {
-            .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-            .depthClampEnable        = static_cast<VkBool32>(config.depthClampEnabled),
-            .rasterizerDiscardEnable = static_cast<VkBool32>(config.rasterizerDiscard),
+        vk::PipelineRasterizationStateCreateInfo rasterizer {
+            .depthClampEnable        = config.depthClampEnabled,
+            .rasterizerDiscardEnable = config.rasterizerDiscard,
             .polygonMode             = config.polygonMode,
             .cullMode                = config.cullMode,
             .frontFace               = config.frontFace,
-            .depthBiasEnable         = static_cast<VkBool32>(config.depthBiasEnabled),
+            .depthBiasEnable         = config.depthBiasEnabled,
             .depthBiasConstantFactor = config.depthBiasConstantFactor,
             .depthBiasClamp          = config.depthBiasClamp,
             .depthBiasSlopeFactor    = config.depthBiasSlopeFactor,
             .lineWidth               = config.lineWidth,
         };
 
-        VkPipelineMultisampleStateCreateInfo multisampling {
-            .sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        vk::PipelineMultisampleStateCreateInfo multisampling {
             .rasterizationSamples  = config.rasterizationSamples,
-            .sampleShadingEnable   = static_cast<VkBool32>(config.sampleShadingEnable),
+            .sampleShadingEnable   = config.sampleShadingEnable,
             .minSampleShading      = config.minSampleShading,
             .pSampleMask           = config.sampleMask.has_value() ? &config.sampleMask.value() : nullptr,
-            .alphaToCoverageEnable = static_cast<VkBool32>(config.alphaToCoverageEnable),
-            .alphaToOneEnable      = static_cast<VkBool32>(config.alphaToOneEnable),
+            .alphaToCoverageEnable = config.alphaToCoverageEnable,
+            .alphaToOneEnable      = config.alphaToOneEnable,
         };
 
-        VkPipelineRenderingCreateInfo renderInfo {
-            .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        vk::PipelineRenderingCreateInfo renderInfo {
             .colorAttachmentCount    = 1,
             .pColorAttachmentFormats = &config.colorAttachmentFormat.value(),
             .depthAttachmentFormat   = config.depthAttachmentFormat.value(),
         };
 
-        std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+        std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
         shaderStages.reserve(config.shaders.size());
 
-        for (ShaderInfo const& info : config.shaders)
+        std::vector<vk::raii::ShaderModule> shaderModules;
+        shaderModules.reserve(config.shaders.size());
+
+        for (uint32_t i : vi::iota(0u, config.shaders.size()))
         {
-            shaderStages.push_back({ .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                                     .stage  = info.stage,
-                                     .module = createShaderModule(*m_device, info.path),
-                                     .pName  = info.entryPoint.data() });
+            ShaderInfo const& info = config.shaders[i];
+
+            shaderModules.push_back(createShaderModule(device.get(), info.path));
+
+            shaderStages.push_back(
+                { .stage = info.stage, .module = shaderModules[i], .pName = info.entryPoint.data() });
         }
 
-        VkGraphicsPipelineCreateInfo pipelineInfo {
-            .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        vk::GraphicsPipelineCreateInfo pipelineInfo {
             .pNext               = &renderInfo,
             .stageCount          = utils::size(shaderStages),
             .pStages             = shaderStages.data(),
@@ -340,30 +334,23 @@ namespace renderer::backend
             .basePipelineIndex   = -1,
         };
 
-        vkCreateGraphicsPipelines(*m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
-
-        for (auto const& shaderStage : shaderStages)
-        {
-            vkDestroyShaderModule(*m_device, shaderStage.module, nullptr);
-        }
+        m_pipeline = device->createGraphicsPipeline({ nullptr }, pipelineInfo) >> ResultChecker();
     };
 
     ComputePipeline::ComputePipeline(Device const& device,
                                      PipelineLayout const& layout,
                                      std::filesystem::path const& path,
                                      std::string_view entryPoint)
-        : m_device { &device }
     {
-        VkComputePipelineCreateInfo pipelineCreateInfo {
-            .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-            .stage  = {.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                       .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .module = createShaderModule(*m_device, path),
-                       .pName  = entryPoint.data()},
+        vk::raii::ShaderModule shaderModule = createShaderModule(device.get(), path);
+
+        vk::ComputePipelineCreateInfo pipelineCreateInfo {
+            .stage  = { .stage  = vk::ShaderStageFlagBits::eCompute,
+                       .module = shaderModule,
+                       .pName  = entryPoint.data() },
             .layout = layout,
         };
 
-        vkCreateComputePipelines(*m_device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_pipeline) >>
-            vkResultChecker;
+        m_pipeline = device->createComputePipeline({ nullptr }, pipelineCreateInfo) >> ResultChecker();
     }
 }  // namespace renderer::backend

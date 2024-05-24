@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace renderer::backend
 {
@@ -8,21 +8,24 @@ namespace renderer::backend
     {
     public:
         Instance();
-        ~Instance();
+        ~Instance() = default;
 
         Instance(Instance const&) = delete;
-        Instance(Instance&&)      = delete;
+        Instance(Instance&&)      = default;
 
         auto operator=(Instance const&) -> Instance& = delete;
-        auto operator=(Instance&&) -> Instance&      = delete;
+        auto operator=(Instance&&) -> Instance&      = default;
 
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        [[nodiscard]] operator VkInstance() const { return m_handle; }
+        [[nodiscard]] operator vk::Instance() const { return m_handle; }
+
+        [[nodiscard]] auto get() const -> vk::raii::Instance const& { return m_handle; }
+
+        [[nodiscard]] vk::raii::Instance const* operator->() const { return &m_handle; }
 
     private:
-        void initValidationLayers();
+        void initValidationLayers(vk::raii::Context const& context);
 
-        VkInstance m_handle { VK_NULL_HANDLE };
-        VkDebugUtilsMessengerEXT m_debugMessenger { nullptr };
+        vk::raii::Instance m_handle { nullptr };
+        vk::raii::DebugUtilsMessengerEXT m_debugMessenger { nullptr };
     };
 }  // namespace renderer::backend
