@@ -46,7 +46,7 @@ namespace renderer::backend
     {
         if constexpr (!kDebug)
         {
-            return res.value();
+            return std::move(res.value());
         }
 
         MC_ASSERT_MSG_LOC(token.loc, res.has_value(), vkResultToStr(res.error()));

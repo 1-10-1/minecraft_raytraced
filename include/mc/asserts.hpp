@@ -59,6 +59,8 @@
             }                                                               \
         }
 #else
-#    define MC_ASSERT(expr)
-#    define MC_ASSERT_MSG(expr, message)
+#    define MC_ASSERT(expr)                            (void)(expr)
+#    define MC_ASSERT_MSG(expr, message)               (void)(expr)
+#    define MC_ASSERT_LOC(expr, location)              (void)(expr)
+#    define MC_ASSERT_MSG_LOC(location, expr, message) (void)(expr)
 #endif
