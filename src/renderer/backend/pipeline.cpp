@@ -330,7 +330,7 @@ namespace renderer::backend
             .pColorBlendState    = &colorBlending,
             .pDynamicState       = &dynamicState,
             .layout              = layout,
-            .basePipelineHandle  = VK_NULL_HANDLE,
+            .basePipelineHandle  = nullptr,
             .basePipelineIndex   = -1,
         };
 

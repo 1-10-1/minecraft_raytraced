@@ -38,5 +38,7 @@ namespace renderer::backend
         }
 
         vmaDestroyBuffer(*m_allocator, m_buffer, m_allocation);
+
+        m_buffer = nullptr;
     }
 }  // namespace renderer::backend
