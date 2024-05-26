@@ -2,10 +2,32 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <functional>
+#include <vector>
+
+#include "asserts.hpp"
 
 namespace utils
 {
+    template<typename SizeType = char>
+    inline auto readBytes(std::filesystem::path const& filepath) -> std::vector<SizeType>
+    {
+        std::ifstream file(filepath, std::ios::ate | std::ios::binary);
+
+        MC_ASSERT_MSG(file.is_open(), fmt::format("Failed to read file '{}'", filepath.string()));
+
+        auto fileSize = file.tellg();
+        std::vector<SizeType> buffer(static_cast<std::size_t>(fileSize));
+
+        file.seekg(0);
+        file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
+
+        file.close();
+
+        return buffer;
+    }
+
     template<typename Class, typename Ret, typename... Args>
     auto captureThis(Ret (Class::*func)(Args...), Class* instance) -> std::function<Ret(Args...)>
     {
@@ -17,9 +39,7 @@ namespace utils
 
     template<typename T>
     concept HasSize = requires(T const& t) {
-        {
-            t.size()
-        } -> std::convertible_to<size_t>;
+        { t.size() } -> std::convertible_to<size_t>;
     };
 
     template<typename SizeType = uint32_t, typename T>
@@ -43,6 +63,4 @@ namespace utils
         return static_cast<ReturnType>(reinterpret_cast<uint64_t>(
             reinterpret_cast<char const volatile*>(&((reinterpret_cast<ClassType*>(0))->*member))));
     }
-
-    [[nodiscard]] auto readBytes(std::filesystem::path const& filepath) -> std::vector<char>;
 }  // namespace utils

@@ -151,43 +151,43 @@ namespace renderer::backend
         m_stats.drawcall_count = 0;
         m_stats.triangle_count = 0;
 
-        for (auto const& [_, item] : m_renderItems)
-        {
-            cmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, item.pipeline);
-
-            if (item.layout == m_texturedPipelineLayout)
-            {
-                cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                          item.layout,
-                                          0,
-                                          { m_sceneDataDescriptors, m_materialDescriptors },
-                                          {});
-            }
-            else
-            {
-                cmdBuf.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics, item.layout, 0, { m_sceneDataDescriptors }, {});
-            }
-
-            GPUDrawPushConstants push_constants {
-                .model        = item.model,
-                .vertexBuffer = item.meshData->vertexBufferAddress,
-            };
-
-            cmdBuf.pushConstants(m_texturedPipelineLayout,
-                                 vk::ShaderStageFlagBits::eVertex,
-                                 0,
-                                 sizeof(GPUDrawPushConstants),
-                                 &push_constants);
-
-            cmdBuf.bindIndexBuffer(item.meshData->indexBuffer, 0, vk::IndexType::eUint32);
-
-            cmdBuf.drawIndexed(item.meshData->indexCount, 1, 0, 0, 0);
-
-            m_stats.drawcall_count++;
-            m_stats.triangle_count += item.meshData->indexCount / 3;
-        }
-
+        // for (auto const& [_, item] : m_renderItems)
+        // {
+        //     cmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, item.pipeline);
+        //
+        //     if (item.layout == m_texturedPipelineLayout)
+        //     {
+        //         cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+        //                                   item.layout,
+        //                                   0,
+        //                                   { m_sceneDataDescriptors, m_materialDescriptors },
+        //                                   {});
+        //     }
+        //     else
+        //     {
+        //         cmdBuf.bindDescriptorSets(
+        //             vk::PipelineBindPoint::eGraphics, item.layout, 0, { m_sceneDataDescriptors }, {});
+        //     }
+        //
+        //     GPUDrawPushConstants push_constants {
+        //         .model        = item.model,
+        //         .vertexBuffer = item.meshData->vertexBufferAddress,
+        //     };
+        //
+        //     cmdBuf.pushConstants(m_texturedPipelineLayout,
+        //                          vk::ShaderStageFlagBits::eVertex,
+        //                          0,
+        //                          sizeof(GPUDrawPushConstants),
+        //                          &push_constants);
+        //
+        //     cmdBuf.bindIndexBuffer(item.meshData->indexBuffer, 0, vk::IndexType::eUint32);
+        //
+        //     cmdBuf.drawIndexed(item.meshData->indexCount, 1, 0, 0, 0);
+        //
+        //     m_stats.drawcall_count++;
+        //     m_stats.triangle_count += item.meshData->indexCount / 3;
+        // }
+        //
         cmdBuf.endRendering();
     }
 
@@ -366,8 +366,6 @@ namespace renderer::backend
             ImGui::SetNextWindowSize({ 0.f, 0.f });
 
             ImGui::Begin("Material");
-
-            ImGui::SliderFloat("Shininess", &m_material.shininess, 0.f, 100.f);
 
             ImGui::End();
         }

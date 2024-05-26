@@ -99,6 +99,8 @@ namespace renderer::backend
 
         m_imageView.clear();
         vmaDestroyImage(*m_allocator, m_handle, m_allocation);
+
+        m_handle = nullptr;
     }
 
     void Image::copyTo(vk::CommandBuffer cmdBuf, vk::Image dst, vk::Extent2D dstSize, vk::Extent2D offset)
@@ -291,8 +293,6 @@ namespace renderer::backend
                             vk::Format::eR8G8B8A8Unorm,
                             mipLevels);
         }
-
-        createSamplers(mipLevels);
     }
 
     Texture::Texture(Device& device,
@@ -319,7 +319,7 @@ namespace renderer::backend
         uint32_t mipLevels = m_image.getMipLevels();
 
         BasicBuffer uploadBuffer(
-            *m_allocator, dataSize, vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
+            *m_allocator, dataSize, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         std::memcpy(uploadBuffer.getMappedData(), data, dataSize);
 
@@ -361,34 +361,6 @@ namespace renderer::backend
                             vk::Format::eR8G8B8A8Unorm,
                             mipLevels);
         }
-
-        createSamplers(mipLevels);
-    }
-
-    Texture::~Texture() {}
-
-    void Texture::createSamplers(uint32_t mipLevels)
-    {
-        vk::PhysicalDeviceProperties const& deviceProperties = m_device->getDeviceProperties();
-
-        static vk::SamplerCreateInfo samplerInfo {
-            .magFilter               = vk::Filter::eNearest,
-            .minFilter               = vk::Filter::eNearest,
-            .mipmapMode              = vk::SamplerMipmapMode::eLinear,
-            .addressModeU            = vk::SamplerAddressMode::eRepeat,
-            .addressModeV            = vk::SamplerAddressMode::eRepeat,
-            .addressModeW            = vk::SamplerAddressMode::eRepeat,
-            .mipLodBias              = 0.0f,
-            .anisotropyEnable        = true,
-            .maxAnisotropy           = deviceProperties.limits.maxSamplerAnisotropy,
-            .compareEnable           = false,
-            .minLod                  = 0.0f,
-            .maxLod                  = static_cast<float>(mipLevels),
-            .borderColor             = vk::BorderColor::eIntOpaqueBlack,
-            .unnormalizedCoordinates = false,
-        };
-
-        m_sampler = m_device->get().createSampler(samplerInfo) >> ResultChecker();
     }
 
     void Texture::generateMipmaps(ScopedCommandBuffer& commandBuffer,

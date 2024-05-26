@@ -31,7 +31,6 @@ list(APPEND SOURCE_FILES
 
     src/game/game.cpp
 
-    src/renderer/backend/tinyobjloader.cpp
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/stb.cpp
     src/renderer/backend/render.cpp
@@ -47,6 +46,7 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/descriptor.cpp
     src/renderer/backend/swapchain.cpp
     src/renderer/backend/device.cpp
+    src/renderer/backend/utils.cpp
     src/renderer/renderer.cpp
 )
 
@@ -66,14 +66,12 @@ list(APPEND SOURCE_FILES
 find_package(ASSIMP REQUIRED)
 
 list(APPEND LIBS
-    fmt
     spdlog
     Vulkan::Vulkan
     glm::glm
     glfw
     magic_enum::magic_enum
     Tracy::TracyClient
-    tinyobjloader
     stb
     imgui
     GPUOpen::VulkanMemoryAllocator
@@ -110,7 +108,7 @@ else()
     target_compile_definitions(${PROJECT_NAME} PRIVATE PROFILED=false)
 endif()
 
-target_include_directories(${PROJECT_NAME} PRIVATE "./include" "./lib/stb")
+target_include_directories(${PROJECT_NAME} PRIVATE "./include")
 
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE

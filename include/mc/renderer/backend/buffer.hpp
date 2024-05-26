@@ -45,6 +45,10 @@ namespace renderer::backend
             other.m_allocInfo  = {};
         };
 
+        [[nodiscard]] operator bool() const { return m_buffer; }
+
+        [[nodiscard]] bool operator==(std::nullptr_t) const { return !m_buffer; }
+
         [[nodiscard]] operator vk::Buffer() const { return m_buffer; }
 
         [[nodiscard]] auto operator->() const -> vk::Buffer { return m_buffer; }

@@ -22,15 +22,18 @@ auto main() -> int
 {
     switchCwd();
 
+    logger::Logger::init();
+
     [[maybe_unused]] std::string_view appName = "Minecraft Clone Game";
     TracyAppInfo(appName.data(), appName.size());
-
-    logger::Logger::init();
 
     EventManager eventManager {};
     window::Window window { eventManager };
     Camera camera;
     renderer::Renderer m_renderer { eventManager, window, camera };
+
+    return 0;
+
     game::Game game { eventManager, window, camera };
 
     eventManager.subscribe(&camera, &Camera::onUpdate, &Camera::onFramebufferResize);

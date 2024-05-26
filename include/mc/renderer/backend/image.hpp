@@ -122,6 +122,10 @@ namespace renderer::backend
             return *this;
         };
 
+        [[nodiscard]] operator bool() const { return m_handle; }
+
+        [[nodiscard]] bool operator==(std::nullptr_t) const { return !m_handle; }
+
         [[nodiscard]] operator vk::Image() const { return m_handle; }
 
         [[nodiscard]] auto get() const -> vk::Image { return m_handle; }
@@ -190,10 +194,14 @@ namespace renderer::backend
     class Texture
     {
     public:
+        Texture()  = default;
+        ~Texture() = default;
+
         Texture(Device& device,
                 Allocator& allocator,
                 CommandManager& commandManager,
                 StbiImage const& stbiImage);
+
         Texture(Device& device,
                 Allocator& allocator,
                 CommandManager& commandManager,
@@ -202,26 +210,25 @@ namespace renderer::backend
                 size_t dataSize);
 
         Texture(Texture const&)                    = delete;
-        Texture(Texture&&)                         = delete;
-        auto operator=(Texture&&) -> Texture&      = delete;
         auto operator=(Texture const&) -> Texture& = delete;
 
-        ~Texture();
+        Texture(Texture&&)                    = default;
+        auto operator=(Texture&&) -> Texture& = default;
+
+        [[nodiscard]] operator bool() const { return m_image; }
+
+        [[nodiscard]] bool operator==(std::nullptr_t) const { return !m_image; }
 
         [[nodiscard]] auto getPath() const -> std::string const& { return m_path; }
-
-        [[nodiscard]] auto getSampler() const -> vk::Sampler { return m_sampler; }
 
         [[nodiscard]] auto getImageView() const -> vk::ImageView { return m_image.getImageView(); }
 
         [[nodiscard]] auto getImage() const -> Image const& { return m_image; }
 
     private:
-        Device* m_device;
-        Allocator* m_allocator;
-        CommandManager* m_commandManager;
-
-        void createSamplers(uint32_t mipLevels);
+        Device* m_device { nullptr };
+        Allocator* m_allocator { nullptr };
+        CommandManager* m_commandManager { nullptr };
 
         void generateMipmaps(ScopedCommandBuffer& commandBuffer,
                              vk::Image image,
@@ -232,8 +239,6 @@ namespace renderer::backend
         std::string m_path;
 
         Image m_image;
-
-        vk::raii::Sampler m_sampler { nullptr };
     };
 
 }  // namespace renderer::backend

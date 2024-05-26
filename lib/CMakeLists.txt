@@ -1,9 +1,3 @@
-# FMT
-set(FMT_DOC OFF)
-set(FMT_TEST OFF)
-set(FMT_CUDA_TEST OFF)
-add_subdirectory(fmt)
-
 # SPDLOG
 set(SPDLOG_BUILD_WARNINGS OFF)
 set(SPDLOG_NO_EXCEPTIONS ON)

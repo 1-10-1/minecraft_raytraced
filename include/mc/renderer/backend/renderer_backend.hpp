@@ -22,8 +22,80 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
+// gltf
+#include <fastgltf/core.hpp>
+#include <fastgltf/glm_element_traits.hpp>
+#include <fastgltf/tools.hpp>
+#include <stb_image.h>
+
 namespace renderer::backend
 {
+    enum class MaterialFeatures : uint32_t
+    {
+        ColorTexture            = 1 << 0,
+        NormalTexture           = 1 << 1,
+        RoughnessTexture        = 1 << 2,
+        OcclusionTexture        = 1 << 3,
+        EmissiveTexture         = 1 << 4,
+        TangentVertexAttribute  = 1 << 5,
+        TexcoordVertexAttribute = 1 << 6,
+    };
+
+    struct alignas(16) MaterialData
+    {
+        glm::vec4 baseColorFactor;
+        glm::mat4 model;
+        glm::mat4 modelInv;
+
+        glm::vec3 emissiveFactor;
+        float metallicFactor;
+
+        float roughnessFactor;
+        float occlusionFactor;
+        uint32_t flags;
+    };
+
+    struct MeshDraw
+    {
+        // TODO(aether) Implement handles instead of passing raw pointers around
+        BasicBuffer* indexBuffer;
+        BasicBuffer* positionBuffer;
+        BasicBuffer* tangentBuffer;
+        BasicBuffer* normalBuffer;
+        BasicBuffer* texcoordBuffer;
+
+        BasicBuffer materialBuffer;
+
+        MaterialData materialData;
+
+        uint32_t indexOffset;
+        uint32_t positionOffset;
+        uint32_t tangentOffset;
+        uint32_t normalOffset;
+        uint32_t texcoordOffset;
+
+        uint32_t count;
+
+        vk::IndexType indexType;
+
+        vk::DescriptorSet descriptorSet;
+    };
+
+    struct GltfSceneResources
+    {
+        std::vector<Texture> textures;
+        std::vector<vk::raii::Sampler> samplers;
+        std::vector<std::vector<uint8_t>> buffers;
+        std::vector<BasicBuffer> gpuBuffers;
+        std::vector<MeshDraw> meshDraws;
+
+        // Used for things like generating normals at runtime
+        // in case they're missing in the gltf file
+        std::vector<BasicBuffer> customBuffers;
+
+        DescriptorAllocatorGrowable descriptorAllocator;
+    };
+
     struct GPUDrawPushConstants
     {
         glm::mat4 model { glm::identity<glm::mat4>() };
@@ -43,7 +115,16 @@ namespace renderer::backend
 
     struct alignas(16) Material
     {
-        float shininess;
+        glm::vec4 baseColorFactor;
+        glm::mat4 model;
+        glm::mat4 modelInv;
+
+        glm::vec3 emissiveFactor;
+        float metallicFactor;
+
+        float roughnessFactor;
+        float occlusionFactor;
+        uint32_t flags;
     };
 
     struct RenderItem
@@ -119,6 +200,13 @@ namespace renderer::backend
 
         void initDescriptors();
 
+        void processGltf();
+        auto loadImage(fastgltf::Asset& asset,
+                       fastgltf::Image& image,
+                       std::filesystem::path gltfDir) -> std::optional<Texture>;
+        auto loadBuffer(fastgltf::Asset& asset,
+                        fastgltf::Buffer& buffer) -> std::optional<std::vector<uint8_t>>;
+
         void handleSurfaceResize();
         void createSyncObjects();
         void destroySyncObjects();
@@ -133,7 +221,7 @@ namespace renderer::backend
         CommandManager m_commandManager;
 
         Image m_drawImage, m_drawImageResolve, m_depthImage;
-        vk::DescriptorSet m_sceneDataDescriptors { nullptr }, m_materialDescriptors { nullptr };
+        vk::DescriptorSet m_sceneDataDescriptors { nullptr };
         vk::raii::DescriptorSetLayout m_sceneDataDescriptorLayout { nullptr },
             m_materialDescriptorLayout { nullptr };
 
@@ -143,14 +231,14 @@ namespace renderer::backend
         GraphicsPipeline m_texturedPipeline, m_texturelessPipeline;
 
         GPUSceneData m_sceneData {};
-        BasicBuffer m_gpuSceneDataBuffer, m_lightDataBuffer, m_materialDataBuffer;
+        BasicBuffer m_gpuSceneDataBuffer, m_lightDataBuffer;
 
         std::unordered_multimap<std::string, RenderItem> m_renderItems;
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 
-        Texture m_diffuseTexture, m_specularTexture;
-        Material m_material {};
+        vk::raii::Sampler m_dummySampler { nullptr };
+        Texture m_dummyTexture {};
 
         Timer m_timer;
 
