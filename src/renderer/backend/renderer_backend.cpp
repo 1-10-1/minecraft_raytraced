@@ -406,7 +406,7 @@ namespace renderer::backend
 
             for (fastgltf::Primitive& primitive : mesh.primitives)
             {
-                MeshDraw draw {};
+                MeshDraw& draw = resources.meshDraws.emplace_back();
 
                 draw.materialData.model = finalMatrix;
 
