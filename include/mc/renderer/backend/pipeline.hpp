@@ -22,11 +22,11 @@ namespace renderer::backend
     class PipelineLayoutConfig
     {
     public:
-        auto setPushConstantSettings(uint32_t size, vk::ShaderStageFlagBits shaderStage)
-            -> PipelineLayoutConfig&;
+        auto setPushConstantSettings(uint32_t size,
+                                     vk::ShaderStageFlagBits shaderStage) -> PipelineLayoutConfig&;
 
-        auto setDescriptorSetLayouts(std::vector<vk::DescriptorSetLayout> const& layout)
-            -> PipelineLayoutConfig&;
+        auto
+        setDescriptorSetLayouts(std::vector<vk::DescriptorSetLayout> const& layout) -> PipelineLayoutConfig&;
 
     private:
         std::optional<vk::PushConstantRange> pushConstants {};
@@ -53,8 +53,8 @@ namespace renderer::backend
                                      bool enableBoundsTest = false,
                                      bool enableWrite      = true) -> GraphicsPipelineConfig&;
 
-        auto setPrimitiveSettings(bool primitiveRestart, vk::PrimitiveTopology primitiveTopology)
-            -> GraphicsPipelineConfig&;
+        auto setPrimitiveSettings(bool primitiveRestart,
+                                  vk::PrimitiveTopology primitiveTopology) -> GraphicsPipelineConfig&;
 
         auto enableRasterizerDiscard(bool enable = true) -> GraphicsPipelineConfig&;
 
@@ -64,11 +64,11 @@ namespace renderer::backend
 
         auto setPolygonMode(vk::PolygonMode mode) -> GraphicsPipelineConfig&;
 
-        auto setCullingSettings(vk::CullModeFlags cullMode, vk::FrontFace frontFace)
-            -> GraphicsPipelineConfig&;
+        auto setCullingSettings(vk::CullModeFlags cullMode,
+                                vk::FrontFace frontFace) -> GraphicsPipelineConfig&;
 
-        auto setViewportScissorCount(uint32_t viewportCount, uint32_t scissorCount)
-            -> GraphicsPipelineConfig&;
+        auto setViewportScissorCount(uint32_t viewportCount,
+                                     uint32_t scissorCount) -> GraphicsPipelineConfig&;
 
         auto setSampleShadingSettings(bool enable, float minSampleShading = 0.2f) -> GraphicsPipelineConfig&;
 
@@ -218,8 +218,8 @@ namespace renderer::backend
         ComputePipeline(ComputePipeline&&)                    = default;
         auto operator=(ComputePipeline&&) -> ComputePipeline& = default;
 
-        [[nodiscard]] auto setShader(std::filesystem::path const& path, std::string_view entryPoint)
-            -> ComputePipeline&;
+        [[nodiscard]] auto setShader(std::filesystem::path const& path,
+                                     std::string_view entryPoint) -> ComputePipeline&;
 
         [[nodiscard]] operator vk::Pipeline() const { return m_pipeline; }
 

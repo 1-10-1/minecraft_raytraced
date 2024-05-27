@@ -57,12 +57,13 @@ namespace renderer::backend
 
     struct MeshDraw
     {
-        // TODO(aether) Implement handles instead of passing raw pointers around
-        BasicBuffer* indexBuffer;
-        BasicBuffer* positionBuffer;
-        BasicBuffer* tangentBuffer;
-        BasicBuffer* normalBuffer;
-        BasicBuffer* texcoordBuffer;
+        constexpr static uint16_t invalidBufferIndex = std::numeric_limits<uint16_t>::max();
+
+        uint16_t indexBuffer { invalidBufferIndex };
+        uint16_t positionBuffer { invalidBufferIndex };
+        uint16_t tangentBuffer { invalidBufferIndex };
+        uint16_t normalBuffer { invalidBufferIndex };
+        uint16_t texcoordBuffer { invalidBufferIndex };
 
         BasicBuffer materialBuffer;
 
@@ -85,13 +86,8 @@ namespace renderer::backend
     {
         std::vector<Texture> textures;
         std::vector<vk::raii::Sampler> samplers;
-        std::vector<std::vector<uint8_t>> buffers;
         std::vector<BasicBuffer> gpuBuffers;
         std::vector<MeshDraw> meshDraws;
-
-        // Used for things like generating normals at runtime
-        // in case they're missing in the gltf file
-        std::vector<BasicBuffer> customBuffers;
 
         DescriptorAllocatorGrowable descriptorAllocator;
     };
@@ -99,7 +95,16 @@ namespace renderer::backend
     struct GPUDrawPushConstants
     {
         glm::mat4 model { glm::identity<glm::mat4>() };
-        vk::DeviceAddress vertexBuffer {};
+
+        vk::DeviceAddress positionBuffer {};
+        vk::DeviceAddress tangentBuffer {};
+        vk::DeviceAddress normalBuffer {};
+        vk::DeviceAddress texcoordBuffer {};
+
+        uint32_t positionOffset { 0 };
+        uint32_t tangentOffset { 0 };
+        uint32_t normalOffset { 0 };
+        uint32_t texcoordOffset { 0 };
     };
 
     struct alignas(16) GPUSceneData
@@ -243,6 +248,8 @@ namespace renderer::backend
         Timer m_timer;
 
         Light m_light {};
+
+        GltfSceneResources m_gltfResources;
 
         struct EngineStats
         {

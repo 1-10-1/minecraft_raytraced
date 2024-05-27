@@ -1,5 +1,7 @@
 #include <mc/renderer/backend/utils.hpp>
 
+#include <print>
+
 namespace renderer::backend
 {
     auto createGPUOnlyBuffer(Device& device,
@@ -11,10 +13,6 @@ namespace renderer::backend
     {
         BasicBuffer buffer(
             allocator, size, vk::BufferUsageFlagBits::eTransferDst | usage, VMA_MEMORY_USAGE_GPU_ONLY);
-
-        // TODO(aether) implement this somewhere else
-        // newSurface.vertexBufferAddress =
-        //     device->getBufferAddress(vk::BufferDeviceAddressInfo().setBuffer(staging));
 
         {
             BasicBuffer staging(allocator,

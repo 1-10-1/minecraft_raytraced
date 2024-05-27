@@ -32,8 +32,6 @@ auto main() -> int
     Camera camera;
     renderer::Renderer m_renderer { eventManager, window, camera };
 
-    return 0;
-
     game::Game game { eventManager, window, camera };
 
     eventManager.subscribe(&camera, &Camera::onUpdate, &Camera::onFramebufferResize);

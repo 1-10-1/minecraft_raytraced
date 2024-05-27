@@ -13,6 +13,7 @@
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 namespace renderer::backend
@@ -150,6 +151,60 @@ namespace renderer::backend
 
         m_stats.drawcall_count = 0;
         m_stats.triangle_count = 0;
+
+        for (MeshDraw& draw : m_gltfResources.meshDraws)
+        {
+            cmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, m_texturedPipeline);
+
+            cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                      m_texturedPipelineLayout,
+                                      0,
+                                      { m_sceneDataDescriptors, draw.descriptorSet },
+                                      {});
+
+            vk::DeviceAddress positionBuffer = m_device->getBufferAddress(
+                vk::BufferDeviceAddressInfo().setBuffer(m_gltfResources.gpuBuffers[draw.positionBuffer]));
+
+            vk::DeviceAddress tangentBuffer =
+                draw.tangentBuffer != MeshDraw::invalidBufferIndex
+                    ? m_device->getBufferAddress(vk::BufferDeviceAddressInfo().setBuffer(
+                          m_gltfResources.gpuBuffers[draw.tangentBuffer]))
+                    : 0;
+
+            vk::DeviceAddress normalBuffer = m_device->getBufferAddress(
+                vk::BufferDeviceAddressInfo().setBuffer(m_gltfResources.gpuBuffers[draw.normalBuffer]));
+
+            vk::DeviceAddress texcoordBuffer = m_device->getBufferAddress(
+                vk::BufferDeviceAddressInfo().setBuffer(m_gltfResources.gpuBuffers[draw.texcoordBuffer]));
+
+            GPUDrawPushConstants pushConstants {
+                .model = draw.materialData.model,
+
+                .positionBuffer = positionBuffer,
+                .tangentBuffer  = tangentBuffer,
+                .normalBuffer   = normalBuffer,
+                .texcoordBuffer = texcoordBuffer,
+
+                .positionOffset = draw.positionOffset,
+                .tangentOffset  = draw.tangentOffset,
+                .normalOffset   = draw.normalOffset,
+                .texcoordOffset = draw.texcoordOffset,
+            };
+
+            cmdBuf.pushConstants(m_texturedPipelineLayout,
+                                 vk::ShaderStageFlagBits::eVertex,
+                                 0,
+                                 sizeof(GPUDrawPushConstants),
+                                 &pushConstants);
+
+            cmdBuf.bindIndexBuffer(
+                m_gltfResources.gpuBuffers[draw.indexBuffer], draw.indexOffset, draw.indexType);
+
+            cmdBuf.drawIndexed(draw.count, 1, 0, 0, 0);
+
+            m_stats.drawcall_count++;
+            m_stats.triangle_count += draw.count / 3;
+        }
 
         // for (auto const& [_, item] : m_renderItems)
         // {

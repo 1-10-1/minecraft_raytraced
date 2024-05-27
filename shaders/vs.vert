@@ -1,6 +1,9 @@
 #version 460
 
 #extension GL_EXT_buffer_reference : require
+#extension GL_GOOGLE_include_directive : require
+
+#include "uniforms.glsl"
 
 uint MaterialFeatures_ColorTexture     = 1 << 0;
 uint MaterialFeatures_NormalTexture    = 1 << 1;
@@ -9,26 +12,6 @@ uint MaterialFeatures_OcclusionTexture = 1 << 3;
 uint MaterialFeatures_EmissiveTexture =  1 << 4;
 uint MaterialFeatures_TangentVertexAttribute = 1 << 5;
 uint MaterialFeatures_TexcoordVertexAttribute = 1 << 6;
-
-layout(std140, binding = 0) uniform LocalConstants {
-    mat4 m;
-    mat4 vp;
-    vec4 eye;
-    vec4 light;
-};
-
-layout(std140, binding = 1) uniform MaterialConstant {
-    vec4 base_color_factor;
-    mat4 model;
-    mat4 model_inv;
-
-    vec3  emissive_factor;
-    float metallic_factor;
-
-    float roughness_factor;
-    float occlusion_factor;
-    uint  flags;
-};
 
 layout(buffer_reference, std430) readonly buffer PositionBuffer {
 	vec3 positions[];
@@ -48,13 +31,31 @@ layout(buffer_reference, std430) readonly buffer TexcoordBuffer {
 
 layout(push_constant) uniform PushConstants
 {
-	mat4 model;
+    mat4 constmodel;
 
-	PositionBuffer positionBuffer;
-	TangentBuffer tangentBuffer;
-	NormalBuffer normalbuffer;
-	TexcoordBuffer texcoordBuffer;
-} constants;
+    PositionBuffer positionBuffer;
+    TangentBuffer tangentBuffer;
+    NormalBuffer normalbuffer;
+    TexcoordBuffer texcoordBuffer;
+
+    uint positionOffset;
+    uint tangentOffset;
+    uint normalOffset;
+    uint texcoordOffset;
+};
+
+layout(std140, set = 1, binding = 5) uniform MaterialConstant {
+    vec4 base_color_factor;
+    mat4 model;
+    mat4 model_inv;
+
+    vec3  emissive_factor;
+    float metallic_factor;
+
+    float roughness_factor;
+    float occlusion_factor;
+    uint  flags;
+};
 
 layout (location = 0) out vec2 vTexcoord0;
 layout (location = 1) out vec3 vNormal;
@@ -62,13 +63,13 @@ layout (location = 2) out vec4 vTangent;
 layout (location = 3) out vec4 vPosition;
 
 void main() {
-	vec3 position = constants.positionBuffer.positions[gl_VertexIndex];
-	vec3 normal = constants.normalbuffer.normals[gl_VertexIndex];
-	vec4 tangent = constants.tangentBuffer.tangents[gl_VertexIndex];
-	vec2 texcoord = constants.texcoordBuffer.texcoords0[gl_VertexIndex];
+    vec3 position = positionBuffer.positions[positionOffset + gl_VertexIndex];
+    vec3 normal = normalbuffer.normals[normalOffset + gl_VertexIndex];
+    vec4 tangent = tangentBuffer.tangents[tangentOffset + gl_VertexIndex];
+    vec2 texcoord = texcoordBuffer.texcoords0[texcoordOffset + gl_VertexIndex];
 
-    gl_Position = vp * m * model * vec4(position, 1);
-    vPosition = m * model * vec4(position, 1.0);
+    gl_Position = sceneData.viewProj * model * vec4(position, 1.0);
+    vPosition = model * vec4(position, 1.0);
 
     if ( ( flags & MaterialFeatures_TexcoordVertexAttribute ) != 0 ) {
         vTexcoord0 = texcoord;
