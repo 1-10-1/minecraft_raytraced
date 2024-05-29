@@ -69,6 +69,7 @@ namespace renderer::backend
 
         MaterialData materialData;
 
+        // TODO(aether) these are all 0 for now
         uint32_t indexOffset;
         uint32_t positionOffset;
         uint32_t tangentOffset;

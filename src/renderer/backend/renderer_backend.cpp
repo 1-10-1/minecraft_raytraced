@@ -204,17 +204,14 @@ namespace renderer::backend
                                     MC_ASSERT(filePath.uri.isLocalPath());  // We're only capable of loading
                                                                             // local files.
 
-                                    logger::info("Loaded thru file bytes");
                                     newBuffer = utils::readBytes<uint8_t>(filePath.uri.path());
                                 },
                                 [&](fastgltf::sources::Vector& vector)
                                 {
-                                    logger::info("Loaded thru vector");
                                     newBuffer = std::move(vector.bytes);
                                 },
                                 [&](fastgltf::sources::Array& array)
                                 {
-                                    logger::info("Loaded thru vector");
                                     newBuffer.resize(array.bytes.size());
                                     std::memcpy(newBuffer.data(), array.bytes.data(), array.bytes.size());
                                 } },
@@ -264,9 +261,9 @@ namespace renderer::backend
 
         // TODO(aether) this is a guess
         std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
-            { vk::DescriptorType::eCombinedImageSampler, 3 },
-            { vk::DescriptorType::eUniformBuffer,        3 },
-            { vk::DescriptorType::eStorageBuffer,        1 }
+            { vk::DescriptorType::eCombinedImageSampler, 4 },
+            { vk::DescriptorType::eUniformBuffer,        2 },
+            { vk::DescriptorType::eStorageBuffer,        4 }
         };
 
         m_gltfResources.descriptorAllocator.init(m_device, gltf.materials.size(), sizes);
@@ -333,6 +330,7 @@ namespace renderer::backend
             uint32_t nodeIndex = nodeStack.back();
             nodeStack.pop_back();
             fastgltf::Node& node = gltf.nodes[nodeIndex];
+            nodeStack.clear();
 
             glm::mat4 localMatrix;
 
@@ -399,17 +397,17 @@ namespace renderer::backend
 
                 MC_ASSERT(indicesAccessor.bufferViewIndex.has_value());
 
-                size_t indicesByteLength;
+                size_t componentSize;
 
                 switch (indicesAccessor.componentType)
                 {
                     case fastgltf::ComponentType::UnsignedInt:
-                        draw.indexType    = vk::IndexType::eUint32;
-                        indicesByteLength = indicesAccessor.count * sizeof(uint32_t);
+                        draw.indexType = vk::IndexType::eUint32;
+                        componentSize  = sizeof(uint32_t);
                         break;
                     case fastgltf::ComponentType::UnsignedShort:
-                        draw.indexType    = vk::IndexType::eUint16;
-                        indicesByteLength = indicesAccessor.count * sizeof(uint16_t);
+                        draw.indexType = vk::IndexType::eUint16;
+                        componentSize  = sizeof(uint16_t);
                         break;
                     default:
                         MC_ASSERT_MSG(false, "Unsupported index component type");
@@ -418,21 +416,17 @@ namespace renderer::backend
                 draw.indexBuffer         = m_gltfResources.gpuBuffers.size();
                 BasicBuffer& indexBuffer = m_gltfResources.gpuBuffers.emplace_back(BasicBuffer {
                     m_allocator,
-                    indicesByteLength,
+                    indicesAccessor.count * componentSize,
                     vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
                     VMA_MEMORY_USAGE_GPU_ONLY });
 
                 BasicBuffer indexStagingBuffer = BasicBuffer { m_allocator,
-                                                               indicesByteLength,
+                                                               indicesAccessor.count * componentSize,
                                                                vk::BufferUsageFlagBits::eTransferSrc,
                                                                VMA_MEMORY_USAGE_CPU_ONLY };
 
                 uint16_t* indexData16 = reinterpret_cast<uint16_t*>(indexStagingBuffer.getMappedData());
                 uint32_t* indexData32 = reinterpret_cast<uint32_t*>(indexStagingBuffer.getMappedData());
-
-                logger::info("Using {} indices (type {})",
-                             magic_enum::enum_name(draw.indexType),
-                             magic_enum::enum_name(primitive.type));
 
                 if (draw.indexType == vk::IndexType::eUint16)
                 {
@@ -443,10 +437,11 @@ namespace renderer::backend
                     fastgltf::copyFromAccessor<uint32_t>(gltf, indicesAccessor, indexData32);
                 }
 
-                cmdBuf->copyBuffer(
-                    indexStagingBuffer, indexBuffer, vk::BufferCopy().setSize(indicesByteLength));
+                cmdBuf->copyBuffer(indexStagingBuffer,
+                                   indexBuffer,
+                                   vk::BufferCopy().setSize(indicesAccessor.count * componentSize));
 
-                draw.indexOffset = indicesAccessor.byteOffset;
+                draw.indexOffset = 0;
                 draw.count       = indicesAccessor.count;
 
                 MC_ASSERT_MSG(draw.count % 3 == 0, "Can only draw triangle lists");
@@ -478,8 +473,6 @@ namespace renderer::backend
                         vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                         VMA_MEMORY_USAGE_GPU_ONLY });
 
-                    logger::info("Position buf: {}", static_cast<void*>(static_cast<vk::Buffer>(gpuBuffer)));
-
                     positionsStagingBuffer = BasicBuffer { m_allocator,
                                                            byteLength,
                                                            vk::BufferUsageFlagBits::eTransferSrc,
@@ -495,7 +488,7 @@ namespace renderer::backend
                     cmdBuf->copyBuffer(
                         positionsStagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
 
-                    draw.positionOffset = accessor.byteOffset;
+                    draw.positionOffset = 0;
                 }
 
                 // ******** NORMALS ********
@@ -514,9 +507,6 @@ namespace renderer::backend
                         vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                         VMA_MEMORY_USAGE_GPU_ONLY });
 
-                    logger::info("Normal provided buf: {}",
-                                 static_cast<void*>(static_cast<vk::Buffer>(gpuBuffer)));
-
                     BasicBuffer stagingBuffer { m_allocator,
                                                 byteLength,
                                                 vk::BufferUsageFlagBits::eTransferSrc,
@@ -528,7 +518,7 @@ namespace renderer::backend
 
                     cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
 
-                    draw.normalOffset = accessor.byteOffset;
+                    draw.normalOffset = 0;
                 }
                 else
                 {
@@ -542,9 +532,6 @@ namespace renderer::backend
                         byteLength,
                         vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                         VMA_MEMORY_USAGE_GPU_ONLY });
-
-                    logger::info("Normal custom buf: {}",
-                                 static_cast<void*>(static_cast<vk::Buffer>(gpuBuffer)));
 
                     BasicBuffer stagingBuffer { m_allocator,
                                                 byteLength,
@@ -612,8 +599,6 @@ namespace renderer::backend
                         vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                         VMA_MEMORY_USAGE_GPU_ONLY });
 
-                    logger::info("Tangent buf: {}", static_cast<void*>(static_cast<vk::Buffer>(gpuBuffer)));
-
                     BasicBuffer stagingBuffer { m_allocator,
                                                 byteLength,
                                                 vk::BufferUsageFlagBits::eTransferSrc,
@@ -625,7 +610,7 @@ namespace renderer::backend
 
                     cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
 
-                    draw.tangentOffset = accessor.byteOffset;
+                    draw.tangentOffset = 0;
                     draw.materialData.flags |= std::to_underlying(MaterialFeatures::TangentVertexAttribute);
                 }
 
@@ -645,8 +630,6 @@ namespace renderer::backend
                         vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                         VMA_MEMORY_USAGE_GPU_ONLY });
 
-                    logger::info("Texcoord buf: {}", static_cast<void*>(static_cast<vk::Buffer>(gpuBuffer)));
-
                     BasicBuffer stagingBuffer { m_allocator,
                                                 byteLength,
                                                 vk::BufferUsageFlagBits::eTransferSrc,
@@ -658,7 +641,7 @@ namespace renderer::backend
 
                     cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
 
-                    draw.texcoordOffset = accessor.byteOffset;
+                    draw.texcoordOffset = 0;
                     draw.materialData.flags |= std::to_underlying(MaterialFeatures::TexcoordVertexAttribute);
                 }
 
@@ -682,8 +665,6 @@ namespace renderer::backend
 
                 if (material.pbrData.baseColorTexture)
                 {
-                    logger::info("Using pbr data for gltf file {}!", gltfFile.c_str());
-
                     draw.materialData.baseColorFactor =
                         glm::make_vec4(material.pbrData.baseColorFactor.data());
 
@@ -968,7 +949,6 @@ namespace renderer::backend
                     .setDepthStencilSettings(true, vk::CompareOp::eGreaterOrEqual)
                     // .setCullingSettings(vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise)
                     .setSampleCount(m_device.getMaxUsableSampleCount())
-                    .setPolygonMode(vk::PolygonMode::eLine)
                     .setSampleShadingSettings(true, 0.1f);
 
             m_texturedPipeline = GraphicsPipeline(m_device, m_texturedPipelineLayout, pipelineConfig);

@@ -2,6 +2,7 @@
 
 #extension GL_EXT_buffer_reference : require
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_scalar_block_layout : require
 
 #include "uniforms.glsl"
 
@@ -13,7 +14,8 @@ uint MaterialFeatures_EmissiveTexture =  1 << 4;
 uint MaterialFeatures_TangentVertexAttribute = 1 << 5;
 uint MaterialFeatures_TexcoordVertexAttribute = 1 << 6;
 
-layout(buffer_reference, std430) readonly buffer PositionBuffer {
+// NOTE(aether) potential performance hit
+layout(buffer_reference, scalar) readonly buffer PositionBuffer {
 	vec3 positions[];
 };
 
@@ -21,7 +23,7 @@ layout(buffer_reference, std430) readonly buffer TangentBuffer {
 	vec4 tangents[];
 };
 
-layout(buffer_reference, std430) readonly buffer NormalBuffer {
+layout(buffer_reference, scalar) readonly buffer NormalBuffer {
 	vec3 normals[];
 };
 
