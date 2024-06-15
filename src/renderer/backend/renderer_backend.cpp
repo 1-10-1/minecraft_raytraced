@@ -1,4 +1,7 @@
+#include "fastgltf/math.hpp"
 #include "fastgltf/tools.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/gtc/type_ptr.hpp"
 #include "mc/renderer/backend/descriptor.hpp"
 #include "mc/renderer/backend/pipeline.hpp"
 #include <cstdint>
@@ -98,7 +101,7 @@ namespace renderer::backend
             fastgltf::visitor {
                 [](auto&)
                 {
-                    MC_ASSERT_MSG(false, "Visitor did not go through all options");
+                    logger::warn("Visitor did not go through all options");
                 },
                 [&](fastgltf::sources::URI& filePath)
                 {
@@ -115,6 +118,29 @@ namespace renderer::backend
                 {
                     unsigned char* data = stbi_load_from_memory(vector.bytes.data(),
                                                                 static_cast<int>(vector.bytes.size()),
+                                                                &width,
+                                                                &height,
+                                                                &nrChannels,
+                                                                4);
+                    if (data == nullptr)
+                    {
+                        return;
+                    }
+
+                    newImage = Texture(m_device,
+                                       m_allocator,
+                                       m_commandManager,
+                                       vk::Extent2D { .width  = static_cast<uint32_t>(width),
+                                                      .height = static_cast<uint32_t>(height) },
+                                       data,
+                                       width * height * 4);
+
+                    stbi_image_free(data);
+                },
+                [&](fastgltf::sources::Array& array)
+                {
+                    unsigned char* data = stbi_load_from_memory(array.bytes.data(),
+                                                                static_cast<int>(array.bytes.size()),
                                                                 &width,
                                                                 &height,
                                                                 &nrChannels,
@@ -175,9 +201,7 @@ namespace renderer::backend
                             } },
                         buffer.data);
                 },
-            }
-
-            ,
+            },
             image.data);
 
         if (!newImage)
@@ -227,37 +251,42 @@ namespace renderer::backend
 
     void RendererBackend::processGltf()
     {
-        fs::path gltfDir  = "../../khrSampleModels/2.0/Cube/glTF";
+        fs::path gltfDir  = "../../khrSampleModels/2.0/StainedGlassLamp/glTF";
         fs::path prevPath = fs::current_path();
         fs::current_path(gltfDir);
-        fs::path gltfFile = fs::current_path() / "Cube.gltf";
+        fs::path gltfFile = fs::current_path() / "StainedGlassLamp.gltf";
+
         // fs::path gltfFile = "../../khrSampleModels/2.0/DragonAttenuation/glTF/DragonAttenuation.gltf";
         // fs::path gltfFile = "../../khrSampleModels/2.0/Duck/glTF/Duck.gltf";
 
-        MC_ASSERT_MSG(fs::exists(gltfFile), std::format("glTF file {} not found", gltfFile.c_str()));
+        MC_ASSERT_MSG(fs::exists(gltfFile), "glTF file {} not found", gltfFile.string());
 
         fg::Parser parser;
 
-        fg::GltfDataBuffer buffer;
-        buffer.loadFromFile(gltfFile);
+        auto mappedGltf = fastgltf::MappedGltfFile::FromPath(gltfFile);
 
-        fg::Asset gltf;
+        MC_ASSERT_MSG(mappedGltf,
+                      "Failed to open glTF file {}: {}",
+                      gltfFile.string(),
+                      fastgltf::getErrorMessage(mappedGltf.error()));
+
+        constexpr auto gltfOptions =
+            fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers |
+            fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages |
+            fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::GenerateMeshIndices;
+
+        auto asset = parser.loadGltf(mappedGltf.get(), gltfFile.parent_path(), gltfOptions);
+
+        MC_ASSERT_MSG(asset.error() == fastgltf::Error::None,
+                      "Failed to load glTF file {}: {}",
+                      gltfFile.string(),
+                      fastgltf::getErrorMessage(asset.error()));
+
+        fg::Asset gltf = std::move(asset.get());
 
         Timer timer;
 
-        fg::Expected<fg::Asset> expected =
-            parser.loadGltfJson(&buffer,
-                                gltfFile.parent_path(),
-                                fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers);
-
-        MC_ASSERT_MSG(expected,
-                      std::format("Could not parse gltf file {}: {}",
-                                  gltfFile.root_name().c_str(),
-                                  magic_enum::enum_name(expected.error())));
-
         logger::info("Parsed {} successfully! ({})", gltfFile.root_name().c_str(), timer.getTotalTime());
-
-        gltf = std::move(expected.get());
 
         // TODO(aether) this is a guess
         std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
@@ -293,9 +322,10 @@ namespace renderer::backend
         {
             std::optional<Texture> texture = loadImage(gltf, image, gltfFile);
 
-            MC_ASSERT_MSG(
-                texture.has_value(),
-                std::format("Failed to load texture '{}' for gltf file '{}'", image.name, gltfFile.c_str()));
+            MC_ASSERT_MSG(texture.has_value(),
+                          "Failed to load texture '{}' for gltf file '{}'",
+                          image.name,
+                          gltfFile.c_str());
 
             m_gltfResources.textures.push_back(std::move(*texture));
         }
@@ -304,388 +334,435 @@ namespace renderer::backend
 
         MC_ASSERT_MSG(gltf.defaultScene, "Need a default scene");
 
-        fastgltf::Scene& scene = gltf.scenes[*gltf.defaultScene];
-        size_t nodeCount       = scene.nodeIndices.size();
-
-        // wha
-        std::vector<int32_t> nodeParents(nodeCount);
-        std::vector<uint32_t> nodeStack(nodeCount);
-        std::vector<glm::mat4> nodeMatrices(nodeCount);
-
-        for (uint32_t i : vi::iota(0u, nodeCount))
-        {
-            size_t rootNode       = scene.nodeIndices[i];
-            nodeParents[rootNode] = -1;
-            nodeStack[i]          = rootNode;
-        }
-
         timer.reset();
 
         uint64_t numNodes = 0;
 
-        while (!nodeStack.empty())
-        {
-            ++numNodes;
-
-            uint32_t nodeIndex = nodeStack.back();
-            nodeStack.pop_back();
-            fastgltf::Node& node = gltf.nodes[nodeIndex];
-            nodeStack.clear();
-
-            glm::mat4 localMatrix;
-
-            std::visit(fastgltf::visitor { [](auto&)
-                                           {
-                                               MC_ASSERT_MSG(false, "Visitor did not go through all options");
-                                           },
-                                           [&](fastgltf::TRS& trs)
-                                           {
-                                               glm::quat rotation    = glm::make_quat(trs.rotation.data());
-                                               glm::vec3 scale       = glm::make_vec3(trs.scale.data());
-                                               glm::vec3 translation = glm::make_vec3(trs.translation.data());
-
-                                               localMatrix = glm::translate(translation) *
-                                                             glm::toMat4(rotation) * glm::scale(scale);
-                                           },
-                                           [&](fastgltf::Node::TransformMatrix& mat)
-                                           {
-                                               localMatrix = glm::make_mat4(mat.data());
-                                           } },
-                       node.transform);
-
-            nodeMatrices[nodeIndex] = localMatrix;
-
-            // Iterate over the children and add them to the node stack
-            // Also set their parent
-            for (uint32_t childIndex : vi::iota(0u, node.children.size()))
+        fastgltf::iterateSceneNodes(
+            gltf,
+            0,
+            fastgltf::math::fmat4x4(),
+            [&](fastgltf::Node& node, fastgltf::math::fmat4x4 mat)
             {
-                uint32_t childNodeIndex     = node.children[childIndex];
-                nodeParents[childNodeIndex] = nodeIndex;
-                nodeStack.push_back(childNodeIndex);
-            }
+                ++numNodes;
 
-            if (!node.meshIndex)
-            {
-                logger::warn("Mesh index isn't present");
+                glm::mat4 transform = glm::identity<glm::mat4>();
 
-                continue;
-            }
+                std::visit(
+                    fastgltf::visitor { [](auto&)
+                                        {
+                                            MC_ASSERT_MSG(false, "Visitor did not go through all options");
+                                        },
+                                        [&](fastgltf::TRS& trs)
+                                        {
+                                            glm::quat rotation    = glm::make_quat(trs.rotation.value_ptr());
+                                            glm::vec3 scale       = glm::make_vec3(trs.scale.data());
+                                            glm::vec3 translation = glm::make_vec3(trs.translation.data());
 
-            glm::mat4 finalMatrix = localMatrix;
-            int32_t nodeParent    = nodeParents[nodeIndex];
+                                            transform = glm::translate(translation) * glm::toMat4(rotation) *
+                                                        glm::scale(scale);
+                                        },
+                                        [&](fastgltf::math::fmat4x4& mat)
+                                        {
+                                            transform = glm::make_mat4(mat.data());
+                                        } },
+                    node.transform);
+                //
+                // nodeMatrices[nodeIndex] = localMatrix;
 
-            // Multiply with every ancestor's model matrix
-            while (nodeParent != -1)
-            {
-                finalMatrix = nodeMatrices[nodeParent] * finalMatrix;
-                nodeParent  = nodeParents[nodeParent];
-            }
+                // Iterate over the children and add them to the node stack
+                // Also set their parent
+                // for (uint32_t childIndex : vi::iota(0u, node.children.size()))
+                // {
+                //     uint32_t childNodeIndex     = node.children[childIndex];
+                //     nodeParents[childNodeIndex] = nodeIndex;
+                //     nodeStack.push_back(childNodeIndex);
+                // }
 
-            fastgltf::Mesh& mesh = gltf.meshes[*node.meshIndex];
-
-            ScopedCommandBuffer cmdBuf {
-                m_device, m_commandManager.getTransferCmdPool(), m_device.getTransferQueue(), true
-            };
-
-            for (fastgltf::Primitive& primitive : mesh.primitives)
-            {
-                MeshDraw& draw = m_gltfResources.meshDraws.emplace_back();
-
-                draw.materialData.model = finalMatrix;
-
-                fastgltf::Accessor& indicesAccessor = gltf.accessors[*primitive.indicesAccessor];
-
-                MC_ASSERT(indicesAccessor.bufferViewIndex.has_value());
-
-                size_t componentSize;
-
-                switch (indicesAccessor.componentType)
+                if (!node.meshIndex)
                 {
-                    case fastgltf::ComponentType::UnsignedInt:
-                        draw.indexType = vk::IndexType::eUint32;
-                        componentSize  = sizeof(uint32_t);
-                        break;
-                    case fastgltf::ComponentType::UnsignedShort:
-                        draw.indexType = vk::IndexType::eUint16;
-                        componentSize  = sizeof(uint16_t);
-                        break;
-                    default:
-                        MC_ASSERT_MSG(false, "Unsupported index component type");
+                    logger::warn("Mesh index isn't present");
+
+                    return;
                 }
 
-                draw.indexBuffer         = m_gltfResources.gpuBuffers.size();
-                BasicBuffer& indexBuffer = m_gltfResources.gpuBuffers.emplace_back(BasicBuffer {
-                    m_allocator,
-                    indicesAccessor.count * componentSize,
-                    vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-                    VMA_MEMORY_USAGE_GPU_ONLY });
+                // glm::mat4 finalMatrix = localMatrix;
+                // int32_t nodeParent    = nodeParents[nodeIndex];
 
-                BasicBuffer indexStagingBuffer = BasicBuffer { m_allocator,
-                                                               indicesAccessor.count * componentSize,
+                // // Multiply with every ancestor's model matrix
+                // while (nodeParent != -1)
+                // {
+                //     finalMatrix = nodeMatrices[nodeParent] * finalMatrix;
+                //     nodeParent  = nodeParents[nodeParent];
+                // }
+
+                fastgltf::Mesh& mesh = gltf.meshes[*node.meshIndex];
+
+                ScopedCommandBuffer cmdBuf {
+                    m_device, m_commandManager.getTransferCmdPool(), m_device.getTransferQueue(), true
+                };
+
+                for (fastgltf::Primitive& primitive : mesh.primitives)
+                {
+                    MeshDraw& draw = m_gltfResources.meshDraws.emplace_back();
+
+                    draw.model = glm::make_mat4(mat.data()) * transform;
+
+                    fastgltf::Accessor& indicesAccessor = gltf.accessors[*primitive.indicesAccessor];
+
+                    MC_ASSERT(indicesAccessor.bufferViewIndex.has_value());
+
+                    size_t componentSize;
+
+                    switch (indicesAccessor.componentType)
+                    {
+                        case fastgltf::ComponentType::UnsignedInt:
+                            draw.indexType = vk::IndexType::eUint32;
+                            componentSize  = sizeof(uint32_t);
+                            break;
+                        case fastgltf::ComponentType::UnsignedShort:
+                            draw.indexType = vk::IndexType::eUint16;
+                            componentSize  = sizeof(uint16_t);
+                            break;
+                        default:
+                            MC_ASSERT_MSG(false, "Unsupported index component type");
+                    }
+
+                    draw.indexBuffer         = m_gltfResources.gpuBuffers.size();
+                    BasicBuffer& indexBuffer = m_gltfResources.gpuBuffers.emplace_back(BasicBuffer {
+                        m_allocator,
+                        indicesAccessor.count * componentSize,
+                        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+                        VMA_MEMORY_USAGE_GPU_ONLY });
+
+                    BasicBuffer indexStagingBuffer = BasicBuffer { m_allocator,
+                                                                   indicesAccessor.count * componentSize,
+                                                                   vk::BufferUsageFlagBits::eTransferSrc,
+                                                                   VMA_MEMORY_USAGE_CPU_ONLY };
+
+                    uint16_t* indexData16 = reinterpret_cast<uint16_t*>(indexStagingBuffer.getMappedData());
+                    uint32_t* indexData32 = reinterpret_cast<uint32_t*>(indexStagingBuffer.getMappedData());
+
+                    if (draw.indexType == vk::IndexType::eUint16)
+                    {
+                        fastgltf::copyFromAccessor<uint16_t>(gltf, indicesAccessor, indexData16);
+                    }
+                    else if (draw.indexType == vk::IndexType::eUint32)
+                    {
+                        fastgltf::copyFromAccessor<uint32_t>(gltf, indicesAccessor, indexData32);
+                    }
+
+                    cmdBuf->copyBuffer(indexStagingBuffer,
+                                       indexBuffer,
+                                       vk::BufferCopy().setSize(indicesAccessor.count * componentSize));
+
+                    draw.indexOffset = 0;
+                    draw.count       = indicesAccessor.count;
+
+                    MC_ASSERT_MSG(draw.count % 3 == 0, "Can only draw triangle lists");
+
+                    auto* positionAccessorIndex = primitive.findAttribute("POSITION");
+                    auto* normalAccessorIndex   = primitive.findAttribute("NORMAL");
+                    auto* tangentAccessorIndex  = primitive.findAttribute("TANGENT");
+                    auto* texcoordAccessorIndex = primitive.findAttribute("TEXCOORD_0");
+
+                    BasicBuffer positionsStagingBuffer {};
+                    glm::vec4* positionData;
+                    uint32_t vertexCount = 0;
+
+                    // ******** POSITION ********
+                    {
+                        // The glTF spec guarantees that every primitive will have a position
+                        // We dont need to check if its null
+                        auto& accessor = gltf.accessors[positionAccessorIndex->second];
+
+                        MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec3);
+
+                        vertexCount       = accessor.count;
+                        size_t byteLength = vertexCount * sizeof(glm::vec4);
+
+                        draw.positionBuffer    = m_gltfResources.gpuBuffers.size();
+                        BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(
+                            BasicBuffer { m_allocator,
+                                          byteLength,
+                                          vk::BufferUsageFlagBits::eTransferDst |
+                                              vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                                          VMA_MEMORY_USAGE_GPU_ONLY });
+
+                        positionsStagingBuffer = BasicBuffer { m_allocator,
+                                                               byteLength,
                                                                vk::BufferUsageFlagBits::eTransferSrc,
                                                                VMA_MEMORY_USAGE_CPU_ONLY };
 
-                uint16_t* indexData16 = reinterpret_cast<uint16_t*>(indexStagingBuffer.getMappedData());
-                uint32_t* indexData32 = reinterpret_cast<uint32_t*>(indexStagingBuffer.getMappedData());
+                        glm::vec4* mappedRegion =
+                            reinterpret_cast<glm::vec4*>(positionsStagingBuffer.getMappedData());
 
-                if (draw.indexType == vk::IndexType::eUint16)
-                {
-                    fastgltf::copyFromAccessor<uint16_t>(gltf, indicesAccessor, indexData16);
-                }
-                else if (draw.indexType == vk::IndexType::eUint32)
-                {
-                    fastgltf::copyFromAccessor<uint32_t>(gltf, indicesAccessor, indexData32);
-                }
+                        positionData = mappedRegion;
 
-                cmdBuf->copyBuffer(indexStagingBuffer,
-                                   indexBuffer,
-                                   vk::BufferCopy().setSize(indicesAccessor.count * componentSize));
+                        MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec3);
 
-                draw.indexOffset = 0;
-                draw.count       = indicesAccessor.count;
+                        fastgltf::iterateAccessorWithIndex<glm::vec3>(
+                            gltf,
+                            accessor,
+                            [&](glm::vec3 const& vec, size_t i)
+                            {
+                                mappedRegion[i] = { vec.x, vec.y, vec.z, 1.0 };
+                            });
 
-                MC_ASSERT_MSG(draw.count % 3 == 0, "Can only draw triangle lists");
+                        cmdBuf->copyBuffer(
+                            positionsStagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
 
-                auto* positionAccessorIndex = primitive.findAttribute("POSITION");
-                auto* normalAccessorIndex   = primitive.findAttribute("NORMAL");
-                auto* tangentAccessorIndex  = primitive.findAttribute("TANGENT");
-                auto* texcoordAccessorIndex = primitive.findAttribute("TEXCOORD_0");
+                        draw.positionOffset = 0;
+                    }
 
-                BasicBuffer positionsStagingBuffer {};
-                glm::vec3* positionData;
-                uint32_t vertexCount = 0;
-
-                // ******** POSITION ********
-                {
-                    // The glTF spec guarantees that every primitive will have a position
-                    // We dont need to check if its null
-                    auto& accessor = gltf.accessors[positionAccessorIndex->second];
-
-                    MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec3);
-
-                    vertexCount       = accessor.count;
-                    size_t byteLength = vertexCount * sizeof(glm::vec3);
-
-                    draw.positionBuffer    = m_gltfResources.gpuBuffers.size();
-                    BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(BasicBuffer {
-                        m_allocator,
-                        byteLength,
-                        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                        VMA_MEMORY_USAGE_GPU_ONLY });
-
-                    positionsStagingBuffer = BasicBuffer { m_allocator,
-                                                           byteLength,
-                                                           vk::BufferUsageFlagBits::eTransferSrc,
-                                                           VMA_MEMORY_USAGE_CPU_ONLY };
-
-                    glm::vec3* mappedRegion =
-                        reinterpret_cast<glm::vec3*>(positionsStagingBuffer.getMappedData());
-
-                    positionData = mappedRegion;
-
-                    fastgltf::copyFromAccessor<glm::vec3>(gltf, accessor, mappedRegion);
-
-                    cmdBuf->copyBuffer(
-                        positionsStagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
-
-                    draw.positionOffset = 0;
-                }
-
-                // ******** NORMALS ********
-                if (normalAccessorIndex != primitive.attributes.end())
-                {
-                    auto& accessor = gltf.accessors[normalAccessorIndex->second];
-
-                    MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec3);
-
-                    size_t byteLength = accessor.count * sizeof(glm::vec3);
-
-                    draw.normalBuffer      = m_gltfResources.gpuBuffers.size();
-                    BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(BasicBuffer {
-                        m_allocator,
-                        byteLength,
-                        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                        VMA_MEMORY_USAGE_GPU_ONLY });
-
-                    BasicBuffer stagingBuffer { m_allocator,
-                                                byteLength,
-                                                vk::BufferUsageFlagBits::eTransferSrc,
-                                                VMA_MEMORY_USAGE_CPU_ONLY };
-
-                    glm::vec3* mappedRegion = reinterpret_cast<glm::vec3*>(stagingBuffer.getMappedData());
-
-                    fastgltf::copyFromAccessor<glm::vec3>(gltf, accessor, mappedRegion);
-
-                    cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
-
-                    draw.normalOffset = 0;
-                }
-                else
-                {
-                    logger::warn("Generated normals at runtime for gltf file '{}'", gltfFile.c_str());
-
-                    size_t byteLength = vertexCount * sizeof(glm::vec3);
-
-                    draw.normalBuffer      = m_gltfResources.gpuBuffers.size();
-                    BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(BasicBuffer {
-                        m_allocator,
-                        byteLength,
-                        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                        VMA_MEMORY_USAGE_GPU_ONLY });
-
-                    BasicBuffer stagingBuffer { m_allocator,
-                                                byteLength,
-                                                vk::BufferUsageFlagBits::eTransferSrc,
-                                                VMA_MEMORY_USAGE_CPU_ONLY };
-
-                    std::span<glm::vec3> mappedRegion = std::span<glm::vec3>(
-                        reinterpret_cast<glm::vec3*>(stagingBuffer.getMappedData()), vertexCount);
-
-                    for (uint32_t i = 0; i < draw.count; i += 3)
+                    // ******** NORMALS ********
+                    if (normalAccessorIndex != primitive.attributes.end())
                     {
-                        uint32_t i0, i1, i2;
+                        auto& accessor = gltf.accessors[normalAccessorIndex->second];
 
-                        switch (indicesAccessor.componentType)
+                        MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec3);
+
+                        size_t byteLength = accessor.count * sizeof(glm::vec3);
+
+                        draw.normalBuffer      = m_gltfResources.gpuBuffers.size();
+                        BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(
+                            BasicBuffer { m_allocator,
+                                          byteLength,
+                                          vk::BufferUsageFlagBits::eTransferDst |
+                                              vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                                          VMA_MEMORY_USAGE_GPU_ONLY });
+
+                        BasicBuffer stagingBuffer { m_allocator,
+                                                    byteLength,
+                                                    vk::BufferUsageFlagBits::eTransferSrc,
+                                                    VMA_MEMORY_USAGE_CPU_ONLY };
+
+                        glm::vec3* mappedRegion = reinterpret_cast<glm::vec3*>(stagingBuffer.getMappedData());
+
+                        MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec3);
+
+                        fastgltf::copyFromAccessor<glm::vec3>(gltf, accessor, mappedRegion);
+
+                        cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
+
+                        draw.normalOffset = 0;
+                    }
+                    else
+                    {
+                        logger::warn("Generated normals at runtime for gltf file '{}'", gltfFile.c_str());
+
+                        size_t byteLength = vertexCount * sizeof(glm::vec3);
+
+                        draw.normalBuffer      = m_gltfResources.gpuBuffers.size();
+                        BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(
+                            BasicBuffer { m_allocator,
+                                          byteLength,
+                                          vk::BufferUsageFlagBits::eTransferDst |
+                                              vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                                          VMA_MEMORY_USAGE_GPU_ONLY });
+
+                        BasicBuffer stagingBuffer { m_allocator,
+                                                    byteLength,
+                                                    vk::BufferUsageFlagBits::eTransferSrc,
+                                                    VMA_MEMORY_USAGE_CPU_ONLY };
+
+                        std::span<glm::vec3> mappedRegion = std::span<glm::vec3>(
+                            reinterpret_cast<glm::vec3*>(stagingBuffer.getMappedData()), vertexCount);
+
+                        for (uint32_t i = 0; i < draw.count; i += 3)
                         {
-                            case fastgltf::ComponentType::UnsignedInt:
-                                i0 = indexData32[i];
-                                i1 = indexData32[i + 1];
-                                i2 = indexData32[i + 2];
-                                break;
-                            case fastgltf::ComponentType::UnsignedShort:
-                                i0 = indexData16[i];
-                                i1 = indexData16[i + 1];
-                                i2 = indexData16[i + 2];
-                                break;
+                            uint32_t i0, i1, i2;
+
+                            switch (indicesAccessor.componentType)
+                            {
+                                case fastgltf::ComponentType::UnsignedInt:
+                                    i0 = indexData32[i];
+                                    i1 = indexData32[i + 1];
+                                    i2 = indexData32[i + 2];
+                                    break;
+                                case fastgltf::ComponentType::UnsignedShort:
+                                    i0 = indexData16[i];
+                                    i1 = indexData16[i + 1];
+                                    i2 = indexData16[i + 2];
+                                    break;
+                            }
+
+                            glm::vec3 p0 = positionData[i0];
+                            glm::vec3 p1 = positionData[i1];
+                            glm::vec3 p2 = positionData[i2];
+
+                            glm::vec3 a = p1 - p0;
+                            glm::vec3 b = p2 - p0;
+
+                            glm::vec3 normal = glm::cross(a, b);
+
+                            mappedRegion[i0] += normal;
+                            mappedRegion[i1] += normal;
+                            mappedRegion[i2] += normal;
                         }
 
-                        glm::vec3 p0 = positionData[i0];
-                        glm::vec3 p1 = positionData[i1];
-                        glm::vec3 p2 = positionData[i2];
+                        for (glm::vec3& normal : mappedRegion)
+                        {
+                            normal = glm::normalize(normal);
+                        }
 
-                        glm::vec3 a = p1 - p0;
-                        glm::vec3 b = p2 - p0;
+                        draw.normalOffset = 0;
 
-                        glm::vec3 normal = glm::cross(a, b);
-
-                        mappedRegion[i0] += normal;
-                        mappedRegion[i1] += normal;
-                        mappedRegion[i2] += normal;
+                        cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
                     }
 
-                    for (glm::vec3& normal : mappedRegion)
+                    // ******** TANGENTS ********
+                    if (tangentAccessorIndex != primitive.attributes.end())
                     {
-                        normal = glm::normalize(normal);
+                        auto& accessor = gltf.accessors[tangentAccessorIndex->second];
+
+                        MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec4);
+
+                        size_t byteLength = accessor.count * sizeof(glm::vec4);
+
+                        draw.tangentBuffer     = m_gltfResources.gpuBuffers.size();
+                        BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(
+                            BasicBuffer { m_allocator,
+                                          byteLength,
+                                          vk::BufferUsageFlagBits::eTransferDst |
+                                              vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                                          VMA_MEMORY_USAGE_GPU_ONLY });
+
+                        BasicBuffer stagingBuffer { m_allocator,
+                                                    byteLength,
+                                                    vk::BufferUsageFlagBits::eTransferSrc,
+                                                    VMA_MEMORY_USAGE_CPU_ONLY };
+
+                        glm::vec4* mappedRegion = reinterpret_cast<glm::vec4*>(stagingBuffer.getMappedData());
+
+                        fastgltf::copyFromAccessor<glm::vec4>(gltf, accessor, mappedRegion);
+
+                        cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
+
+                        draw.tangentOffset = 0;
+                        draw.materialData.flags |=
+                            std::to_underlying(MaterialFeatures::TangentVertexAttribute);
                     }
 
-                    draw.normalOffset = 0;
-
-                    cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
-                }
-
-                // ******** TANGENTS ********
-                if (tangentAccessorIndex != primitive.attributes.end())
-                {
-                    auto& accessor = gltf.accessors[tangentAccessorIndex->second];
-
-                    MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec4);
-
-                    size_t byteLength = accessor.count * sizeof(glm::vec4);
-
-                    draw.tangentBuffer     = m_gltfResources.gpuBuffers.size();
-                    BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(BasicBuffer {
-                        m_allocator,
-                        byteLength,
-                        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                        VMA_MEMORY_USAGE_GPU_ONLY });
-
-                    BasicBuffer stagingBuffer { m_allocator,
-                                                byteLength,
-                                                vk::BufferUsageFlagBits::eTransferSrc,
-                                                VMA_MEMORY_USAGE_CPU_ONLY };
-
-                    glm::vec3* mappedRegion = reinterpret_cast<glm::vec3*>(stagingBuffer.getMappedData());
-
-                    fastgltf::copyFromAccessor<glm::vec3>(gltf, accessor, mappedRegion);
-
-                    cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
-
-                    draw.tangentOffset = 0;
-                    draw.materialData.flags |= std::to_underlying(MaterialFeatures::TangentVertexAttribute);
-                }
-
-                // ******** TEXTURE COORDINATES ********
-                if (texcoordAccessorIndex != primitive.attributes.end())
-                {
-                    auto& accessor = gltf.accessors[texcoordAccessorIndex->second];
-
-                    MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec2);
-
-                    size_t byteLength = accessor.count * sizeof(glm::vec2);
-
-                    draw.texcoordBuffer    = m_gltfResources.gpuBuffers.size();
-                    BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(BasicBuffer {
-                        m_allocator,
-                        byteLength,
-                        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                        VMA_MEMORY_USAGE_GPU_ONLY });
-
-                    BasicBuffer stagingBuffer { m_allocator,
-                                                byteLength,
-                                                vk::BufferUsageFlagBits::eTransferSrc,
-                                                VMA_MEMORY_USAGE_CPU_ONLY };
-
-                    glm::vec3* mappedRegion = reinterpret_cast<glm::vec3*>(stagingBuffer.getMappedData());
-
-                    fastgltf::copyFromAccessor<glm::vec3>(gltf, accessor, mappedRegion);
-
-                    cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
-
-                    draw.texcoordOffset = 0;
-                    draw.materialData.flags |= std::to_underlying(MaterialFeatures::TexcoordVertexAttribute);
-                }
-
-                MC_ASSERT_MSG(primitive.materialIndex.has_value(), "Can't load a mesh without a material");
-
-                fastgltf::Material& material = gltf.materials[*primitive.materialIndex];
-
-                draw.materialBuffer = BasicBuffer(m_allocator,
-                                                  sizeof(Material),
-                                                  vk::BufferUsageFlagBits::eUniformBuffer,
-                                                  VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-                draw.descriptorSet =
-                    m_gltfResources.descriptorAllocator.allocate(m_device, m_materialDescriptorLayout);
-
-                DescriptorWriter descriptorWriter;
-
-                // TODO(aether) do something about this hardcoding
-                descriptorWriter.write_buffer(
-                    5, draw.materialBuffer, sizeof(Material), 0, vk::DescriptorType::eUniformBuffer);
-
-                if (material.pbrData.baseColorTexture)
-                {
-                    draw.materialData.baseColorFactor =
-                        glm::make_vec4(material.pbrData.baseColorFactor.data());
-
-                    if (std::optional<fastgltf::TextureInfo>& texInfoOpt = material.pbrData.baseColorTexture)
+                    // ******** TEXTURE COORDINATES ********
+                    if (texcoordAccessorIndex != primitive.attributes.end())
                     {
-                        fastgltf::TextureInfo& textureInfo = *texInfoOpt;
+                        auto& accessor = gltf.accessors[texcoordAccessorIndex->second];
 
-                        fastgltf::Texture& texture = gltf.textures[textureInfo.textureIndex];
-                        Texture* textureGPU        = &m_gltfResources.textures[*texture.imageIndex];
+                        MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec2);
 
-                        vk::Sampler sampler = texture.samplerIndex.has_value()
-                                                  ? m_gltfResources.samplers[*texture.samplerIndex]
-                                                  : m_dummySampler;
+                        size_t byteLength = accessor.count * sizeof(glm::vec2);
 
-                        descriptorWriter.write_image(0,
-                                                     textureGPU->getImageView(),
-                                                     sampler,
-                                                     vk::ImageLayout::eReadOnlyOptimal,
-                                                     vk::DescriptorType::eCombinedImageSampler);
+                        draw.texcoordBuffer    = m_gltfResources.gpuBuffers.size();
+                        BasicBuffer& gpuBuffer = m_gltfResources.gpuBuffers.emplace_back(
+                            BasicBuffer { m_allocator,
+                                          byteLength,
+                                          vk::BufferUsageFlagBits::eTransferDst |
+                                              vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                                          VMA_MEMORY_USAGE_GPU_ONLY });
 
-                        draw.materialData.flags |= std::to_underlying(MaterialFeatures::ColorTexture);
+                        BasicBuffer stagingBuffer { m_allocator,
+                                                    byteLength,
+                                                    vk::BufferUsageFlagBits::eTransferSrc,
+                                                    VMA_MEMORY_USAGE_CPU_ONLY };
+
+                        glm::vec2* mappedRegion = reinterpret_cast<glm::vec2*>(stagingBuffer.getMappedData());
+
+                        MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec2);
+
+                        fastgltf::copyFromAccessor<glm::vec2>(gltf, accessor, mappedRegion);
+
+                        cmdBuf->copyBuffer(stagingBuffer, gpuBuffer, vk::BufferCopy().setSize(byteLength));
+
+                        draw.texcoordOffset = 0;
+                        draw.materialData.flags |=
+                            std::to_underlying(MaterialFeatures::TexcoordVertexAttribute);
+                    }
+
+                    MC_ASSERT_MSG(primitive.materialIndex.has_value(),
+                                  "Can't load a mesh without a material");
+
+                    fastgltf::Material& material = gltf.materials[*primitive.materialIndex];
+
+                    draw.materialBuffer = BasicBuffer(m_allocator,
+                                                      sizeof(Material),
+                                                      vk::BufferUsageFlagBits::eUniformBuffer,
+                                                      VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+                    draw.descriptorSet =
+                        m_gltfResources.descriptorAllocator.allocate(m_device, m_materialDescriptorLayout);
+
+                    DescriptorWriter descriptorWriter;
+
+                    // TODO(aether) do something about this hardcoding
+                    descriptorWriter.write_buffer(
+                        5, draw.materialBuffer, sizeof(Material), 0, vk::DescriptorType::eUniformBuffer);
+
+                    if (material.pbrData.baseColorTexture)
+                    {
+                        draw.materialData.baseColorFactor =
+                            glm::make_vec4(material.pbrData.baseColorFactor.data());
+
+                        if (std::optional<fastgltf::TextureInfo>& texInfoOpt =
+                                material.pbrData.baseColorTexture)
+                        {
+                            fastgltf::TextureInfo& textureInfo = *texInfoOpt;
+
+                            fastgltf::Texture& texture = gltf.textures[textureInfo.textureIndex];
+                            Texture* textureGPU        = &m_gltfResources.textures[*texture.imageIndex];
+
+                            vk::Sampler sampler = texture.samplerIndex.has_value()
+                                                      ? m_gltfResources.samplers[*texture.samplerIndex]
+                                                      : m_dummySampler;
+
+                            descriptorWriter.write_image(0,
+                                                         textureGPU->getImageView(),
+                                                         sampler,
+                                                         vk::ImageLayout::eReadOnlyOptimal,
+                                                         vk::DescriptorType::eCombinedImageSampler);
+
+                            draw.materialData.flags |= std::to_underlying(MaterialFeatures::ColorTexture);
+                        }
+                        else
+                        {
+                            descriptorWriter.write_image(0,
+                                                         m_dummyTexture.getImageView(),
+                                                         m_dummySampler,
+                                                         vk::ImageLayout::eReadOnlyOptimal,
+                                                         vk::DescriptorType::eCombinedImageSampler);
+                        }
+
+                        if (std::optional<fastgltf::TextureInfo>& texInfoOpt =
+                                material.pbrData.metallicRoughnessTexture)
+                        {
+                            fastgltf::TextureInfo& textureInfo = *texInfoOpt;
+
+                            fastgltf::Texture& texture = gltf.textures[textureInfo.textureIndex];
+                            Texture* textureGPU        = &m_gltfResources.textures[*texture.imageIndex];
+
+                            vk::Sampler sampler = texture.samplerIndex.has_value()
+                                                      ? m_gltfResources.samplers[*texture.samplerIndex]
+                                                      : m_dummySampler;
+
+                            descriptorWriter.write_image(1,
+                                                         textureGPU->getImageView(),
+                                                         sampler,
+                                                         vk::ImageLayout::eReadOnlyOptimal,
+                                                         vk::DescriptorType::eCombinedImageSampler);
+
+                            draw.materialData.flags |= std::to_underlying(MaterialFeatures::RoughnessTexture);
+                        }
+                        else
+                        {
+                            descriptorWriter.write_image(1,
+                                                         m_dummyTexture.getImageView(),
+                                                         m_dummySampler,
+                                                         vk::ImageLayout::eReadOnlyOptimal,
+                                                         vk::DescriptorType::eCombinedImageSampler);
+                        }
+
+                        draw.materialData.metallicFactor  = material.pbrData.metallicFactor;
+                        draw.materialData.roughnessFactor = material.pbrData.roughnessFactor;
                     }
                     else
                     {
@@ -694,30 +771,6 @@ namespace renderer::backend
                                                      m_dummySampler,
                                                      vk::ImageLayout::eReadOnlyOptimal,
                                                      vk::DescriptorType::eCombinedImageSampler);
-                    }
-
-                    if (std::optional<fastgltf::TextureInfo>& texInfoOpt =
-                            material.pbrData.metallicRoughnessTexture)
-                    {
-                        fastgltf::TextureInfo& textureInfo = *texInfoOpt;
-
-                        fastgltf::Texture& texture = gltf.textures[textureInfo.textureIndex];
-                        Texture* textureGPU        = &m_gltfResources.textures[*texture.imageIndex];
-
-                        vk::Sampler sampler = texture.samplerIndex.has_value()
-                                                  ? m_gltfResources.samplers[*texture.samplerIndex]
-                                                  : m_dummySampler;
-
-                        descriptorWriter.write_image(1,
-                                                     textureGPU->getImageView(),
-                                                     sampler,
-                                                     vk::ImageLayout::eReadOnlyOptimal,
-                                                     vk::DescriptorType::eCombinedImageSampler);
-
-                        draw.materialData.flags |= std::to_underlying(MaterialFeatures::RoughnessTexture);
-                    }
-                    else
-                    {
                         descriptorWriter.write_image(1,
                                                      m_dummyTexture.getImageView(),
                                                      m_dummySampler,
@@ -725,122 +778,106 @@ namespace renderer::backend
                                                      vk::DescriptorType::eCombinedImageSampler);
                     }
 
-                    draw.materialData.metallicFactor  = material.pbrData.metallicFactor;
-                    draw.materialData.roughnessFactor = material.pbrData.roughnessFactor;
+                    if (auto& occlTexOpt = material.occlusionTexture)
+                    {
+                        fastgltf::OcclusionTextureInfo& textureInfo = *occlTexOpt;
+                        fastgltf::Texture& texture                  = gltf.textures[textureInfo.textureIndex];
+
+                        // Could be the same as the roughness texture
+                        Texture* textureGPU = &m_gltfResources.textures[*texture.imageIndex];
+
+                        vk::Sampler sampler = texture.samplerIndex.has_value()
+                                                  ? m_gltfResources.samplers[*texture.samplerIndex]
+                                                  : m_dummySampler;
+
+                        draw.materialData.occlusionFactor = textureInfo.strength;
+
+                        descriptorWriter.write_image(2,
+                                                     textureGPU->getImageView(),
+                                                     sampler,
+                                                     vk::ImageLayout::eReadOnlyOptimal,
+                                                     vk::DescriptorType::eCombinedImageSampler);
+
+                        draw.materialData.flags |= std::to_underlying(MaterialFeatures::OcclusionTexture);
+                    }
+                    else
+                    {
+                        draw.materialData.occlusionFactor = 1.0f;
+
+                        descriptorWriter.write_image(2,
+                                                     m_dummyTexture.getImageView(),
+                                                     m_dummySampler,
+                                                     vk::ImageLayout::eReadOnlyOptimal,
+                                                     vk::DescriptorType::eCombinedImageSampler);
+                    }
+
+                    draw.materialData.emissiveFactor = glm::make_vec3(material.emissiveFactor.data());
+
+                    if (std::optional<fastgltf::TextureInfo>& texInfoOpt = material.emissiveTexture)
+                    {
+                        fastgltf::TextureInfo& textureInfo = *texInfoOpt;
+
+                        fastgltf::Texture& texture = gltf.textures[textureInfo.textureIndex];
+
+                        // Could be the same as the roughness texture
+                        Texture* textureGPU = &m_gltfResources.textures[*texture.imageIndex];
+
+                        vk::Sampler sampler = texture.samplerIndex.has_value()
+                                                  ? m_gltfResources.samplers[*texture.samplerIndex]
+                                                  : m_dummySampler;
+
+                        descriptorWriter.write_image(3,
+                                                     textureGPU->getImageView(),
+                                                     sampler,
+                                                     vk::ImageLayout::eReadOnlyOptimal,
+                                                     vk::DescriptorType::eCombinedImageSampler);
+
+                        draw.materialData.flags |= std::to_underlying(MaterialFeatures::EmissiveTexture);
+                    }
+                    else
+                    {
+                        descriptorWriter.write_image(3,
+                                                     m_dummyTexture.getImageView(),
+                                                     m_dummySampler,
+                                                     vk::ImageLayout::eReadOnlyOptimal,
+                                                     vk::DescriptorType::eCombinedImageSampler);
+                    }
+
+                    // TODO(aether) maybe check this in the part where we create normals at runtime to save some computation?
+                    if (std::optional<fastgltf::NormalTextureInfo>& texInfoOpt = material.normalTexture)
+                    {
+                        fastgltf::NormalTextureInfo& textureInfo = *texInfoOpt;
+
+                        fastgltf::Texture& texture = gltf.textures[textureInfo.textureIndex];
+
+                        Texture* textureGPU = &m_gltfResources.textures[*texture.imageIndex];
+
+                        vk::Sampler sampler = texture.samplerIndex.has_value()
+                                                  ? m_gltfResources.samplers[*texture.samplerIndex]
+                                                  : m_dummySampler;
+
+                        descriptorWriter.write_image(4,
+                                                     textureGPU->getImageView(),
+                                                     sampler,
+                                                     vk::ImageLayout::eReadOnlyOptimal,
+                                                     vk::DescriptorType::eCombinedImageSampler);
+
+                        draw.materialData.flags |= std::to_underlying(MaterialFeatures::EmissiveTexture);
+                    }
+                    else
+                    {
+                        descriptorWriter.write_image(4,
+                                                     m_dummyTexture.getImageView(),
+                                                     m_dummySampler,
+                                                     vk::ImageLayout::eReadOnlyOptimal,
+                                                     vk::DescriptorType::eCombinedImageSampler);
+                    }
+
+                    std::memcpy(
+                        draw.materialBuffer.getMappedData(), &draw.materialData, sizeof(MaterialData));
+                    descriptorWriter.update_set(m_device, draw.descriptorSet);
                 }
-                else
-                {
-                    descriptorWriter.write_image(0,
-                                                 m_dummyTexture.getImageView(),
-                                                 m_dummySampler,
-                                                 vk::ImageLayout::eReadOnlyOptimal,
-                                                 vk::DescriptorType::eCombinedImageSampler);
-                    descriptorWriter.write_image(1,
-                                                 m_dummyTexture.getImageView(),
-                                                 m_dummySampler,
-                                                 vk::ImageLayout::eReadOnlyOptimal,
-                                                 vk::DescriptorType::eCombinedImageSampler);
-                }
-
-                if (auto& occlTexOpt = material.occlusionTexture)
-                {
-                    fastgltf::OcclusionTextureInfo& textureInfo = *occlTexOpt;
-                    fastgltf::Texture& texture                  = gltf.textures[textureInfo.textureIndex];
-
-                    // Could be the same as the roughness texture
-                    Texture* textureGPU = &m_gltfResources.textures[*texture.imageIndex];
-
-                    vk::Sampler sampler = texture.samplerIndex.has_value()
-                                              ? m_gltfResources.samplers[*texture.samplerIndex]
-                                              : m_dummySampler;
-
-                    draw.materialData.occlusionFactor = textureInfo.strength;
-
-                    descriptorWriter.write_image(2,
-                                                 textureGPU->getImageView(),
-                                                 sampler,
-                                                 vk::ImageLayout::eReadOnlyOptimal,
-                                                 vk::DescriptorType::eCombinedImageSampler);
-
-                    draw.materialData.flags |= std::to_underlying(MaterialFeatures::OcclusionTexture);
-                }
-                else
-                {
-                    draw.materialData.occlusionFactor = 1.0f;
-
-                    descriptorWriter.write_image(2,
-                                                 m_dummyTexture.getImageView(),
-                                                 m_dummySampler,
-                                                 vk::ImageLayout::eReadOnlyOptimal,
-                                                 vk::DescriptorType::eCombinedImageSampler);
-                }
-
-                draw.materialData.emissiveFactor = glm::make_vec3(material.emissiveFactor.data());
-
-                if (std::optional<fastgltf::TextureInfo>& texInfoOpt = material.emissiveTexture)
-                {
-                    fastgltf::TextureInfo& textureInfo = *texInfoOpt;
-
-                    fastgltf::Texture& texture = gltf.textures[textureInfo.textureIndex];
-
-                    // Could be the same as the roughness texture
-                    Texture* textureGPU = &m_gltfResources.textures[*texture.imageIndex];
-
-                    vk::Sampler sampler = texture.samplerIndex.has_value()
-                                              ? m_gltfResources.samplers[*texture.samplerIndex]
-                                              : m_dummySampler;
-
-                    descriptorWriter.write_image(3,
-                                                 textureGPU->getImageView(),
-                                                 sampler,
-                                                 vk::ImageLayout::eReadOnlyOptimal,
-                                                 vk::DescriptorType::eCombinedImageSampler);
-
-                    draw.materialData.flags |= std::to_underlying(MaterialFeatures::EmissiveTexture);
-                }
-                else
-                {
-                    descriptorWriter.write_image(3,
-                                                 m_dummyTexture.getImageView(),
-                                                 m_dummySampler,
-                                                 vk::ImageLayout::eReadOnlyOptimal,
-                                                 vk::DescriptorType::eCombinedImageSampler);
-                }
-
-                // TODO(aether) maybe check this in the part where we create normals at runtime to save some computation?
-                if (std::optional<fastgltf::NormalTextureInfo>& texInfoOpt = material.normalTexture)
-                {
-                    fastgltf::NormalTextureInfo& textureInfo = *texInfoOpt;
-
-                    fastgltf::Texture& texture = gltf.textures[textureInfo.textureIndex];
-
-                    Texture* textureGPU = &m_gltfResources.textures[*texture.imageIndex];
-
-                    vk::Sampler sampler = texture.samplerIndex.has_value()
-                                              ? m_gltfResources.samplers[*texture.samplerIndex]
-                                              : m_dummySampler;
-
-                    descriptorWriter.write_image(4,
-                                                 textureGPU->getImageView(),
-                                                 sampler,
-                                                 vk::ImageLayout::eReadOnlyOptimal,
-                                                 vk::DescriptorType::eCombinedImageSampler);
-
-                    draw.materialData.flags |= std::to_underlying(MaterialFeatures::EmissiveTexture);
-                }
-                else
-                {
-                    descriptorWriter.write_image(4,
-                                                 m_dummyTexture.getImageView(),
-                                                 m_dummySampler,
-                                                 vk::ImageLayout::eReadOnlyOptimal,
-                                                 vk::DescriptorType::eCombinedImageSampler);
-                }
-
-                std::memcpy(draw.materialBuffer.getMappedData(), &draw.materialData, sizeof(MaterialData));
-                descriptorWriter.update_set(m_device, draw.descriptorSet);
-            }
-        }
+            });
 
         logger::info("Finished preparing draw data in {} ({} nodes)", timer.getTotalTime(), numNodes);
 
@@ -948,6 +985,7 @@ namespace renderer::backend
                     .setDepthAttachmentFormat(kDepthStencilFormat)
                     .setDepthStencilSettings(true, vk::CompareOp::eGreaterOrEqual)
                     // .setCullingSettings(vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise)
+                    // .setPolygonMode(vk::PolygonMode::eLine)
                     .setSampleCount(m_device.getMaxUsableSampleCount())
                     .setSampleShadingSettings(true, 0.1f);
 

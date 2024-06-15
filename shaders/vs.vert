@@ -15,8 +15,8 @@ uint MaterialFeatures_TangentVertexAttribute = 1 << 5;
 uint MaterialFeatures_TexcoordVertexAttribute = 1 << 6;
 
 // NOTE(aether) potential performance hit
-layout(buffer_reference, scalar) readonly buffer PositionBuffer {
-	vec3 positions[];
+layout(buffer_reference, std430) readonly buffer PositionBuffer {
+	vec4 positions[];
 };
 
 layout(buffer_reference, std430) readonly buffer TangentBuffer {
@@ -57,6 +57,7 @@ layout(std140, set = 1, binding = 5) uniform MaterialConstant {
     float roughness_factor;
     float occlusion_factor;
     uint  flags;
+    uint  pad;
 };
 
 layout (location = 0) out vec2 vTexcoord0;
@@ -65,13 +66,13 @@ layout (location = 2) out vec4 vTangent;
 layout (location = 3) out vec4 vPosition;
 
 void main() {
-    vec3 position = positionBuffer.positions[positionOffset + gl_VertexIndex];
+    vec3 position = positionBuffer.positions[positionOffset + gl_VertexIndex].xyz;
     vec3 normal = normalbuffer.normals[normalOffset + gl_VertexIndex];
     vec4 tangent = tangentBuffer.tangents[tangentOffset + gl_VertexIndex];
     vec2 texcoord = texcoordBuffer.texcoords0[texcoordOffset + gl_VertexIndex];
 
-    gl_Position = sceneData.viewProj * model * vec4(position, 1.0);
-    vPosition = model * vec4(position, 1.0);
+    gl_Position = sceneData.viewProj * constmodel * vec4(position, 1.0);
+    vPosition = constmodel * vec4(position, 1.0);
 
     if ( ( flags & MaterialFeatures_TexcoordVertexAttribute ) != 0 ) {
         vTexcoord0 = texcoord;

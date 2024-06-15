@@ -25,7 +25,7 @@ namespace renderer::backend
             return;
         }
 
-        MC_ASSERT_MSG_LOC(token.loc, res == vk::Result::eSuccess, vkResultToStr(res));
+        MC_ASSERT_MSG_LOC(token.loc, res == vk::Result::eSuccess, "{}", vkResultToStr(res));
     }
 
     template<typename T>
@@ -36,7 +36,7 @@ namespace renderer::backend
             return res.value;
         }
 
-        MC_ASSERT_MSG_LOC(token.loc, res.result == vk::Result::eSuccess, vkResultToStr(res.result));
+        MC_ASSERT_MSG_LOC(token.loc, res.result == vk::Result::eSuccess, "{}", vkResultToStr(res.result));
 
         return res.value;
     }
@@ -49,7 +49,7 @@ namespace renderer::backend
             return std::move(res.value());
         }
 
-        MC_ASSERT_MSG_LOC(token.loc, res.has_value(), vkResultToStr(res.error()));
+        MC_ASSERT_MSG_LOC(token.loc, res.has_value(), "{}", vkResultToStr(res.error()));
 
         return std::move(res.value());
     }

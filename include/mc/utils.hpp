@@ -15,7 +15,7 @@ namespace utils
     {
         std::ifstream file(filepath, std::ios::ate | std::ios::binary);
 
-        MC_ASSERT_MSG(file.is_open(), fmt::format("Failed to read file '{}'", filepath.string()));
+        MC_ASSERT_MSG(file.is_open(), "Failed to read file '{}'", filepath.string());
 
         auto fileSize = file.tellg();
         std::vector<SizeType> buffer(static_cast<std::size_t>(fileSize));

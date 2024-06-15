@@ -22,16 +22,16 @@
             }                                                      \
         }
 
-#    define MC_ASSERT_MSG(expr, message)                                       \
-        {                                                                      \
-            if (expr)                                                          \
-            {                                                                  \
-            }                                                                  \
-            else                                                               \
-            {                                                                  \
-                logger::critical("Assertion '{}' failed: {}", #expr, message); \
-                debugBreak();                                                  \
-            }                                                                  \
+#    define MC_ASSERT_MSG(expr, ...)                                                            \
+        {                                                                                       \
+            if (expr)                                                                           \
+            {                                                                                   \
+            }                                                                                   \
+            else                                                                                \
+            {                                                                                   \
+                logger::critical("Assertion '{}' failed: {}", #expr, std::format(__VA_ARGS__)); \
+                debugBreak();                                                                   \
+            }                                                                                   \
         }
 
 #    define MC_ASSERT_LOC(expr, location)                                                          \
@@ -46,21 +46,34 @@
             }                                                                                      \
         }
 
-#    define MC_ASSERT_MSG_LOC(location, expr, message)                      \
-        {                                                                   \
-            if (expr)                                                       \
-            {                                                               \
-            }                                                               \
-            else                                                            \
-            {                                                               \
-                logger::logAt<logger::level::critical>(                     \
-                    location, "Assertion '{}' failed: {}", #expr, message); \
-                debugBreak();                                               \
-            }                                                               \
+#    define MC_ASSERT_MSG_LOC(location, expr, ...)                                           \
+        {                                                                                    \
+            if (expr)                                                                        \
+            {                                                                                \
+            }                                                                                \
+            else                                                                             \
+            {                                                                                \
+                logger::logAt<logger::level::critical>(                                      \
+                    location, "Assertion '{}' failed: {}", #expr, std::format(__VA_ARGS__)); \
+                debugBreak();                                                                \
+            }                                                                                \
         }
+
 #else
-#    define MC_ASSERT(expr)                            (void)(expr)
-#    define MC_ASSERT_MSG(expr, message)               (void)(expr)
-#    define MC_ASSERT_LOC(expr, location)              (void)(expr)
-#    define MC_ASSERT_MSG_LOC(location, expr, message) (void)(expr)
+#    define MC_ASSERT(expr)               (void)(expr);
+#    define MC_ASSERT_LOC(expr, location) (void)(expr);
+
+#    define MC_ASSERT_MSG(expr, ...)                                        \
+        {                                                                   \
+            (void)(expr);                                                   \
+            /* So that the expressions in __VA_ARGS__ are also evaluated */ \
+            std::tuple { __VA_ARGS__ };                                     \
+        }
+
+#    define MC_ASSERT_MSG_LOC(location, expr, ...)                          \
+        {                                                                   \
+            (void)(expr);                                                   \
+            /* So that the expressions in __VA_ARGS__ are also evaluated */ \
+            std::tuple { __VA_ARGS__ };                                     \
+        }
 #endif

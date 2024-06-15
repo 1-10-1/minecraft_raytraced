@@ -174,11 +174,14 @@ namespace renderer::backend
             vk::DeviceAddress normalBuffer = m_device->getBufferAddress(
                 vk::BufferDeviceAddressInfo().setBuffer(m_gltfResources.gpuBuffers[draw.normalBuffer]));
 
-            vk::DeviceAddress texcoordBuffer = m_device->getBufferAddress(
-                vk::BufferDeviceAddressInfo().setBuffer(m_gltfResources.gpuBuffers[draw.texcoordBuffer]));
+            vk::DeviceAddress texcoordBuffer =
+                draw.texcoordBuffer == MeshDraw::invalidBufferIndex
+                    ? 0
+                    : m_device->getBufferAddress(vk::BufferDeviceAddressInfo().setBuffer(
+                          m_gltfResources.gpuBuffers[draw.texcoordBuffer]));
 
             GPUDrawPushConstants pushConstants {
-                .model = draw.materialData.model,
+                .model = draw.model,
 
                 .positionBuffer = positionBuffer,
                 .tangentBuffer  = tangentBuffer,

@@ -53,6 +53,7 @@ namespace renderer::backend
         float roughnessFactor;
         float occlusionFactor;
         uint32_t flags;
+        uint32_t pad;
     };
 
     struct MeshDraw
@@ -81,6 +82,8 @@ namespace renderer::backend
         vk::IndexType indexType;
 
         vk::DescriptorSet descriptorSet;
+
+        glm::mat4 model;
     };
 
     struct GltfSceneResources
