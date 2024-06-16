@@ -200,8 +200,7 @@ namespace renderer::backend
                                  sizeof(GPUDrawPushConstants),
                                  &pushConstants);
 
-            cmdBuf.bindIndexBuffer(
-                m_gltfResources.gpuBuffers[draw.indexBuffer], draw.indexOffset, draw.indexType);
+            cmdBuf.bindIndexBuffer(m_gltfResources.gpuBuffers[draw.indexBuffer], 0, vk::IndexType::eUint16);
 
             cmdBuf.drawIndexed(draw.count, 1, 0, 0, 0);
 
@@ -209,43 +208,6 @@ namespace renderer::backend
             m_stats.triangle_count += draw.count / 3;
         }
 
-        // for (auto const& [_, item] : m_renderItems)
-        // {
-        //     cmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, item.pipeline);
-        //
-        //     if (item.layout == m_texturedPipelineLayout)
-        //     {
-        //         cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-        //                                   item.layout,
-        //                                   0,
-        //                                   { m_sceneDataDescriptors, m_materialDescriptors },
-        //                                   {});
-        //     }
-        //     else
-        //     {
-        //         cmdBuf.bindDescriptorSets(
-        //             vk::PipelineBindPoint::eGraphics, item.layout, 0, { m_sceneDataDescriptors }, {});
-        //     }
-        //
-        //     GPUDrawPushConstants push_constants {
-        //         .model        = item.model,
-        //         .vertexBuffer = item.meshData->vertexBufferAddress,
-        //     };
-        //
-        //     cmdBuf.pushConstants(m_texturedPipelineLayout,
-        //                          vk::ShaderStageFlagBits::eVertex,
-        //                          0,
-        //                          sizeof(GPUDrawPushConstants),
-        //                          &push_constants);
-        //
-        //     cmdBuf.bindIndexBuffer(item.meshData->indexBuffer, 0, vk::IndexType::eUint32);
-        //
-        //     cmdBuf.drawIndexed(item.meshData->indexCount, 1, 0, 0, 0);
-        //
-        //     m_stats.drawcall_count++;
-        //     m_stats.triangle_count += item.meshData->indexCount / 3;
-        // }
-        //
         cmdBuf.endRendering();
     }
 
@@ -398,24 +360,24 @@ namespace renderer::backend
             ImGui::End();
         }
 
-        {
-            ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - windowPadding, windowPadding),
-                                    ImGuiCond_Always,
-                                    ImVec2(1.0f, 0.0f));
-            ImGui::SetNextWindowSize({ 400.f, 0.f });
-
-            ImGui::Begin("Light", nullptr, window_flags);
-
-            ImGui::TextColored({ m_light.color.r, m_light.color.g, m_light.color.b, 1.f },
-                               "{ %.1f, %.1f %.1f }",
-                               m_light.position.x,
-                               m_light.position.y,
-                               m_light.position.z);
-
-            ImGui::ColorPicker3("Color", glm::value_ptr(m_light.color));
-
-            ImGui::End();
-        }
+        // {
+        //     ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - windowPadding, windowPadding),
+        //                             ImGuiCond_Always,
+        //                             ImVec2(1.0f, 0.0f));
+        //     ImGui::SetNextWindowSize({ 400.f, 0.f });
+        //
+        //     ImGui::Begin("Light", nullptr, window_flags);
+        //
+        //     ImGui::TextColored({ m_light.color.r, m_light.color.g, m_light.color.b, 1.f },
+        //                        "{ %.1f, %.1f %.1f }",
+        //                        m_light.position.x,
+        //                        m_light.position.y,
+        //                        m_light.position.z);
+        //
+        //     ImGui::ColorPicker3("Color", glm::value_ptr(m_light.color));
+        //
+        //     ImGui::End();
+        // }
 
         {
             ImGui::SetNextWindowPos(ImVec2(windowPadding, ImGui::GetIO().DisplaySize.y - windowPadding),
