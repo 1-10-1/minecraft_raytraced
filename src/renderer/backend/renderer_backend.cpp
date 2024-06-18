@@ -112,7 +112,7 @@ namespace renderer::backend
                         Texture(m_device,
                                 m_allocator,
                                 m_commandManager,
-                                std::string_view { (gltfDir.parent_path() / filePath.uri.path()).c_str() });
+                                std::string_view { (gltfDir.parent_path() / filePath.uri.path()).string() });
                 },
                 [&](fastgltf::sources::Vector& vector)
                 {
@@ -251,10 +251,17 @@ namespace renderer::backend
 
     void RendererBackend::processGltf()
     {
-        fs::path gltfDir  = "../../khrSampleModels/2.0/StainedGlassLamp/glTF";
+        // NOTES: Every triangle has a (0, 0) for some reason. Investigate this.
+
+        fs::path gltfDir  = "../../khrSampleModels/2.0/Sponza/glTF";
         fs::path prevPath = fs::current_path();
         fs::current_path(gltfDir);
-        fs::path gltfFile = fs::current_path() / "StainedGlassLamp.gltf";
+        fs::path gltfFile = fs::current_path() / "Sponza.gltf";
+
+        //fs::path gltfDir  = "../../khrSampleModels/2.0/StainedGlassLamp/glTF";
+        //fs::path prevPath = fs::current_path();
+        //fs::current_path(gltfDir);
+        //fs::path gltfFile = fs::current_path() / "StainedGlassLamp.gltf";
 
         // fs::path gltfFile = "../../khrSampleModels/2.0/DragonAttenuation/glTF/DragonAttenuation.gltf";
         // fs::path gltfFile = "../../khrSampleModels/2.0/Duck/glTF/Duck.gltf";
@@ -286,7 +293,7 @@ namespace renderer::backend
 
         Timer timer;
 
-        logger::info("Parsed {} successfully! ({})", gltfFile.root_name().c_str(), timer.getTotalTime());
+        logger::info("Parsed {} successfully! ({})", gltfFile.root_name().string(), timer.getTotalTime());
 
         // TODO(aether) this is a guess
         std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
@@ -325,7 +332,7 @@ namespace renderer::backend
             MC_ASSERT_MSG(texture.has_value(),
                           "Failed to load texture '{}' for gltf file '{}'",
                           image.name,
-                          gltfFile.c_str());
+                          gltfFile.string());
 
             m_gltfResources.textures.push_back(std::move(*texture));
         }
@@ -367,17 +374,6 @@ namespace renderer::backend
                                             transform = glm::make_mat4(mat.data());
                                         } },
                     node.transform);
-                //
-                // nodeMatrices[nodeIndex] = localMatrix;
-
-                // Iterate over the children and add them to the node stack
-                // Also set their parent
-                // for (uint32_t childIndex : vi::iota(0u, node.children.size()))
-                // {
-                //     uint32_t childNodeIndex     = node.children[childIndex];
-                //     nodeParents[childNodeIndex] = nodeIndex;
-                //     nodeStack.push_back(childNodeIndex);
-                // }
 
                 if (!node.meshIndex)
                 {
@@ -385,16 +381,6 @@ namespace renderer::backend
 
                     return;
                 }
-
-                // glm::mat4 finalMatrix = localMatrix;
-                // int32_t nodeParent    = nodeParents[nodeIndex];
-
-                // // Multiply with every ancestor's model matrix
-                // while (nodeParent != -1)
-                // {
-                //     finalMatrix = nodeMatrices[nodeParent] * finalMatrix;
-                //     nodeParent  = nodeParents[nodeParent];
-                // }
 
                 fastgltf::Mesh& mesh = gltf.meshes[*node.meshIndex];
 
@@ -406,13 +392,15 @@ namespace renderer::backend
                 {
                     MeshDraw& draw = m_gltfResources.meshDraws.emplace_back();
 
-                    draw.model = glm::make_mat4(mat.data()) * transform;
+                    draw.model = glm::make_mat4(mat.data()) /* * transform */;
 
                     fastgltf::Accessor& indicesAccessor = gltf.accessors[*primitive.indicesAccessor];
 
                     MC_ASSERT(indicesAccessor.bufferViewIndex.has_value());
 
                     size_t componentSize;
+
+                    MC_ASSERT(indicesAccessor.type == fastgltf::AccessorType::Scalar);
 
                     switch (indicesAccessor.componentType)
                     {
@@ -477,6 +465,7 @@ namespace renderer::backend
                         auto& accessor = gltf.accessors[positionAccessorIndex->second];
 
                         MC_ASSERT(accessor.type == fastgltf::AccessorType::Vec3);
+                        MC_ASSERT(accessor.componentType == fastgltf::ComponentType::Float);
 
                         vertexCount       = accessor.count;
                         size_t byteLength = vertexCount * sizeof(glm::vec4);
@@ -549,7 +538,7 @@ namespace renderer::backend
                     }
                     else
                     {
-                        logger::warn("Generated normals at runtime for gltf file '{}'", gltfFile.c_str());
+                        logger::warn("Generated normals at runtime for gltf file '{}'", gltfFile.string());
 
                         size_t byteLength = vertexCount * sizeof(glm::vec3);
 

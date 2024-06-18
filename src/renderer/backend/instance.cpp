@@ -15,7 +15,6 @@
 #include <vector>
 
 #include <GLFW/glfw3.h>
-#include <fmt/core.h>
 #include <tracy/Tracy.hpp>
 
 namespace rn = std::ranges;
