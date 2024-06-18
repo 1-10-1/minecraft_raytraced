@@ -122,20 +122,6 @@ namespace renderer::backend
         glm::vec3 sunlightDirection;
     };
 
-    struct alignas(16) Material
-    {
-        glm::vec4 baseColorFactor;
-        glm::mat4 model;
-        glm::mat4 modelInv;
-
-        glm::vec3 emissiveFactor;
-        float metallicFactor;
-
-        float roughnessFactor;
-        float occlusionFactor;
-        uint32_t flags;
-    };
-
     struct RenderItem
     {
         glm::mat4 model;
@@ -210,11 +196,6 @@ namespace renderer::backend
         void initDescriptors();
 
         void processGltf();
-        auto loadImage(fastgltf::Asset& asset,
-                       fastgltf::Image& image,
-                       std::filesystem::path gltfDir) -> std::optional<Texture>;
-        auto loadBuffer(fastgltf::Asset& asset,
-                        fastgltf::Buffer& buffer) -> std::optional<std::vector<uint8_t>>;
 
         void handleSurfaceResize();
         void createSyncObjects();

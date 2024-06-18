@@ -33,6 +33,7 @@ list(APPEND SOURCE_FILES
 
     src/renderer/backend/renderer_backend.cpp
     src/renderer/backend/stb.cpp
+    # src/renderer/backend/gltfloader.cpp
     src/renderer/backend/render.cpp
     src/renderer/backend/mesh.cpp
     src/renderer/backend/instance.cpp
