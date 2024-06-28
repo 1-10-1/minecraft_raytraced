@@ -1,10 +1,12 @@
 #pragma once
 
 #include "buffer.hpp"
+#include "descriptor.hpp"
 #include "image.hpp"
 
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float4.hpp>
+#include <tiny_gltf.h>
 
 namespace renderer::backend
 {
@@ -19,55 +21,92 @@ namespace renderer::backend
         TexcoordVertexAttribute = 1 << 6,
     };
 
-    struct alignas(16) MaterialData
+    struct alignas(16) Material
     {
         glm::vec4 baseColorFactor;
         glm::mat4 model;
         glm::mat4 modelInv;
 
         glm::vec3 emissiveFactor;
-        float metallicFactor;
+        // NOT MINE, SASCHA'S
+        uint32_t baseColorTextureIndex;
 
+        float metallicFactor;
         float roughnessFactor;
         float occlusionFactor;
         uint32_t flags;
-        uint32_t pad;
+    };
+
+    struct alignas(16) Vertex
+    {
+        glm::vec3 position;
+        float uv_x;
+        glm::vec3 normal;
+        float uv_y;
+        glm::vec4 tangent;
+    };
+
+    struct Primitive
+    {
+        uint32_t firstIndex;
+        uint32_t indexCount;
+        int32_t materialIndex;
+
+        vk::DescriptorSet descriptorSet;
     };
 
     struct Mesh
     {
-        constexpr static uint16_t invalidBufferIndex = std::numeric_limits<uint16_t>::max();
+        std::vector<Primitive> primitives;
+    };
 
-        uint16_t indexBuffer { invalidBufferIndex };
-        uint16_t positionBuffer { invalidBufferIndex };
-        uint16_t tangentBuffer { invalidBufferIndex };
-        uint16_t normalBuffer { invalidBufferIndex };
-        uint16_t texcoordBuffer { invalidBufferIndex };
+    struct GltfNode
+    {
+        GltfNode* parent;
+        std::vector<GltfNode*> children;
+        Mesh mesh;
+        glm::mat4 transformation;
 
-        BasicBuffer materialBuffer;
+        ~GltfNode()
+        {
+            for (auto& child : children)
+            {
+                delete child;
+            }
+        }
+    };
 
-        uint32_t materialIndex;
-
-        // TODO(aether) these are all 0 for now
-        uint32_t indexOffset;
-        uint32_t positionOffset;
-        uint32_t tangentOffset;
-        uint32_t normalOffset;
-        uint32_t texcoordOffset;
-
-        uint32_t count;
-
-        vk::IndexType indexType;
-
+    struct GltfImage
+    {
+        Texture texture;
         vk::DescriptorSet descriptorSet;
+    };
 
-        glm::mat4 model;
+    struct GltfTexture
+    {
+        uint32_t imageIndex;
     };
 
     struct SceneResources
     {
-        std::vector<MaterialData> materials;
-        std::vector<Texture> textures;
-        std::vector<Mesh> meshes;
+        GPUBuffer vertexBuffer;
+        GPUBuffer indexBuffer;
+
+        size_t indexCount;
+
+        std::vector<GltfImage> images;
+        std::vector<GltfTexture> textures;
+        std::vector<Material> materials;
+        std::vector<GltfNode*> nodes;
+
+        DescriptorAllocatorGrowable descriptorAllocator;
+
+        ~SceneResources()
+        {
+            for (auto node : nodes)
+            {
+                delete node;
+            }
+        };
     };
 }  // namespace renderer::backend

@@ -1,3 +1,4 @@
+#include "mc/renderer/backend/allocator.hpp"
 #include <mc/asserts.hpp>
 #include <mc/exceptions.hpp>
 #include <mc/logger.hpp>
@@ -9,7 +10,6 @@
 #include <mc/renderer/backend/pipeline.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 #include <mc/renderer/backend/utils.hpp>
-#include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 #include <mc/renderer/backend/vk_result_messages.hpp>
 #include <mc/timer.hpp>
@@ -17,7 +17,6 @@
 
 #include <filesystem>
 #include <print>
-#include <ranges>
 
 #include <glm/ext.hpp>
 #include <imgui_impl_glfw.h>
@@ -111,13 +110,19 @@ namespace renderer::backend
                 m_device, m_allocator, m_commandManager, vk::Extent2D { 1, 1 }, &zero, sizeof(uint32_t));
         }
 
-        m_gpuSceneDataBuffer = BasicBuffer(m_allocator,
-                                           sizeof(GPUSceneData),
-                                           vk::BufferUsageFlagBits::eUniformBuffer,
-                                           VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_gpuSceneDataBuffer = GPUBuffer(m_allocator,
+                                         sizeof(GPUSceneData),
+                                         vk::BufferUsageFlagBits::eUniformBuffer,
+                                         VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+                                         VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                                             VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-        m_lightDataBuffer = BasicBuffer(
-            m_allocator, sizeof(Light), vk::BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_lightDataBuffer = GPUBuffer(m_allocator,
+                                      sizeof(Light),
+                                      vk::BufferUsageFlagBits::eUniformBuffer,
+                                      VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+                                      VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                                          VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
         initDescriptors();
 
@@ -150,9 +155,6 @@ namespace renderer::backend
         }
 
         processGltf();
-
-        logger::error("Fast exit");
-        exit(0);
 
         m_light = {
             .position    = { 1.5f,                  2.f,               0.f              },
@@ -220,7 +222,9 @@ namespace renderer::backend
         {
             m_sceneDataDescriptorLayout =
                 DescriptorLayoutBuilder()
+                    // The scene data buffer
                     .addBinding(0, vk::DescriptorType::eUniformBuffer)
+                    // The light data buffer
                     .addBinding(1, vk::DescriptorType::eUniformBuffer)
                     .build(m_device, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
         }
@@ -248,28 +252,6 @@ namespace renderer::backend
             writer.write_buffer(1, m_lightDataBuffer, sizeof(Light), 0, vk::DescriptorType::eUniformBuffer);
             writer.update_set(m_device, m_sceneDataDescriptors);
         }
-
-        // {
-        //     // Texture and material
-        //     DescriptorWriter writer;
-        //
-        //     writer.write_image(0,
-        //                        m_diffuseTexture.getImageView(),
-        //                        m_diffuseTexture.getSampler(),
-        //                        vk::ImageLayout::eReadOnlyOptimal,
-        //                        vk::DescriptorType::eCombinedImageSampler);
-        //
-        //     writer.write_image(1,
-        //                        m_specularTexture.getImageView(),
-        //                        m_specularTexture.getSampler(),
-        //                        vk::ImageLayout::eReadOnlyOptimal,
-        //                        vk::DescriptorType::eCombinedImageSampler);
-        //
-        //     writer.write_buffer(
-        //         2, m_materialDataBuffer, sizeof(Material), 0, vk::DescriptorType::eUniformBuffer);
-        //
-        //     writer.update_set(m_device, m_materialDescriptors);
-        // }
     }
 
     void RendererBackend::initImgui(GLFWwindow* window)
@@ -353,17 +335,17 @@ namespace renderer::backend
                          static_cast<float>(m_timer.getTotalTime<Timer::Seconds>().count()) * 90.f)),
         };
 
-        for (RenderItem& item : m_renderItems |
-                                    rn::views::filter(
-                                        [](auto const& pair)
-                                        {
-                                            return pair.first == "light";
-                                        }) |
-                                    rn::views::values)
-        {
-            item.model = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
-                         glm::translate(glm::identity<glm::mat4>(), m_light.position);
-        }
+        // for (RenderItem& item : m_renderItems |
+        //                             rn::views::filter(
+        //                                 [](auto const& pair)
+        //                                 {
+        //                                     return pair.first == "light";
+        //                                 }) |
+        //                             rn::views::values)
+        // {
+        //     item.model = glm::scale(glm::identity<glm::mat4>(), { 0.25f, 0.25f, 0.25f }) *
+        //                  glm::translate(glm::identity<glm::mat4>(), m_light.position);
+        // }
 
         updateDescriptors(cameraPos, glm::identity<glm::mat4>(), view, projection);
     }

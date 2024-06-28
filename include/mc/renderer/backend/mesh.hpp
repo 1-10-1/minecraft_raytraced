@@ -19,8 +19,8 @@ namespace renderer::backend
 {
     struct GPUMeshData
     {
-        BasicBuffer indexBuffer;
-        BasicBuffer vertexBuffer;
+        GPUBuffer indexBuffer;
+        GPUBuffer vertexBuffer;
         vk::DeviceAddress vertexBufferAddress;
         uint64_t indexCount;
     };

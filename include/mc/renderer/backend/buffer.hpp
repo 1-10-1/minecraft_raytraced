@@ -7,20 +7,21 @@
 
 namespace renderer::backend
 {
-    class BasicBuffer
+    class GPUBuffer
     {
     public:
-        BasicBuffer() = default;
-        BasicBuffer(Allocator& allocator,
-                    size_t allocSize,
-                    vk::BufferUsageFlags bufferUsage,
-                    VmaMemoryUsage memoryUsage);
-        ~BasicBuffer();
+        GPUBuffer() = default;
+        GPUBuffer(Allocator& allocator,
+                  size_t allocSize,
+                  vk::BufferUsageFlags bufferUsage,
+                  VmaMemoryUsage memoryUsage,
+                  VmaAllocationCreateFlags allocFlags = 0);
+        ~GPUBuffer();
 
-        BasicBuffer(BasicBuffer const&)                    = delete;
-        auto operator=(BasicBuffer const&) -> BasicBuffer& = delete;
+        GPUBuffer(GPUBuffer const&)                    = delete;
+        auto operator=(GPUBuffer const&) -> GPUBuffer& = delete;
 
-        auto operator=(BasicBuffer&& other) noexcept -> BasicBuffer&
+        auto operator=(GPUBuffer&& other) noexcept -> GPUBuffer&
         {
             m_buffer     = other.m_buffer;
             m_allocator  = other.m_allocator;
@@ -34,7 +35,7 @@ namespace renderer::backend
             return *this;
         }
 
-        BasicBuffer(BasicBuffer&& other) noexcept
+        GPUBuffer(GPUBuffer&& other) noexcept
             : m_allocator { other.m_allocator },
               m_buffer { other.m_buffer },
               m_allocation { other.m_allocation },

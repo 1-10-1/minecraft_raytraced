@@ -35,7 +35,6 @@ list(APPEND SOURCE_FILES
     src/renderer/backend/stb.cpp
     src/renderer/backend/gltfloader.cpp
     src/renderer/backend/render.cpp
-    src/renderer/backend/mesh.cpp
     src/renderer/backend/instance.cpp
     src/renderer/backend/surface.cpp
     src/renderer/backend/image.cpp
@@ -76,7 +75,7 @@ list(APPEND LIBS
     stb
     imgui
     GPUOpen::VulkanMemoryAllocator
-    fastgltf::fastgltf
+    tinygltf
     assimp
 )
 

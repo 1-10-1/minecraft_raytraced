@@ -47,3 +47,7 @@ add_subdirectory(vma)
 set(FASTGLTF_COMPILE_AS_CPP20 ON)
 add_subdirectory(fastgltf)
 
+# Tiny glTF
+set(TINYGLTF_INSTALL OFF)
+add_subdirectory(tinygltf)
+

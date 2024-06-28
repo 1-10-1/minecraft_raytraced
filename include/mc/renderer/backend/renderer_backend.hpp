@@ -9,7 +9,6 @@
 #include "image.hpp"
 #include "instance.hpp"
 #include "mc/renderer/backend/gltfloader.hpp"
-#include "mesh.hpp"
 #include "pipeline.hpp"
 #include "surface.hpp"
 #include "swapchain.hpp"
@@ -23,67 +22,14 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-// gltf
-#include <fastgltf/core.hpp>
-#include <fastgltf/glm_element_traits.hpp>
-#include <fastgltf/tools.hpp>
-#include <stb_image.h>
-
 namespace renderer::backend
 {
-    struct MeshDraw
-    {
-        constexpr static uint16_t invalidBufferIndex = std::numeric_limits<uint16_t>::max();
-
-        uint16_t indexBuffer { invalidBufferIndex };
-        uint16_t positionBuffer { invalidBufferIndex };
-        uint16_t tangentBuffer { invalidBufferIndex };
-        uint16_t normalBuffer { invalidBufferIndex };
-        uint16_t texcoordBuffer { invalidBufferIndex };
-
-        BasicBuffer materialBuffer;
-
-        // MaterialData materialData;
-
-        // TODO(aether) these are all 0 for now
-        uint32_t indexOffset;
-        uint32_t positionOffset;
-        uint32_t tangentOffset;
-        uint32_t normalOffset;
-        uint32_t texcoordOffset;
-
-        uint32_t count;
-
-        vk::IndexType indexType;
-
-        vk::DescriptorSet descriptorSet;
-
-        glm::mat4 model;
-    };
-
-    struct GltfSceneResources
-    {
-        std::vector<Texture> textures;
-        std::vector<vk::raii::Sampler> samplers;
-        std::vector<BasicBuffer> gpuBuffers;
-        std::vector<MeshDraw> meshDraws;
-
-        DescriptorAllocatorGrowable descriptorAllocator;
-    };
-
     struct GPUDrawPushConstants
     {
-        glm::mat4 model { glm::identity<glm::mat4>() };
+        glm::mat4 transform { glm::identity<glm::mat4>() };
 
-        vk::DeviceAddress positionBuffer {};
-        vk::DeviceAddress tangentBuffer {};
-        vk::DeviceAddress normalBuffer {};
-        vk::DeviceAddress texcoordBuffer {};
-
-        uint32_t positionOffset { 0 };
-        uint32_t tangentOffset { 0 };
-        uint32_t normalOffset { 0 };
-        uint32_t texcoordOffset { 0 };
+        vk::DeviceAddress vertexBuffer {};
+        uint32_t vertexOffset { 0 };
     };
 
     struct alignas(16) GPUSceneData
@@ -95,14 +41,6 @@ namespace renderer::backend
         glm::vec3 cameraPos;
         float pad;
         glm::vec3 sunlightDirection;
-    };
-
-    struct RenderItem
-    {
-        glm::mat4 model;
-        std::shared_ptr<GPUMeshData> meshData;
-        vk::PipelineLayout layout;
-        vk::Pipeline pipeline;
     };
 
     struct FrameResources
@@ -172,12 +110,21 @@ namespace renderer::backend
 
         void processGltf();
 
-        auto
-        loadImage(fastgltf::Asset& asset, fastgltf::Image& image, std::filesystem::path gltfDir) -> Texture;
+        void loadImages(tinygltf::Model& input);
 
-        auto loadMaterial(fastgltf::Asset& asset, fastgltf::Material& material) -> MaterialData;
+        void loadTextures(tinygltf::Model& input);
 
-        auto loadMesh(fastgltf::Asset& asset, fastgltf::Mesh& mesh) -> Mesh;
+        void loadMaterials(tinygltf::Model& input);
+
+        void loadNode(tinygltf::Node const& inputNode,
+                      tinygltf::Model const& input,
+                      GltfNode* parent,
+                      std::vector<uint32_t>& indexBuffer,
+                      std::vector<Vertex>& vertexBuffer);
+
+        void drawNode(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, GltfNode* node);
+
+        void drawGltf(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout);
 
         void handleSurfaceResize();
         void createSyncObjects();
@@ -203,9 +150,9 @@ namespace renderer::backend
         GraphicsPipeline m_texturedPipeline, m_texturelessPipeline;
 
         GPUSceneData m_sceneData {};
-        BasicBuffer m_gpuSceneDataBuffer, m_lightDataBuffer;
+        GPUBuffer m_gpuSceneDataBuffer, m_lightDataBuffer;
 
-        std::unordered_multimap<std::string, RenderItem> m_renderItems;
+        SceneResources m_sceneResources {};
 
         std::array<FrameResources, kNumFramesInFlight> m_frameResources {};
 
@@ -215,8 +162,6 @@ namespace renderer::backend
         Timer m_timer;
 
         Light m_light {};
-
-        GltfSceneResources m_gltfResources;
 
         struct EngineStats
         {

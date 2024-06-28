@@ -9,18 +9,18 @@ namespace renderer::backend
                              CommandManager const& cmdManager,
                              vk::BufferUsageFlags usage,
                              size_t size,
-                             void* data) -> BasicBuffer
+                             void* data) -> GPUBuffer
     {
-        BasicBuffer buffer(
+        GPUBuffer buffer(
             allocator, size, vk::BufferUsageFlagBits::eTransferDst | usage, VMA_MEMORY_USAGE_GPU_ONLY);
 
         {
-            BasicBuffer staging(allocator,
-                                // TODO(aether) notice how the staging buffer concatenates these
-                                // vertexBufferSize + indexBufferSize,
-                                size,
-                                vk::BufferUsageFlagBits::eTransferSrc,
-                                VMA_MEMORY_USAGE_CPU_ONLY);
+            GPUBuffer staging(allocator,
+                              // TODO(aether) notice how the staging buffer concatenates these
+                              // vertexBufferSize + indexBufferSize,
+                              size,
+                              vk::BufferUsageFlagBits::eTransferSrc,
+                              VMA_MEMORY_USAGE_CPU_ONLY);
 
             void* mapped = staging.getMappedData();
 

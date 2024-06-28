@@ -23,7 +23,7 @@ namespace renderer::backend
                              CommandManager const& cmdManager,
                              vk::BufferUsageFlags usage,
                              size_t size,
-                             void* data) -> BasicBuffer;
+                             void* data) -> GPUBuffer;
 
     inline auto createShaderModule(vk::raii::Device const& device,
                                    std::filesystem::path const& shaderPath) -> vk::raii::ShaderModule

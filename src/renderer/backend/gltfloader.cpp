@@ -1,21 +1,20 @@
+#include <cstring>
 #include <mc/renderer/backend/allocator.hpp>
 #include <mc/renderer/backend/gltfloader.hpp>
 #include <mc/renderer/backend/renderer_backend.hpp>
 
 #include <filesystem>
 
-#include <fastgltf/core.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 namespace renderer::backend
 {
     namespace fs = std::filesystem;
-    namespace fg = fastgltf;
 
     void RendererBackend::processGltf()
     {
-#if 1
+#if 0
         fs::path gltfDir  = "../../khrSampleModels/2.0/Cube/glTF";
         fs::path prevPath = fs::current_path();
         fs::current_path(gltfDir);
@@ -35,343 +34,427 @@ namespace renderer::backend
 
         MC_ASSERT_MSG(fs::exists(path), "glTF file path does not exist: {}", path.string());
 
-        SceneResources scene;
+        tinygltf::Model glTFInput;
+        tinygltf::TinyGLTF gltfContext;
+        std::string error, warning;
 
-        fg::Parser parser;
+        MC_ASSERT(gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, path));
 
-        constexpr auto gltfOptions = fg::Options::DontRequireValidAssetMember | fg::Options::AllowDouble |
-                                     fg::Options::LoadGLBBuffers | fg::Options::LoadExternalBuffers |
-                                     fg::Options::LoadExternalImages | fg::Options::GenerateMeshIndices;
+        // TODO(aether) maybe you could half this?
+        std::vector<uint32_t> indexBuffer;
+        std::vector<Vertex> vertexBuffer;
 
-        auto gltfFile = fg::MappedGltfFile::FromPath(path);
+        loadImages(glTFInput);
+        loadMaterials(glTFInput);
 
-        MC_ASSERT_MSG(gltfFile, "Failed to open glTF file '{}'", path.string());
+        // TODO(aether) this is a guess, insanely overkill if I had to guess
+        std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
+            { vk::DescriptorType::eCombinedImageSampler, 5 },
+            { vk::DescriptorType::eUniformBuffer,        1 },
+        };
 
-        fg::Asset asset;
+        m_sceneResources.descriptorAllocator.init(m_device, glTFInput.materials.size(), sizes);
 
+        loadTextures(glTFInput);
+
+        tinygltf::Scene const& scene = glTFInput.scenes[0];
+
+        for (size_t i = 0; i < scene.nodes.size(); i++)
         {
-            auto expected = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
-
-            MC_ASSERT_MSG(expected, "Failed to load glTF file '{}'", path.string());
-
-            asset = std::move(expected.get());
+            tinygltf::Node const node = glTFInput.nodes[scene.nodes[i]];
+            loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
         }
 
-        MC_ASSERT(scene.materials.size() == 0);
+        // Create and upload vertex and index buffer
+        // We will be using one single vertex buffer and one single index buffer for
+        // the whole glTF scene Primitives (of the glTF model) will then index into
+        // these using index offsets
 
-        auto& defaultMaterial           = scene.materials.emplace_back();
-        defaultMaterial.baseColorFactor = glm::identity<glm::vec4>();  // FIXME(aether) careful
-        defaultMaterial.flags           = 0;
+        size_t vertexBufferSize     = vertexBuffer.size() * sizeof(Vertex);
+        size_t indexBufferSize      = indexBuffer.size() * sizeof(uint32_t);
+        m_sceneResources.indexCount = static_cast<uint32_t>(indexBuffer.size());
 
-        for (fastgltf::Image& image : asset.images)
-        {
-            scene.textures.push_back(loadImage(asset, image, path.parent_path()));
-        }
+        GPUBuffer vertexStaging(m_allocator,
+                                vertexBufferSize,
+                                vk::BufferUsageFlagBits::eTransferSrc,
+                                VMA_MEMORY_USAGE_AUTO,
+                                VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-        for (auto& material : asset.materials)
-        {
-            scene.materials.push_back(loadMaterial(asset, material));
-        }
+        GPUBuffer indexStaging(
+            m_allocator,
+            vertexBufferSize,
+            vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+            VMA_MEMORY_USAGE_AUTO,
+            VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-        for (auto& mesh : asset.meshes)
-        {
-            scene.meshes.push_back(loadMesh(asset, mesh));
-        }
+        std::memcpy(indexStaging.getMappedData(), indexBuffer.data(), indexBufferSize);
+        std::memcpy(vertexStaging.getMappedData(), vertexBuffer.data(), vertexBufferSize);
 
-        fs::current_path(prevPath);
+        m_sceneResources.vertexBuffer =
+            GPUBuffer(m_allocator,
+                      vertexBufferSize,
+                      vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                      VMA_MEMORY_USAGE_AUTO,
+                      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
+
+        m_sceneResources.indexBuffer =
+            GPUBuffer(m_allocator,
+                      indexBufferSize,
+                      vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+                      VMA_MEMORY_USAGE_AUTO,
+                      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
+
+        ScopedCommandBuffer cmdBuf(
+            m_device, m_commandManager.getTransferCmdPool(), m_device.getTransferQueue());
+
+        cmdBuf->copyBuffer(
+            indexStaging, m_sceneResources.indexBuffer, vk::BufferCopy().setSize(indexBufferSize));
+
+        cmdBuf->copyBuffer(
+            vertexStaging, m_sceneResources.vertexBuffer, vk::BufferCopy().setSize(vertexBufferSize));
     }
 
-    auto loadMesh(fastgltf::Asset& asset, fastgltf::Mesh& mesh) -> Mesh
+    void RendererBackend::loadImages(tinygltf::Model& input)
     {
-        auto& asset  = viewer->asset;
-        Mesh outMesh = {};
-        outMesh.primitives.resize(mesh.primitives.size());
+        // Images can be stored inside the glTF (which is the case for the sample
+        // model), so instead of directly loading them from disk, we fetch them from
+        // the glTF loader and upload the buffers
+        m_sceneResources.images.resize(input.images.size());
 
-        for (auto it = mesh.primitives.begin(); it != mesh.primitives.end(); ++it)
+        for (size_t i = 0; i < input.images.size(); i++)
         {
-            auto* positionIt = it->findAttribute("POSITION");
-            assert(positionIt != it->attributes.end());  // A mesh primitive is required to hold the
-                                                         // POSITION attribute.
-            assert(it->indicesAccessor.has_value());     // We specify GenerateMeshIndices,
-                                                         // so we should always have indices
-
-            // Generate the VAO
-            GLuint vao = GL_NONE;
-            glCreateVertexArrays(1, &vao);
-
-            std::size_t baseColorTexcoordIndex = 0;
-
-            // Get the output primitive
-            auto index              = std::distance(mesh.primitives.begin(), it);
-            auto& primitive         = outMesh.primitives[index];
-            primitive.primitiveType = fastgltf::to_underlying(it->type);
-            primitive.vertexArray   = vao;
-
-            if (it->materialIndex.has_value())
+            tinygltf::Image& glTFImage = input.images[i];
+            // Get the image data from the glTF loader
+            unsigned char* buffer   = nullptr;
+            VkDeviceSize bufferSize = 0;
+            bool deleteBuffer       = false;
+            // We convert RGB-only images to RGBA, as most devices don't support
+            // RGB-formats in Vulkan
+            if (glTFImage.component == 3)
             {
-                primitive.materialUniformsIndex =
-                    it->materialIndex.value() + 1;  // Adjust for default material
-                auto& material = viewer->asset.materials[it->materialIndex.value()];
-
-                auto& baseColorTexture = material.pbrData.baseColorTexture;
-                if (baseColorTexture.has_value())
+                bufferSize          = glTFImage.width * glTFImage.height * 4;
+                buffer              = new unsigned char[bufferSize];
+                unsigned char* rgba = buffer;
+                unsigned char* rgb  = &glTFImage.image[0];
+                for (size_t i = 0; i < glTFImage.width * glTFImage.height; ++i)
                 {
-                    auto& texture = viewer->asset.textures[baseColorTexture->textureIndex];
-                    if (!texture.imageIndex.has_value())
-                        return false;
-                    primitive.albedoTexture = viewer->textures[texture.imageIndex.value()].texture;
-
-                    if (baseColorTexture->transform && baseColorTexture->transform->texCoordIndex.has_value())
-                    {
-                        baseColorTexcoordIndex = baseColorTexture->transform->texCoordIndex.value();
-                    }
-                    else
-                    {
-                        baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
-                    }
+                    memcpy(rgba, rgb, sizeof(unsigned char) * 3);
+                    rgba += 4;
+                    rgb += 3;
                 }
+                deleteBuffer = true;
             }
             else
             {
-                primitive.materialUniformsIndex = 0;
+                buffer     = &glTFImage.image[0];
+                bufferSize = glTFImage.image.size();
             }
 
+            // Load texture from image buffer
+            m_sceneResources.images[i].texture =
+                Texture(m_device,
+                        m_allocator,
+                        m_commandManager,
+                        vk::Extent2D { static_cast<uint32_t>(glTFImage.width),
+                                       static_cast<uint32_t>(glTFImage.height) },
+                        buffer,
+                        bufferSize);
+
+            if (deleteBuffer)
             {
-                // Position
-                auto& positionAccessor = asset.accessors[positionIt->second];
-                if (!positionAccessor.bufferViewIndex.has_value())
-                    continue;
-
-                // Create the vertex buffer for this primitive, and use the accessor tools
-                // to copy directly into the mapped buffer.
-                glCreateBuffers(1, &primitive.vertexBuffer);
-                glNamedBufferData(
-                    primitive.vertexBuffer, positionAccessor.count * sizeof(Vertex), nullptr, GL_STATIC_DRAW);
-                auto* vertices =
-                    static_cast<Vertex*>(glMapNamedBuffer(primitive.vertexBuffer, GL_WRITE_ONLY));
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
-                    asset,
-                    positionAccessor,
-                    [&](fastgltf::math::fvec3 pos, std::size_t idx)
-                    {
-                        vertices[idx].position = fastgltf::math::fvec3(pos.x(), pos.y(), pos.z());
-                        vertices[idx].uv       = fastgltf::math::fvec2();
-                    });
-                glUnmapNamedBuffer(primitive.vertexBuffer);
-
-                glEnableVertexArrayAttrib(vao, 0);
-                glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
-                glVertexArrayAttribBinding(vao, 0, 0);
-
-                glVertexArrayVertexBuffer(vao, 0, primitive.vertexBuffer, 0, sizeof(Vertex));
+                delete[] buffer;
             }
+        }
+    };
 
-            auto texcoordAttribute = std::string("TEXCOORD_") + std::to_string(baseColorTexcoordIndex);
-            if (auto const* texcoord = it->findAttribute(texcoordAttribute); texcoord != it->attributes.end())
+    void RendererBackend::loadTextures(tinygltf::Model& input)
+    {
+        m_sceneResources.textures.resize(input.textures.size());
+
+        for (size_t i = 0; i < input.textures.size(); i++)
+        {
+            m_sceneResources.textures[i].imageIndex = input.textures[i].source;
+        }
+    };
+
+    void RendererBackend::loadMaterials(tinygltf::Model& input)
+    {
+        m_sceneResources.materials.resize(input.materials.size());
+
+        for (size_t i = 0; i < input.materials.size(); i++)
+        {
+            tinygltf::Material glTFMaterial = input.materials[i];
+
+            if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end())
             {
-                // Tex coord
-                auto& texCoordAccessor = asset.accessors[texcoord->second];
-                if (!texCoordAccessor.bufferViewIndex.has_value())
-                    continue;
-
-                auto* vertices =
-                    static_cast<Vertex*>(glMapNamedBuffer(primitive.vertexBuffer, GL_WRITE_ONLY));
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
-                    asset,
-                    texCoordAccessor,
-                    [&](fastgltf::math::fvec2 uv, std::size_t idx)
-                    {
-                        vertices[idx].uv = fastgltf::math::fvec2(uv.x(), uv.y());
-                    });
-                glUnmapNamedBuffer(primitive.vertexBuffer);
-
-                glEnableVertexArrayAttrib(vao, 1);
-                glVertexArrayAttribFormat(vao, 1, 2, GL_FLOAT, GL_FALSE, 0);
-                glVertexArrayAttribBinding(vao, 1, 1);
-
-                glVertexArrayVertexBuffer(
-                    vao, 1, primitive.vertexBuffer, offsetof(Vertex, uv), sizeof(Vertex));
+                m_sceneResources.materials[i].baseColorFactor =
+                    glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
             }
 
-            // Generate the indirect draw command
-            auto& draw         = primitive.draw;
-            draw.instanceCount = 1;
-            draw.baseInstance  = 0;
-            draw.baseVertex    = 0;
-            draw.firstIndex    = 0;
-
-            auto& indexAccessor = asset.accessors[it->indicesAccessor.value()];
-            if (!indexAccessor.bufferViewIndex.has_value())
-                return false;
-            draw.count = static_cast<std::uint32_t>(indexAccessor.count);
-
-            // Create the index buffer and copy the indices into it.
-            glCreateBuffers(1, &primitive.indexBuffer);
-            if (indexAccessor.componentType == fastgltf::ComponentType::UnsignedByte ||
-                indexAccessor.componentType == fastgltf::ComponentType::UnsignedShort)
+            if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end())
             {
-                primitive.indexType = GL_UNSIGNED_SHORT;
-                glNamedBufferData(primitive.indexBuffer,
-                                  static_cast<GLsizeiptr>(indexAccessor.count * sizeof(std::uint16_t)),
-                                  nullptr,
-                                  GL_STATIC_DRAW);
-                auto* indices =
-                    static_cast<std::uint16_t*>(glMapNamedBuffer(primitive.indexBuffer, GL_WRITE_ONLY));
-                fastgltf::copyFromAccessor<std::uint16_t>(asset, indexAccessor, indices);
-                glUnmapNamedBuffer(primitive.indexBuffer);
+                m_sceneResources.materials[i].baseColorTextureIndex =
+                    glTFMaterial.values["baseColorTexture"].TextureIndex();
             }
-            else
-            {
-                primitive.indexType = GL_UNSIGNED_INT;
-                glNamedBufferData(primitive.indexBuffer,
-                                  static_cast<GLsizeiptr>(indexAccessor.count * sizeof(std::uint32_t)),
-                                  nullptr,
-                                  GL_STATIC_DRAW);
-                auto* indices =
-                    static_cast<std::uint32_t*>(glMapNamedBuffer(primitive.indexBuffer, GL_WRITE_ONLY));
-                fastgltf::copyFromAccessor<std::uint32_t>(asset, indexAccessor, indices);
-                glUnmapNamedBuffer(primitive.indexBuffer);
-            }
+        }
+    };
 
-            glVertexArrayElementBuffer(vao, primitive.indexBuffer);
+    void RendererBackend::loadNode(tinygltf::Node const& inputNode,
+                                   tinygltf::Model const& input,
+                                   GltfNode* parent,
+                                   std::vector<uint32_t>& indexBuffer,
+                                   std::vector<Vertex>& vertexBuffer)
+    {
+        GltfNode* node       = new GltfNode {};
+        node->transformation = glm::mat4(1.0f);
+        node->parent         = parent;
+
+        // Get the local node matrix
+        // It's either made up from translation, rotation, scale or a 4x4 matrix
+        if (inputNode.translation.size() == 3)
+        {
+            node->transformation =
+                glm::translate(node->transformation, glm::vec3(glm::make_vec3(inputNode.translation.data())));
         }
 
-        // Create the buffer holding all of our primitive structs.
-        glCreateBuffers(1, &outMesh.drawsBuffer);
-        glNamedBufferData(outMesh.drawsBuffer,
-                          static_cast<GLsizeiptr>(outMesh.primitives.size() * sizeof(Primitive)),
-                          outMesh.primitives.data(),
-                          GL_STATIC_DRAW);
-    };
+        if (inputNode.rotation.size() == 4)
+        {
+            glm::quat q = glm::make_quat(inputNode.rotation.data());
+            node->transformation *= glm::mat4(q);
+        }
+        if (inputNode.scale.size() == 3)
+        {
+            node->transformation =
+                glm::scale(node->transformation, glm::vec3(glm::make_vec3(inputNode.scale.data())));
+        }
 
-    auto loadMaterial(fastgltf::Asset& asset, fastgltf::Material& material) -> MaterialData
-    {
-        // TODO(aether) incomplete asf
+        if (inputNode.matrix.size() == 16)
+        {
+            node->transformation = glm::make_mat4x4(inputNode.matrix.data());
+        };
 
-        return { .baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data()),
-                 .flags           = (material.pbrData.baseColorTexture.has_value()
-                                         ? (std::to_underlying(MaterialFeatures::ColorTexture))
-                                         : 0) };
-    };
+        // Load node's children
+        if (inputNode.children.size() > 0)
+        {
+            for (size_t i = 0; i < inputNode.children.size(); i++)
+            {
+                loadNode(input.nodes[inputNode.children[i]], input, node, indexBuffer, vertexBuffer);
+            }
+        }
 
-    auto
-    RendererBackend::loadImage(fastgltf::Asset& asset, fastgltf::Image& image, fs::path gltfDir) -> Texture
-    {
-        Texture texture {};
+        // If the node contains mesh data, we load vertices and indices from the
+        // buffers In glTF this is done via accessors and buffer views
+        if (inputNode.mesh > -1)
+        {
+            tinygltf::Mesh const mesh = input.meshes[inputNode.mesh];
+            // Iterate through all primitives of this node's mesh
+            for (size_t i = 0; i < mesh.primitives.size(); i++)
+            {
+                tinygltf::Primitive const& glTFPrimitive = mesh.primitives[i];
 
-        int width      = 0;
-        int height     = 0;
-        int nrChannels = 0;
-
-        std::visit(
-            fastgltf::visitor {
-                [](auto&)
+                uint32_t firstIndex  = static_cast<uint32_t>(indexBuffer.size());
+                uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
+                uint32_t indexCount  = 0;
+                // Vertices
                 {
-                    logger::warn("Visitor did not go through all options");
-                },
-                [&](fastgltf::sources::URI& filePath)
-                {
-                    MC_ASSERT(filePath.fileByteOffset == 0);  // We don't support offsets with stbi.
-                    MC_ASSERT(filePath.uri.isLocalPath());    // We're only capable of loading
-                                                              // local files.
-                    texture =
-                        Texture(m_device,
-                                m_allocator,
-                                m_commandManager,
-                                std::string_view { (gltfDir.parent_path() / filePath.uri.path()).c_str() });
-                },
-                [&](fastgltf::sources::Vector& vector)
-                {
-                    unsigned char* data = stbi_load_from_memory(vector.bytes.data(),
-                                                                static_cast<int>(vector.bytes.size()),
-                                                                &width,
-                                                                &height,
-                                                                &nrChannels,
-                                                                4);
-                    if (data == nullptr)
+                    float const* positionBuffer  = nullptr;
+                    float const* normalsBuffer   = nullptr;
+                    float const* texCoordsBuffer = nullptr;
+                    size_t vertexCount           = 0;
+
+                    // Get buffer data for vertex positions
+                    if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end())
                     {
-                        return;
+                        tinygltf::Accessor const& accessor =
+                            input.accessors[glTFPrimitive.attributes.find("POSITION")->second];
+                        tinygltf::BufferView const& view = input.bufferViews[accessor.bufferView];
+                        positionBuffer                   = reinterpret_cast<float const*>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                        vertexCount = accessor.count;
                     }
 
-                    texture = Texture(m_device,
-                                      m_allocator,
-                                      m_commandManager,
-                                      vk::Extent2D { .width  = static_cast<uint32_t>(width),
-                                                     .height = static_cast<uint32_t>(height) },
-                                      data,
-                                      width * height * 4);
-
-                    stbi_image_free(data);
-                },
-                [&](fastgltf::sources::Array& array)
-                {
-                    unsigned char* data = stbi_load_from_memory(array.bytes.data(),
-                                                                static_cast<int>(array.bytes.size()),
-                                                                &width,
-                                                                &height,
-                                                                &nrChannels,
-                                                                4);
-                    if (data == nullptr)
+                    // Get buffer data for vertex normals
+                    if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end())
                     {
-                        return;
+                        tinygltf::Accessor const& accessor =
+                            input.accessors[glTFPrimitive.attributes.find("NORMAL")->second];
+                        tinygltf::BufferView const& view = input.bufferViews[accessor.bufferView];
+                        normalsBuffer                    = reinterpret_cast<float const*>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                     }
 
-                    texture = Texture(m_device,
-                                      m_allocator,
-                                      m_commandManager,
-                                      vk::Extent2D { .width  = static_cast<uint32_t>(width),
-                                                     .height = static_cast<uint32_t>(height) },
-                                      data,
-                                      width * height * 4);
+                    // Get buffer data for vertex texture coordinates
+                    // glTF supports multiple sets, we only load the first one
+                    if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end())
+                    {
+                        tinygltf::Accessor const& accessor =
+                            input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
+                        tinygltf::BufferView const& view = input.bufferViews[accessor.bufferView];
+                        texCoordsBuffer                  = reinterpret_cast<float const*>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                    }
 
-                    stbi_image_free(data);
-                },
-                [&](fastgltf::sources::BufferView& view)
+                    // Append data to model's vertex buffer
+                    for (size_t v = 0; v < vertexCount; v++)
+                    {
+                        Vertex vert {};
+                        vert.position = glm::make_vec3(&positionBuffer[v * 3]);
+                        vert.normal   = glm::normalize(glm::vec3(
+                            normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
+
+                        if (texCoordsBuffer)
+                        {
+                            glm::vec2 uv_vec = glm::make_vec2(&texCoordsBuffer[v * 2]);
+                            vert.uv_x        = uv_vec.x;
+                            vert.uv_y        = uv_vec.y;
+                        }
+                        vertexBuffer.push_back(vert);
+                    }
+                }
+
+                // Indices
                 {
-                    auto& bufferView = asset.bufferViews[view.bufferViewIndex];
-                    auto& buffer     = asset.buffers[bufferView.bufferIndex];
+                    tinygltf::Accessor const& accessor     = input.accessors[glTFPrimitive.indices];
+                    tinygltf::BufferView const& bufferView = input.bufferViews[accessor.bufferView];
+                    tinygltf::Buffer const& buffer         = input.buffers[bufferView.buffer];
 
-                    std::visit(
-                        fastgltf::visitor {
-                            // We only care about VectorWithMime here, because we
-                            // specify LoadExternalBuffers, meaning all buffers
-                            // are already loaded into a vector.
-                            [](auto& arg) {},
-                            [&](fastgltf::sources::Array& array)
+                    indexCount += static_cast<uint32_t>(accessor.count);
+
+                    // glTF supports different component types of indices
+                    switch (accessor.componentType)
+                    {
+                        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
                             {
-                                unsigned char* data = stbi_load_from_memory(
-                                    array.bytes.data() + bufferView.byteOffset,  // NOLINT
-                                    static_cast<int>(bufferView.byteLength),
-                                    &width,
-                                    &height,
-                                    &nrChannels,
-                                    4);
-                                if (data != nullptr)
+                                uint32_t const* buf = reinterpret_cast<uint32_t const*>(
+                                    &buffer.data[accessor.byteOffset + bufferView.byteOffset]);
+                                for (size_t index = 0; index < accessor.count; index++)
                                 {
-                                    VkExtent3D imagesize;
-                                    imagesize.width  = width;
-                                    imagesize.height = height;
-                                    imagesize.depth  = 1;
-
-                                    texture = Texture(
-                                        m_device,
-                                        m_allocator,
-                                        m_commandManager,
-                                        vk::Extent2D { .width  = static_cast<uint32_t>(imagesize.width),
-                                                       .height = static_cast<uint32_t>(imagesize.height) },
-                                        data,
-                                        width * height * 4);
-
-                                    stbi_image_free(data);
+                                    indexBuffer.push_back(buf[index] + vertexStart);
                                 }
-                            } },
-                        buffer.data);
-                },
-            },
-            image.data);
+                                break;
+                            }
+                        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
+                            {
+                                uint16_t const* buf = reinterpret_cast<uint16_t const*>(
+                                    &buffer.data[accessor.byteOffset + bufferView.byteOffset]);
+                                for (size_t index = 0; index < accessor.count; index++)
+                                {
+                                    indexBuffer.push_back(buf[index] + vertexStart);
+                                }
+                                break;
+                            }
+                        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
+                            {
+                                uint8_t const* buf = reinterpret_cast<uint8_t const*>(
+                                    &buffer.data[accessor.byteOffset + bufferView.byteOffset]);
+                                for (size_t index = 0; index < accessor.count; index++)
+                                {
+                                    indexBuffer.push_back(buf[index] + vertexStart);
+                                }
+                                break;
+                            }
+                        default:
+                            MC_ASSERT_MSG(false, "Unsupported index type");
+                            return;
+                    }
+                }
 
-        MC_ASSERT(texture);
+                vk::DescriptorSet descriptorSet =
+                    m_sceneResources.descriptorAllocator.allocate(m_device, m_materialDescriptorLayout);
 
-        return texture;
+                DescriptorWriter writer;
+
+                writer.write_image(
+                    0,
+                    m_sceneResources
+                        .images[m_sceneResources.materials[glTFPrimitive.material].baseColorTextureIndex]
+                        .texture.getImageView(),
+                    m_dummySampler,
+                    vk::ImageLayout::eShaderReadOnlyOptimal,
+                    vk::DescriptorType::eCombinedImageSampler);
+
+                writer.update_set(m_device, descriptorSet);
+
+                node->mesh.primitives.push_back({ .firstIndex    = firstIndex,
+                                                  .indexCount    = indexCount,
+                                                  .materialIndex = glTFPrimitive.material,
+                                                  .descriptorSet = descriptorSet });
+            }
+        }
+
+        if (parent)
+        {
+            parent->children.push_back(node);
+        }
+        else
+        {
+            m_sceneResources.nodes.push_back(node);
+        }
+    }
+
+    void RendererBackend::drawNode(vk::CommandBuffer commandBuffer,
+                                   vk::PipelineLayout pipelineLayout,
+                                   GltfNode* node)
+    {
+        if (node->mesh.primitives.size() > 0)
+        {
+            // Pass the node's matrix via push constants
+            // Traverse the node hierarchy to the top-most parent to get the final
+            // matrix of the current node
+            glm::mat4 nodeTransform = node->transformation;
+            GltfNode* currentParent = node->parent;
+
+            while (currentParent)
+            {
+                nodeTransform = currentParent->transformation * nodeTransform;
+                currentParent = currentParent->parent;
+            }
+
+            GPUDrawPushConstants pushConstants { .transform    = nodeTransform,
+                                                 .vertexBuffer = m_device->getBufferAddress(
+                                                     vk::BufferDeviceAddressInfo().setBuffer(
+                                                         m_sceneResources.vertexBuffer)),
+                                                 .vertexOffset = 0 };
+
+            commandBuffer.pushConstants(pipelineLayout,
+                                        vk::ShaderStageFlagBits::eVertex,
+                                        0,
+                                        sizeof(GPUDrawPushConstants),
+                                        &pushConstants);
+
+            for (Primitive& primitive : node->mesh.primitives)
+            {
+                if (primitive.indexCount > 0)
+                {
+                    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_texturedPipeline);
+
+                    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                                     m_texturedPipelineLayout,
+                                                     0,
+                                                     { m_sceneDataDescriptors, primitive.descriptorSet },
+                                                     {});
+
+                    commandBuffer.drawIndexed(primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+                }
+            }
+        }
+        for (auto& child : node->children)
+        {
+            drawNode(commandBuffer, pipelineLayout, child);
+        }
+    };
+
+    void RendererBackend::drawGltf(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout)
+    {
+        // All vertices and indices are stored in single buffers, so we only need to
+        // bind once
+        commandBuffer.bindIndexBuffer(m_sceneResources.indexBuffer, 0, vk::IndexType::eUint32);
+
+        // Render all nodes at top-level
+        for (auto& node : m_sceneResources.nodes)
+        {
+            drawNode(commandBuffer, pipelineLayout, node);
+        }
     }
 }  // namespace renderer::backend

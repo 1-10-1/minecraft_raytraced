@@ -6,10 +6,11 @@
 
 namespace renderer::backend
 {
-    BasicBuffer::BasicBuffer(Allocator& allocator,
-                             size_t allocSize,
-                             vk::BufferUsageFlags bufferUsage,
-                             VmaMemoryUsage memoryUsage)
+    GPUBuffer::GPUBuffer(Allocator& allocator,
+                         size_t allocSize,
+                         vk::BufferUsageFlags bufferUsage,
+                         VmaMemoryUsage memoryUsage,
+                         VmaAllocationCreateFlags allocFlags)
         : m_allocator { &allocator }
     {
         vk::BufferCreateInfo bufferInfo = {
@@ -18,7 +19,7 @@ namespace renderer::backend
         };
 
         VmaAllocationCreateInfo vmaAllocInfo = {
-            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .flags = allocFlags,
             .usage = memoryUsage,
         };
 
@@ -30,7 +31,7 @@ namespace renderer::backend
                                   &m_allocInfo) == VK_SUCCESS);
     }
 
-    BasicBuffer::~BasicBuffer()
+    GPUBuffer::~GPUBuffer()
     {
         if (m_buffer == nullptr)
         {

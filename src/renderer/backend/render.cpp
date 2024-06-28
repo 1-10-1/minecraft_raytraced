@@ -1,15 +1,13 @@
 #include <mc/renderer/backend/image.hpp>
 #include <mc/renderer/backend/info_structs.hpp>
 #include <mc/renderer/backend/render.hpp>
-#include <mc/renderer/backend/vertex.hpp>
 #include <mc/renderer/backend/vk_checker.hpp>
 
-#include "glm/gtc/type_ptr.hpp"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_vulkan.h"
-#include "imgui_internal.h"
 #include <glm/glm.hpp>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
+#include <imgui_internal.h>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_core.h>
@@ -152,61 +150,7 @@ namespace renderer::backend
         m_stats.drawcall_count = 0;
         m_stats.triangle_count = 0;
 
-        for (MeshDraw& draw : m_gltfResources.meshDraws)
-        {
-            cmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, m_texturedPipeline);
-
-            cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                      m_texturedPipelineLayout,
-                                      0,
-                                      { m_sceneDataDescriptors, draw.descriptorSet },
-                                      {});
-
-            vk::DeviceAddress positionBuffer = m_device->getBufferAddress(
-                vk::BufferDeviceAddressInfo().setBuffer(m_gltfResources.gpuBuffers[draw.positionBuffer]));
-
-            vk::DeviceAddress tangentBuffer =
-                draw.tangentBuffer != MeshDraw::invalidBufferIndex
-                    ? m_device->getBufferAddress(vk::BufferDeviceAddressInfo().setBuffer(
-                          m_gltfResources.gpuBuffers[draw.tangentBuffer]))
-                    : 0;
-
-            vk::DeviceAddress normalBuffer = m_device->getBufferAddress(
-                vk::BufferDeviceAddressInfo().setBuffer(m_gltfResources.gpuBuffers[draw.normalBuffer]));
-
-            vk::DeviceAddress texcoordBuffer =
-                draw.texcoordBuffer == MeshDraw::invalidBufferIndex
-                    ? 0
-                    : m_device->getBufferAddress(vk::BufferDeviceAddressInfo().setBuffer(
-                          m_gltfResources.gpuBuffers[draw.texcoordBuffer]));
-
-            GPUDrawPushConstants pushConstants {
-                .model = draw.model,
-
-                .positionBuffer = positionBuffer,
-                .tangentBuffer  = tangentBuffer,
-                .normalBuffer   = normalBuffer,
-                .texcoordBuffer = texcoordBuffer,
-
-                .positionOffset = draw.positionOffset,
-                .tangentOffset  = draw.tangentOffset,
-                .normalOffset   = draw.normalOffset,
-                .texcoordOffset = draw.texcoordOffset,
-            };
-
-            cmdBuf.pushConstants(m_texturedPipelineLayout,
-                                 vk::ShaderStageFlagBits::eVertex,
-                                 0,
-                                 sizeof(GPUDrawPushConstants),
-                                 &pushConstants);
-
-            cmdBuf.bindIndexBuffer(m_gltfResources.gpuBuffers[draw.indexBuffer], 0, vk::IndexType::eUint16);
-
-            cmdBuf.drawIndexed(draw.count, 1, 0, 0, 0);
-
-            m_stats.drawcall_count++;
-            m_stats.triangle_count += draw.count / 3;
-        }
+        drawGltf(cmdBuf, m_texturedPipelineLayout);
 
         cmdBuf.endRendering();
     }

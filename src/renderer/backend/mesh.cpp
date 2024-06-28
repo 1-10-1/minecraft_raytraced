@@ -27,17 +27,17 @@ namespace renderer::backend
         std::shared_ptr<GPUMeshData> newSurface { std::make_shared<GPUMeshData>() };
 
         newSurface->indexBuffer =
-            BasicBuffer(allocator,
-                        indexBufferSize,
-                        vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                        VMA_MEMORY_USAGE_GPU_ONLY);
+            GPUBuffer(allocator,
+                      indexBufferSize,
+                      vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                      VMA_MEMORY_USAGE_GPU_ONLY);
 
         newSurface->vertexBuffer =
-            BasicBuffer(allocator,
-                        vertexBufferSize,
-                        vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst |
-                            vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                        VMA_MEMORY_USAGE_GPU_ONLY);
+            GPUBuffer(allocator,
+                      vertexBufferSize,
+                      vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst |
+                          vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                      VMA_MEMORY_USAGE_GPU_ONLY);
 
         newSurface->indexCount = indices.size();
 
@@ -46,10 +46,10 @@ namespace renderer::backend
         newSurface->vertexBufferAddress = device->getBufferAddress(deviceAddressInfo);
 
         {
-            BasicBuffer staging { allocator,
-                                  vertexBufferSize + indexBufferSize,
-                                  vk::BufferUsageFlagBits::eTransferSrc,
-                                  VMA_MEMORY_USAGE_CPU_ONLY };
+            GPUBuffer staging { allocator,
+                                vertexBufferSize + indexBufferSize,
+                                vk::BufferUsageFlagBits::eTransferSrc,
+                                VMA_MEMORY_USAGE_CPU_ONLY };
 
             void* data = staging.getMappedData();
 

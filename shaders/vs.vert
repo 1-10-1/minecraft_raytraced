@@ -14,36 +14,25 @@ uint MaterialFeatures_EmissiveTexture =  1 << 4;
 uint MaterialFeatures_TangentVertexAttribute = 1 << 5;
 uint MaterialFeatures_TexcoordVertexAttribute = 1 << 6;
 
+struct Vertex {
+    vec3 position;
+    float uv_x;
+    vec3 normal;
+    float uv_y;
+    vec4 tangent;
+};
+
 // NOTE(aether) potential performance hit
-layout(buffer_reference, std430) readonly buffer PositionBuffer {
-	vec4 positions[];
-};
-
-layout(buffer_reference, std430) readonly buffer TangentBuffer {
-	vec4 tangents[];
-};
-
-layout(buffer_reference, scalar) readonly buffer NormalBuffer {
-	vec3 normals[];
-};
-
-layout(buffer_reference, std430) readonly buffer TexcoordBuffer {
-	vec2 texcoords0[];
+layout(buffer_reference, std430) readonly buffer VertexBuffer {
+	Vertex vertices[];
 };
 
 layout(push_constant) uniform PushConstants
 {
     mat4 constmodel;
 
-    PositionBuffer positionBuffer;
-    TangentBuffer tangentBuffer;
-    NormalBuffer normalbuffer;
-    TexcoordBuffer texcoordBuffer;
-
-    uint positionOffset;
-    uint tangentOffset;
-    uint normalOffset;
-    uint texcoordOffset;
+    VertexBuffer vertexBuffer;
+    uint vertexOffset;
 };
 
 layout(std140, set = 1, binding = 5) uniform MaterialConstant {
@@ -66,20 +55,18 @@ layout (location = 2) out vec4 vTangent;
 layout (location = 3) out vec4 vPosition;
 
 void main() {
-    vec3 position = positionBuffer.positions[positionOffset + gl_VertexIndex].xyz;
-    vec3 normal = normalbuffer.normals[normalOffset + gl_VertexIndex];
-    vec4 tangent = tangentBuffer.tangents[tangentOffset + gl_VertexIndex];
-    vec2 texcoord = texcoordBuffer.texcoords0[texcoordOffset + gl_VertexIndex];
+    Vertex vertex = vertexBuffer.vertices[vertexOffset + gl_VertexIndex];
 
-    gl_Position = sceneData.viewProj * constmodel * vec4(position, 1.0);
-    vPosition = constmodel * vec4(position, 1.0);
+    gl_Position = sceneData.viewProj * constmodel * vec4(vertex.position, 1.0);
+    vPosition = constmodel * vec4(vertex.position, 1.0);
 
-    if ( ( flags & MaterialFeatures_TexcoordVertexAttribute ) != 0 ) {
-        vTexcoord0 = texcoord;
-    }
-    vNormal = mat3( model_inv ) * normal;
-
-    if ( ( flags & MaterialFeatures_TangentVertexAttribute ) != 0 ) {
-        vTangent = tangent;
-    }
+    vTexcoord0 = vec2(vertex.uv_x, vertex.uv_y);
+    // if ( ( flags & MaterialFeatures_TexcoordVertexAttribute ) != 0 ) {
+    //     vTexcoord0 = texcoord;
+    // }
+    // vNormal = mat3( model_inv ) * normal;
+    //
+    // if ( ( flags & MaterialFeatures_TangentVertexAttribute ) != 0 ) {
+    //     vTangent = tangent;
+    // }
 }

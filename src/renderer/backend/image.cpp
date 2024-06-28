@@ -248,10 +248,12 @@ namespace renderer::backend
 
         uint32_t mipLevels = m_image.getMipLevels();
 
-        BasicBuffer uploadBuffer(*m_allocator,
-                                 stbiImage.getDataSize(),
-                                 vk::BufferUsageFlagBits::eTransferSrc,
-                                 VMA_MEMORY_USAGE_CPU_TO_GPU);
+        GPUBuffer uploadBuffer(*m_allocator,
+                               stbiImage.getDataSize(),
+                               vk::BufferUsageFlagBits::eTransferSrc,
+                               VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+                               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                   VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
         std::memcpy(uploadBuffer.getMappedData(), stbiImage.getData(), stbiImage.getDataSize());
 
@@ -318,8 +320,12 @@ namespace renderer::backend
     {
         uint32_t mipLevels = m_image.getMipLevels();
 
-        BasicBuffer uploadBuffer(
-            *m_allocator, dataSize, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        GPUBuffer uploadBuffer(*m_allocator,
+                               dataSize,
+                               vk::BufferUsageFlagBits::eTransferSrc,
+                               VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+                               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                   VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
         std::memcpy(uploadBuffer.getMappedData(), data, dataSize);
 
