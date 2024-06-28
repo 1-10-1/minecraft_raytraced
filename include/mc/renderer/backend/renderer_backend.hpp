@@ -8,6 +8,7 @@
 #include "device.hpp"
 #include "image.hpp"
 #include "instance.hpp"
+#include "mc/renderer/backend/gltfloader.hpp"
 #include "mesh.hpp"
 #include "pipeline.hpp"
 #include "surface.hpp"
@@ -30,32 +31,6 @@
 
 namespace renderer::backend
 {
-    enum class MaterialFeatures : uint32_t
-    {
-        ColorTexture            = 1 << 0,
-        NormalTexture           = 1 << 1,
-        RoughnessTexture        = 1 << 2,
-        OcclusionTexture        = 1 << 3,
-        EmissiveTexture         = 1 << 4,
-        TangentVertexAttribute  = 1 << 5,
-        TexcoordVertexAttribute = 1 << 6,
-    };
-
-    struct alignas(16) MaterialData
-    {
-        glm::vec4 baseColorFactor;
-        glm::mat4 model;
-        glm::mat4 modelInv;
-
-        glm::vec3 emissiveFactor;
-        float metallicFactor;
-
-        float roughnessFactor;
-        float occlusionFactor;
-        uint32_t flags;
-        uint32_t pad;
-    };
-
     struct MeshDraw
     {
         constexpr static uint16_t invalidBufferIndex = std::numeric_limits<uint16_t>::max();
@@ -68,7 +43,7 @@ namespace renderer::backend
 
         BasicBuffer materialBuffer;
 
-        MaterialData materialData;
+        // MaterialData materialData;
 
         // TODO(aether) these are all 0 for now
         uint32_t indexOffset;
@@ -196,6 +171,13 @@ namespace renderer::backend
         void initDescriptors();
 
         void processGltf();
+
+        auto
+        loadImage(fastgltf::Asset& asset, fastgltf::Image& image, std::filesystem::path gltfDir) -> Texture;
+
+        auto loadMaterial(fastgltf::Asset& asset, fastgltf::Material& material) -> MaterialData;
+
+        auto loadMesh(fastgltf::Asset& asset, fastgltf::Mesh& mesh) -> Mesh;
 
         void handleSurfaceResize();
         void createSyncObjects();
