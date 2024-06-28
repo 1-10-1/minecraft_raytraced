@@ -154,7 +154,7 @@ namespace renderer::backend
             m_texturedPipeline = GraphicsPipeline(m_device, m_texturedPipelineLayout, pipelineConfig);
         }
 
-        processGltf();
+        // processGltf();
 
         m_light = {
             .position    = { 1.5f,                  2.f,               0.f              },
