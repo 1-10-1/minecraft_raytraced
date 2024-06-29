@@ -96,6 +96,9 @@ namespace renderer::backend
         DescriptorAllocator(DescriptorAllocator&&)                    = default;
         auto operator=(DescriptorAllocator&&) -> DescriptorAllocator& = default;
 
+        DescriptorAllocator(DescriptorAllocator const&)                    = delete;
+        auto operator=(DescriptorAllocator const&) -> DescriptorAllocator& = delete;
+
         auto allocate(vk::Device device, vk::DescriptorSetLayout layout) -> vk::DescriptorSet;
 
         void clearDescriptors(vk::raii::Device const& device) { m_pool.reset(); }

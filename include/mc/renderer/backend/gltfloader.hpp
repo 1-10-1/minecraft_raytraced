@@ -24,17 +24,25 @@ namespace renderer::backend
     struct alignas(16) Material
     {
         glm::vec4 baseColorFactor;
-        glm::mat4 model;
-        glm::mat4 modelInv;
 
         glm::vec3 emissiveFactor;
-        // NOT MINE, SASCHA'S
-        uint32_t baseColorTextureIndex;
-
         float metallicFactor;
+
         float roughnessFactor;
         float occlusionFactor;
         uint32_t flags;
+        uint32_t pad;
+    };
+
+    struct MaterialRenderInfo
+    {
+        uint32_t baseColorTextureIndex;
+        uint32_t normalTextureIndex;
+        uint32_t roughnessTextureIndex;
+        uint32_t occlusionTextureIndex;
+        uint32_t emissiveTextureIndex;
+
+        vk::DescriptorSet descriptorSet;
     };
 
     struct alignas(16) Vertex
@@ -50,9 +58,7 @@ namespace renderer::backend
     {
         uint32_t firstIndex;
         uint32_t indexCount;
-        int32_t materialIndex;
-
-        vk::DescriptorSet descriptorSet;
+        uint32_t materialIndex;
     };
 
     struct Mesh
@@ -79,7 +85,6 @@ namespace renderer::backend
     struct GltfImage
     {
         Texture texture;
-        vk::DescriptorSet descriptorSet;
     };
 
     struct GltfTexture
@@ -92,14 +97,22 @@ namespace renderer::backend
         GPUBuffer vertexBuffer;
         GPUBuffer indexBuffer;
 
+        // materialBuffer is a dedicated buffer on the GPU
+        // hostMaterialBuffer is the staging buffer that gets copied to the one on the GPU whenever a change is requested
+        // TODO(aether) this is, for the moment, immutable
+        GPUBuffer materialBuffer;
+        GPUBuffer hostMaterialBuffer;
+        bool materialBufferDirty = false;
+
         size_t indexCount;
 
         std::vector<GltfImage> images;
         std::vector<GltfTexture> textures;
-        std::vector<Material> materials;
+        std::vector<MaterialRenderInfo> materialRenderInfos;
+
         std::vector<GltfNode*> nodes;
 
-        DescriptorAllocatorGrowable descriptorAllocator;
+        DescriptorAllocator descriptorAllocator;
 
         ~SceneResources()
         {

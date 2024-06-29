@@ -237,8 +237,7 @@ namespace renderer::backend
                     .addBinding(2, vk::DescriptorType::eCombinedImageSampler)  // occlusion
                     .addBinding(3, vk::DescriptorType::eCombinedImageSampler)  // emissive
                     .addBinding(4, vk::DescriptorType::eCombinedImageSampler)  // normal
-                    .addBinding(5, vk::DescriptorType::eUniformBuffer)         // material constants
-                    .build(m_device, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
+                    .build(m_device, vk::ShaderStageFlagBits::eFragment);
         }
 
         m_sceneDataDescriptors = m_descriptorAllocator.allocate(m_device, m_sceneDataDescriptorLayout);
@@ -325,7 +324,7 @@ namespace renderer::backend
 
         m_timer.tick();
 
-        float radius = 5.0f;
+        float radius = 1.0f;
 
         m_light.position = {
             radius * glm::fastCos(glm::radians(

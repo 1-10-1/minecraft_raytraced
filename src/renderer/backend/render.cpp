@@ -200,7 +200,7 @@ namespace renderer::backend
             {
                 TracyVkZone(tracyCtx, cmdBuf, "Geometry render");
 
-                drawGeometry(cmdBuf);
+                // drawGeometry(cmdBuf);
             }
 
             {

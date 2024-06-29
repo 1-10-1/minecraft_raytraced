@@ -1,3 +1,4 @@
+#include "mc/renderer/backend/command.hpp"
 #include <cstring>
 #include <mc/renderer/backend/allocator.hpp>
 #include <mc/renderer/backend/gltfloader.hpp>
@@ -45,17 +46,8 @@ namespace renderer::backend
         std::vector<Vertex> vertexBuffer;
 
         loadImages(glTFInput);
-        loadMaterials(glTFInput);
-
-        // TODO(aether) this is a guess, insanely overkill if I had to guess
-        std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
-            { vk::DescriptorType::eCombinedImageSampler, 5 },
-            { vk::DescriptorType::eUniformBuffer,        1 },
-        };
-
-        m_sceneResources.descriptorAllocator.init(m_device, glTFInput.materials.size(), sizes);
-
         loadTextures(glTFInput);
+        loadMaterials(glTFInput);
 
         tinygltf::Scene const& scene = glTFInput.scenes[0];
 
@@ -65,10 +57,15 @@ namespace renderer::backend
             loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
         }
 
-        // Create and upload vertex and index buffer
-        // We will be using one single vertex buffer and one single index buffer for
-        // the whole glTF scene Primitives (of the glTF model) will then index into
-        // these using index offsets
+        // We delayed this so that loadNode can set the vertex attribute material flags
+        // such as "TangentVertexAttribute", "TexcoordVertexAttribute", etc.
+        ScopedCommandBuffer(
+            m_device, m_commandManager.getTransferCmdPool(), m_device.getTransferQueue(), true)
+            ->copyBuffer(m_sceneResources.hostMaterialBuffer,
+                         m_sceneResources.materialBuffer,
+                         vk::BufferCopy().setSize(m_sceneResources.hostMaterialBuffer.getSize()));
+
+        m_sceneResources.materialBufferDirty = false;
 
         size_t vertexBufferSize     = vertexBuffer.size() * sizeof(Vertex);
         size_t indexBufferSize      = indexBuffer.size() * sizeof(uint32_t);
@@ -172,6 +169,8 @@ namespace renderer::backend
     {
         m_sceneResources.textures.resize(input.textures.size());
 
+        logger::debug("{} textures in the gltf scene", input.textures.size());
+
         for (size_t i = 0; i < input.textures.size(); i++)
         {
             m_sceneResources.textures[i].imageIndex = input.textures[i].source;
@@ -180,24 +179,90 @@ namespace renderer::backend
 
     void RendererBackend::loadMaterials(tinygltf::Model& input)
     {
-        m_sceneResources.materials.resize(input.materials.size());
+        m_sceneResources.materialRenderInfos.resize(input.materials.size());
+
+        std::vector<DescriptorAllocator::PoolSizeRatio> sizes = {
+            { vk::DescriptorType::eCombinedImageSampler, 5 }
+        };
+
+        m_sceneResources.descriptorAllocator = DescriptorAllocator(m_device, input.materials.size(), sizes);
+
+        m_sceneResources.hostMaterialBuffer = GPUBuffer(
+            m_allocator,
+            sizeof(Material) * input.materials.size(),
+            vk::BufferUsageFlagBits::eTransferSrc,
+            VMA_MEMORY_USAGE_AUTO,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
+
+        std::memset(m_sceneResources.hostMaterialBuffer.getMappedData(),
+                    0,
+                    m_sceneResources.hostMaterialBuffer.getSize());
 
         for (size_t i = 0; i < input.materials.size(); i++)
         {
-            tinygltf::Material glTFMaterial = input.materials[i];
+            tinygltf::Material inputMaterial = input.materials[i];
 
-            if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end())
+            Material& material =
+                reinterpret_cast<Material*>(m_sceneResources.hostMaterialBuffer.getMappedData())[i];
+
+            MaterialRenderInfo& renderInfo = m_sceneResources.materialRenderInfos[i];
+
+            renderInfo.descriptorSet =
+                m_sceneResources.descriptorAllocator.allocate(m_device, m_materialDescriptorLayout);
+
+            DescriptorWriter descriptorWriter;
+
+            if (inputMaterial.values.find("baseColorFactor") != inputMaterial.values.end())
             {
-                m_sceneResources.materials[i].baseColorFactor =
-                    glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
+                material.baseColorFactor =
+                    glm::make_vec4(inputMaterial.values["baseColorFactor"].ColorFactor().data());
             }
 
-            if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end())
+            std::unordered_map<char const*, MaterialFeatures> textureMap {
+                { "baseColorTexture",         MaterialFeatures::ColorTexture     },
+                { "metallicRoughnessTexture", MaterialFeatures::RoughnessTexture },
+                { "occlusionTexture",         MaterialFeatures::OcclusionTexture },
+                { "emissiveTexture",          MaterialFeatures::EmissiveTexture  },
+                { "normalTexture",            MaterialFeatures::NormalTexture    },
+            };
+
+            for (auto [i, pair] : vi::enumerate(textureMap))
             {
-                m_sceneResources.materials[i].baseColorTextureIndex =
-                    glTFMaterial.values["baseColorTexture"].TextureIndex();
+                if (inputMaterial.values.find(pair.first) != inputMaterial.values.end())
+                {
+                    renderInfo.baseColorTextureIndex = inputMaterial.values[pair.first].TextureIndex();
+
+                    descriptorWriter.write_image(
+                        i,
+                        m_sceneResources.images[renderInfo.baseColorTextureIndex].texture.getImageView(),
+                        // TODO(aether) using the dummy sampler
+                        m_dummySampler,
+                        vk::ImageLayout::eShaderReadOnlyOptimal,
+                        vk::DescriptorType::eCombinedImageSampler);
+
+                    material.flags |= std::to_underlying(pair.second);
+                }
+                else
+                {
+                    descriptorWriter.write_image(i,
+                                                 m_dummyTexture.getImageView(),
+                                                 m_dummySampler,
+                                                 vk::ImageLayout::eShaderReadOnlyOptimal,
+                                                 vk::DescriptorType::eCombinedImageSampler);
+                }
             }
+
+            descriptorWriter.update_set(m_device, renderInfo.descriptorSet);
         }
+
+        m_sceneResources.materialBuffer =
+            GPUBuffer(m_allocator,
+                      m_sceneResources.hostMaterialBuffer.getSize(),
+                      vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                      VMA_MEMORY_USAGE_AUTO,
+                      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
+
+        m_sceneResources.materialBufferDirty = true;
     };
 
     void RendererBackend::loadNode(tinygltf::Node const& inputNode,
@@ -256,10 +321,12 @@ namespace renderer::backend
                 uint32_t firstIndex  = static_cast<uint32_t>(indexBuffer.size());
                 uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
                 uint32_t indexCount  = 0;
+
                 // Vertices
                 {
                     float const* positionBuffer  = nullptr;
                     float const* normalsBuffer   = nullptr;
+                    float const* tangentsBuffer  = nullptr;
                     float const* texCoordsBuffer = nullptr;
                     size_t vertexCount           = 0;
 
@@ -284,6 +351,16 @@ namespace renderer::backend
                             &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                     }
 
+                    // Get buffer data for vertex tangents
+                    if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end())
+                    {
+                        tinygltf::Accessor const& accessor =
+                            input.accessors[glTFPrimitive.attributes.find("TANGENT")->second];
+                        tinygltf::BufferView const& view = input.bufferViews[accessor.bufferView];
+                        tangentsBuffer                   = reinterpret_cast<float const*>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                    }
+
                     // Get buffer data for vertex texture coordinates
                     // glTF supports multiple sets, we only load the first one
                     if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end())
@@ -302,6 +379,8 @@ namespace renderer::backend
                         vert.position = glm::make_vec3(&positionBuffer[v * 3]);
                         vert.normal   = glm::normalize(glm::vec3(
                             normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
+                        vert.tangent =
+                            tangentsBuffer ? glm::make_vec4(&tangentsBuffer[v * 4]) : glm::vec4(0.0f);
 
                         if (texCoordsBuffer)
                         {
@@ -309,6 +388,7 @@ namespace renderer::backend
                             vert.uv_x        = uv_vec.x;
                             vert.uv_y        = uv_vec.y;
                         }
+
                         vertexBuffer.push_back(vert);
                     }
                 }
@@ -360,26 +440,11 @@ namespace renderer::backend
                     }
                 }
 
-                vk::DescriptorSet descriptorSet =
-                    m_sceneResources.descriptorAllocator.allocate(m_device, m_materialDescriptorLayout);
-
-                DescriptorWriter writer;
-
-                writer.write_image(
-                    0,
-                    m_sceneResources
-                        .images[m_sceneResources.materials[glTFPrimitive.material].baseColorTextureIndex]
-                        .texture.getImageView(),
-                    m_dummySampler,
-                    vk::ImageLayout::eShaderReadOnlyOptimal,
-                    vk::DescriptorType::eCombinedImageSampler);
-
-                writer.update_set(m_device, descriptorSet);
-
-                node->mesh.primitives.push_back({ .firstIndex    = firstIndex,
-                                                  .indexCount    = indexCount,
-                                                  .materialIndex = glTFPrimitive.material,
-                                                  .descriptorSet = descriptorSet });
+                node->mesh.primitives.push_back({
+                    .firstIndex    = firstIndex,
+                    .indexCount    = indexCount,
+                    .materialIndex = static_cast<uint32_t>(glTFPrimitive.material),
+                });
             }
         }
 
@@ -411,29 +476,31 @@ namespace renderer::backend
                 currentParent = currentParent->parent;
             }
 
-            GPUDrawPushConstants pushConstants { .transform    = nodeTransform,
-                                                 .vertexBuffer = m_device->getBufferAddress(
-                                                     vk::BufferDeviceAddressInfo().setBuffer(
-                                                         m_sceneResources.vertexBuffer)),
-                                                 .vertexOffset = 0 };
-
-            commandBuffer.pushConstants(pipelineLayout,
-                                        vk::ShaderStageFlagBits::eVertex,
-                                        0,
-                                        sizeof(GPUDrawPushConstants),
-                                        &pushConstants);
-
             for (Primitive& primitive : node->mesh.primitives)
             {
                 if (primitive.indexCount > 0)
                 {
-                    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_texturedPipeline);
+                    GPUDrawPushConstants pushConstants {
+                        .model        = nodeTransform,
+                        .vertexBuffer = m_device->getBufferAddress(
+                            vk::BufferDeviceAddressInfo().setBuffer(m_sceneResources.vertexBuffer)),
+                        .materialBuffer = m_device->getBufferAddress(
+                            vk::BufferDeviceAddressInfo().setBuffer(m_sceneResources.materialBuffer)),
+                        .materialIndex = primitive.materialIndex
+                    };
 
-                    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                                     m_texturedPipelineLayout,
-                                                     0,
-                                                     { m_sceneDataDescriptors, primitive.descriptorSet },
-                                                     {});
+                    commandBuffer.pushConstants(pipelineLayout,
+                                                vk::ShaderStageFlagBits::eVertex,
+                                                0,
+                                                sizeof(GPUDrawPushConstants),
+                                                &pushConstants);
+                    commandBuffer.bindDescriptorSets(
+                        vk::PipelineBindPoint::eGraphics,
+                        m_texturedPipelineLayout,
+                        0,
+                        { m_sceneDataDescriptors,
+                          m_sceneResources.materialRenderInfos[primitive.materialIndex].descriptorSet },
+                        {});
 
                     commandBuffer.drawIndexed(primitive.indexCount, 1, primitive.firstIndex, 0, 0);
                 }
@@ -450,6 +517,7 @@ namespace renderer::backend
         // All vertices and indices are stored in single buffers, so we only need to
         // bind once
         commandBuffer.bindIndexBuffer(m_sceneResources.indexBuffer, 0, vk::IndexType::eUint32);
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_texturedPipeline);
 
         // Render all nodes at top-level
         for (auto& node : m_sceneResources.nodes)
